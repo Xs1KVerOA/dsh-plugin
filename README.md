@@ -51,12 +51,6 @@ npx @deepseek-ai/dsh plugin --profile web add --allow-build=ssh2 --allow-build=c
 npx @deepseek-ai/dsh web
 ```
 
-也可以使用仓库附带的安装脚本：
-
-```sh
-./install.sh --profile web
-```
-
 安装或更新后重启 Harness；浏览器端如仍显示旧侧栏，请执行 Cmd/Ctrl+Shift+R 硬刷新。
 
 ### 安装 Release 包
@@ -113,15 +107,6 @@ sidebar.open('my-plugin')
 sidebar.close()
 sidebar.toggle('my-plugin')
 sidebar.getActive()
-```
-
-### 与 Web Testing 插件配合
-
-仓库中的 `web-testing-plugin` 通过 `resourceCenter` 注册 Web Fuzzer 和 MITM Activity。它是独立 bundle，可以单独开发和安装，但需要先安装资源中心插件：
-
-```sh
-npx @deepseek-ai/dsh plugin --profile web add ./resource-center-plugin
-npx @deepseek-ai/dsh plugin --profile web add ./web-testing-plugin
 ```
 
 ## 使用方式
