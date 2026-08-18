@@ -168,12 +168,25 @@ npx @deepseek-ai/dsh --profile web --dump-config
 
 ```sh
 npm install
+npm run build:client
 npm run check
 npm test
 npm pack --dry-run
 ```
 
-Host 侧入口为 `index.js` 和 `service-manager-host.js`，静态 Web UI 与 Activity 扩展点位于 `client.js`。Bundle 通过 `cordis.patch.yml` 注册，客户端依赖在 `package.json` 的 `dsh.client.inject` 中声明。
+Host 侧入口为 `index.js` 和 `service-manager-host.js`。客户端代码按侧栏模块拆分在 `client/modules/` 下：
+
+```text
+client/
+├── main.js                         # 模块依赖图与按需加载入口
+└── modules/
+    ├── workspace/index.js          # 工作区侧栏
+    └── service-manager/index.js    # 服务管理侧栏
+```
+
+由于 DSH Client Loader 接收的是静态脚本，`scripts/build-client.js` 会把这些独立源模块生成到运行时的 `client.js`。默认加载全部模块；开发或集成其他侧栏时，可以设置 `window.__DSH_RESOURCE_CENTER_MODULES`，例如 `['workspace']`，入口会自动加载依赖并只注册所选模块。这样各侧栏可以分别开发，只有模块入口和注册 ID 需要协作。
+
+Bundle 通过 `cordis.patch.yml` 注册，客户端依赖在 `package.json` 的 `dsh.client.inject` 中声明。
 
 ## License
 

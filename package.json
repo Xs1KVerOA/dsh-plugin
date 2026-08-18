@@ -31,6 +31,8 @@
   "files": [
     "index.js",
     "client.js",
+    "client/",
+    "scripts/build-client.js",
     "service-manager-host.js",
     "cordis.patch.yml",
     "README.md"
@@ -73,7 +75,8 @@
     "ssh2": "^1.16.0"
   },
   "scripts": {
-    "check": "node --check index.js && node --check service-manager-host.js && node --check client.js",
-    "test": "node --test test/*.test.js"
+    "build:client": "node scripts/build-client.js",
+    "check": "npm run build:client -- --check && node --check index.js && node --check service-manager-host.js && node --check client/main.js && node --check client/modules/workspace/index.js && node --check client/modules/service-manager/index.js && node --check client.js",
+    "test": "npm run build:client -- --check && node --test test/*.test.js"
   }
 }
