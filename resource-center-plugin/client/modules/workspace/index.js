@@ -40,7 +40,7 @@
         rightSidebarModule = require('dsh-resource-center-right-sidebar')
       } catch {
         // The right sidebar bridge is optional so the resource center can be
-        // developed without dsh-better-sidebar mounted in the host profile.
+        // developed with only the selected sidebar modules.
         rightSidebarModule = undefined
       }
       const h = React.createElement

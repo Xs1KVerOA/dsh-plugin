@@ -9,7 +9,10 @@
 
     loader.load({
       id: 'dsh-resource-center-right-sidebar',
-      factory() {
+      factory(require) {
+        // The workbench is owned by resource-center. This module only adapts
+        // the browser/MITM controls to the independently vendored workbench.
+        let coreModule
         const MITM_API_BASE = '/api/dsh-web-testing'
         const MITM_BROWSER_ROUTE = `${MITM_API_BASE}/browser`
         const MITM_CONTROL_ATTR = 'data-dsh-resource-center-mitm-browser'
@@ -412,7 +415,7 @@
           }
 
           const bridge = {
-            id: 'dsh-better-sidebar',
+            id: 'dsh-resource-center-right-sidebar',
             label: '右侧工作台',
             getService() {
               try { return ctx?.get?.('betterSidebar') || ctx?.betterSidebar } catch { return undefined }
@@ -518,6 +521,14 @@
 
         function apply(ctx, options = {}) {
           const sidebar = options.sidebar || ctx?.get?.('resourceCenter')
+          if (typeof document !== 'undefined' && document.body) {
+            try {
+              coreModule = require('dsh-resource-center-right-sidebar-core')
+              if (coreModule && typeof coreModule.apply === 'function') coreModule.apply(ctx)
+            } catch (error) {
+              console.error('[dsh-resource-center] right sidebar core failed to load:', error)
+            }
+          }
           const bridge = createRightSidebarBridge(ctx)
           ctx.provide('resourceCenterRightSidebar', bridge)
           const unregister = sidebar && typeof sidebar.registerRightSidebar === 'function'

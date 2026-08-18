@@ -72,6 +72,7 @@ test('SSH inspect output is normalized into a compact server snapshot', () => {
 
 test('combined Host plugin keeps workspace routes and service-management Tool', () => {
   const routes = []
+  const upgrades = []
   const tools = []
   const guards = []
   const effects = []
@@ -79,10 +80,17 @@ test('combined Host plugin keeps workspace routes and service-management Tool', 
     register(tool) { tools.push(tool) },
     guard(guard) { guards.push(guard) },
   }
+  const webServer = {
+    register(route) { routes.push(route); return () => {} },
+    registerUpgrade(route) { upgrades.push(route); return () => {} },
+  }
   const ctx = {
+    webServer,
+    webRuntime: { trustedHosts: [] },
+    sessions: { get() { return undefined } },
     tools: toolService,
     get(name) {
-      if (name === 'webServer') return { register(route) { routes.push(route); return () => {} } }
+      if (name === 'webServer') return webServer
       if (name === 'sessions') return { get() { return undefined } }
       if (name === 'sessionTitle') return undefined
       if (name === 'credentials') return {}
@@ -92,6 +100,13 @@ test('combined Host plugin keeps workspace routes and service-management Tool', 
       return undefined
     },
     effect(factory) { effects.push(factory()) },
+    inject(_names, callback) {
+      callback({ settings: {
+        register() { return { get() { return {} }, watch() {} } },
+        describe() { return [] },
+        update() {},
+      } })
+    },
   }
   apply(ctx)
   assert.deepEqual(routes.map(route => route.path), [
@@ -101,12 +116,17 @@ test('combined Host plugin keeps workspace routes and service-management Tool', 
     '/api/dsh-service-manage',
     '/api/dsh-web-testing',
     '/api/dsh-resource-center/usage-stats',
+    '/dsh-resource-center/sidebar/api',
+    '/dsh-resource-center/sidebar/bundle',
+    '/dsh-resource-center/sidebar/file',
+    '/dsh-resource-center/sidebar/html',
   ])
   assert.deepEqual(tools.map(tool => tool.name), ['dsh_server_manage', 'dsh_web_fuzzer', 'dsh_mitm_capture'])
   assert.equal(guards.length, 1)
   assert.match(String(guards[0]({ name: 'bash', arguments: { command: 'ssh user@example.com' } })), /dsh_server_manage/)
   assert.equal(guards[0]({ name: 'bash', arguments: { command: 'pwd' } }), undefined)
-  assert.equal(effects.length, 9)
+  assert.equal(upgrades.length, 2)
+  assert.equal(effects.length, 16)
 })
 
 test('resource center owns an independent usage-stats route and records model/session tokens', async () => {

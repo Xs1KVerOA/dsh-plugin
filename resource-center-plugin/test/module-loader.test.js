@@ -17,6 +17,7 @@ async function loadDefinitions(selectedModules) {
 test('client entry loads the default sidebar modules', async () => {
   const definitions = await loadDefinitions()
   assert.deepEqual([...definitions.keys()], [
+    'dsh-resource-center-right-sidebar-core',
     'dsh-resource-center',
     'dsh-resource-center-service-manager',
     'dsh-resource-center-test',
@@ -49,6 +50,7 @@ test('client entry loads workspace as a dependency of the Test module', async ()
 test('client entry loads workspace as a dependency of the right sidebar bridge', async () => {
   const definitions = await loadDefinitions(['rightSidebar'])
   assert.deepEqual([...definitions.keys()], [
+    'dsh-resource-center-right-sidebar-core',
     'dsh-resource-center',
     'dsh-resource-center-right-sidebar',
   ])

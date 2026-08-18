@@ -1,12 +1,16 @@
 import { apply as applyServiceManager } from './service-manager-host.js'
 import { applyWebTesting, TestConfig } from './test-host.js'
 import { applyUsageStats } from './usage-stats-host.js'
+import { apply as applyRightSidebar, inject as rightSidebarInject } from './right-sidebar-host.js'
 
 export const name = 'dsh-resource-center'
 
 // Host routes persist session titles and serialize bounded session references.
 // All list data and workspace grouping still come from the native DSH client stores.
-export const inject = ['webServer', 'sessions', 'credentials', 'fs', 'tools', 'sandboxPolicy', 'sessionQuery', 'timer']
+export const inject = [...new Set([
+  'webServer', 'sessions', 'credentials', 'fs', 'tools', 'sandboxPolicy', 'sessionQuery', 'timer',
+  ...rightSidebarInject,
+])]
 export const Config = TestConfig
 
 function json(res, status, body) {
@@ -148,4 +152,7 @@ export function apply(ctx, config = {}) {
   applyServiceManager(ctx)
   applyWebTesting(ctx, config)
   applyUsageStats(ctx)
+  // The right workbench is part of the resource center now. Its routes use a
+  // namespaced prefix owned entirely by this plugin.
+  applyRightSidebar(ctx, {})
 }

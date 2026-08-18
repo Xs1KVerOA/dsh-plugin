@@ -9,6 +9,7 @@ const sourceFiles = [
   'client/modules/service-manager/index.js',
   'client/modules/test/index.js',
   'client/modules/usage-stats/index.js',
+  'client/modules/right-sidebar/vendor/core.js',
   'client/modules/right-sidebar/index.js',
   'client/main.js',
 ]

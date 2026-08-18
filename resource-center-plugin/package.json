@@ -38,6 +38,10 @@
     "client/",
     "client/modules/usage-stats/",
     "client/modules/right-sidebar/",
+    "client-editor.js",
+    "client-terminal.js",
+    "right-sidebar-host.js",
+    "right-sidebar-LICENSE",
     "scripts/build-client.js",
     "scripts/check-core-release.mjs",
     "test-host.js",
@@ -55,7 +59,11 @@
       "platform": "web",
       "inject": [
         "@deepseek-ai/dsh-client-ui-sidebar",
-        "@deepseek-ai/dsh-client-ui-input-trigger"
+        "@deepseek-ai/dsh-client-ui-input-trigger",
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-ui-conversation"
       ]
     }
   },
@@ -63,6 +71,7 @@
     "@deepseek-ai/cordis": ">=0.1.0",
     "@deepseek-ai/dsh-credentials": "0.1.0-rc.5",
     "@deepseek-ai/dsh-fs": "0.1.0-rc.5",
+    "@deepseek-ai/dsh-settings": "0.1.0-rc.5",
     "@deepseek-ai/dsh-tools": "0.1.0-rc.5",
     "@deepseek-ai/dsh-client-ui-sidebar": "0.1.0-rc.5",
     "@deepseek-ai/dsh-client-ui-input-trigger": "0.1.0-rc.5",
@@ -82,11 +91,13 @@
     "redis": "^4.0.0",
     "socks": "^2.8.0",
     "schemastery": "^3.18.0",
-    "ssh2": "^1.16.0"
+    "ssh2": "^1.16.0",
+    "node-pty": "^1.1.0",
+    "ws": "^8.18.0"
   },
   "scripts": {
     "build:client": "node scripts/build-client.js",
-    "check": "npm run build:client -- --check && node --check index.js && node --check test-host.js && node --check service-manager-host.js && node --check usage-stats-host.js && node --check client/main.js && node --check client/modules/workspace/index.js && node --check client/modules/service-manager/index.js && node --check client/modules/test/index.js && node --check client/modules/usage-stats/index.js && node --check client/modules/right-sidebar/index.js && node --check client.js",
+    "check": "npm run build:client -- --check && node --check index.js && node --check test-host.js && node --check service-manager-host.js && node --check usage-stats-host.js && node --check right-sidebar-host.js && node --check client-editor.js && node --check client-terminal.js && node --check client/main.js && node --check client/modules/workspace/index.js && node --check client/modules/service-manager/index.js && node --check client/modules/test/index.js && node --check client/modules/usage-stats/index.js && node --check client/modules/right-sidebar/index.js && node --check client/modules/right-sidebar/vendor/core.js && node --check client.js",
     "test": "npm run build:client -- --check && npm run check:compat && node --test test/*.test.js",
     "test:e2e": "if [ -n \"$DSH_E2E_URL\" ]; then playwright test; else echo '跳过浏览器 E2E：请设置 DSH_E2E_URL 后运行'; fi",
     "check:compat": "node scripts/check-core-release.mjs"

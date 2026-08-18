@@ -15,7 +15,7 @@
 
 右侧工作台中的浏览器也提供 `MITM 监听` 开关。它读取并启停资源中心 Test 模块的同一个 MITM runtime，使用左侧已保存的监听地址、端口、拦截规则和 HaE 配置；开启后，浏览器地址栏加载的页面会通过 `/api/dsh-web-testing/browser`，因此请求会进入同一份 MITM 流量记录。该开关不会创建第二个代理实例。
 
-当前 DSH 浏览器是宿主侧的沙箱 iframe，插件没有改写浏览器内核网络出口的接口。因此这里提供的是资源中心浏览器路由模式：普通 HTTP/HTTPS 页面会经过资源中心 Host 路由并记录；它不等同于系统级透明代理，也不能在宿主 iframe 内解密所有第三方 HTTPS 子资源。需要真正的浏览器级 HTTPS 解密时，仍需宿主 `dsh-better-sidebar` 提供 Browser Transport/代理注入 seam。
+当前 DSH 浏览器是宿主侧的沙箱 iframe，插件没有改写浏览器内核网络出口的接口。因此这里提供的是资源中心浏览器路由模式：普通 HTTP/HTTPS 页面会经过资源中心 Host 路由并记录；它不等同于系统级透明代理，也不能在宿主 iframe 内解密所有第三方 HTTPS 子资源。资源中心的 MITM 监听可与浏览器页联动，但当前不承诺浏览器内核级 HTTPS 解密；需要该能力时应由宿主提供 Browser Transport/代理注入 seam。
 
 ### 服务管理
 
@@ -194,7 +194,8 @@ client/
     ├── workspace/index.js          # 工作区侧栏
     ├── service-manager/index.js    # 服务管理侧栏
     ├── test/index.js               # Test 侧栏（MITM / Web Fuzzer）
-    ├── right-sidebar/index.js      # dsh-better-sidebar 右侧工作台桥接
+    ├── right-sidebar/vendor/core.js # 独立迁移的右侧工作台客户端核心
+    ├── right-sidebar/index.js      # 资源中心自己的浏览器/MITM 联动层
     └── usage-stats/index.js        # 用量统计侧栏
 ```
 
@@ -202,7 +203,7 @@ client/
 
 由于 DSH Client Loader 接收的是静态脚本，`scripts/build-client.js` 会把这些独立源模块生成到运行时的 `client.js`。默认加载全部模块；开发或集成其他侧栏时，可以设置 `window.__DSH_RESOURCE_CENTER_MODULES`，例如 `['workspace']`，入口会自动加载依赖并只注册所选模块。这样各侧栏可以分别开发，只有模块入口和注册 ID 需要协作。
 
-`right-sidebar` 是资源中心对 `dsh-better-sidebar` 的桥接模块：它不会注册左侧 Activity，也不会复制右侧工作台 UI，而是复用宿主已经加载的右侧面板和服务。资源中心会测量右侧面板的实际宽度，让服务管理和 Test 的中间操作区自动避让；其他模块可以通过 `resourceCenter` 的 `openRightSidebar`、`closeRightSidebar` 和 `toggleRightSidebar` 控制右侧工作台。
+右侧工作台已经独立迁入资源中心：`right-sidebar/vendor/core.js` 固化 explorer、editor、terminal、git、browser、tab 和 bottom panel 等能力，Host 侧的 `right-sidebar-host.js` 独立提供文件、Git、终端、懒加载 chunk 和 WebSocket 路由，并使用 `/dsh-resource-center/sidebar/*` 命名空间。`right-sidebar/index.js` 只负责把浏览器页与资源中心 MITM 联动。其他模块仍可通过 `resourceCenter` 的 `openRightSidebar`、`closeRightSidebar` 和 `toggleRightSidebar` 控制右侧工作台。
 
 `Test` 模块将原 `dsh-web-testing` 的 MITM 和 Web Fuzzer 合并到一个侧栏 Activity 中，通过面板内的标签切换。Host 侧运行时位于 `test-host.js`，提供 `/api/dsh-web-testing/*` API、`dsh_web_fuzzer` 和 `dsh_mitm_capture` 工具；默认只绑定本机、代理不自动启动、私有目标保持阻止。
 
