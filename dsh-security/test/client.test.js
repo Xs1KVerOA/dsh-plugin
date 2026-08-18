@@ -47,6 +47,8 @@ test('registers security history and report conversation views', () => {
   sync()
   assert.deepEqual([...active.keys()], ['security-session-mode', 'pentest-history', 'pentest-reports'])
   assert.deepEqual(registrations.map(item => item.definition.order), [-20, 20, 30])
+  assert.match(source, /flow\?\.response\?\.status \?\? flow\?\.status/)
+  assert.match(source, /historyStatusLabel\(flow\)/)
   snapshot = { current: 's1', byId: { s1: { agentPreset: 'standard' } } }
   sync()
   assert.deepEqual([...active.keys()], ['security-session-mode'])

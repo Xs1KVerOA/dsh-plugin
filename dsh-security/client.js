@@ -220,6 +220,27 @@
         })
       }
 
+      // History rows keep the HTTP status under response.status. Tool return
+      // values expose a top-level status, but the history API returns the
+      // persisted exchange shape. Prefer the nested value so successful
+      // responses are not rendered as ERR merely because the top-level field
+      // is absent.
+      function historyStatus(flow) {
+        const value = flow?.response?.status ?? flow?.status
+        return typeof value === 'number' && Number.isFinite(value) ? value : null
+      }
+
+      function historyStatusLabel(flow) {
+        if (flow?.response?.truncated) return '截断'
+        const status = historyStatus(flow)
+        return status == null ? 'ERR' : String(status)
+      }
+
+      function historyStatusClass(flow) {
+        const status = historyStatus(flow)
+        return flow?.error || flow?.response?.truncated || (status != null && status >= 400) ? 'dsec-fail' : 'dsec-pass'
+      }
+
       function SecurityHistoryView(props) {
         // The slot is registered only after the server-side ancestor check succeeds.
         // Do not depend on optional client snapshot metadata here.
@@ -280,7 +301,7 @@
           h('header', { className: 'dsec-head' }, h('span', { className: 'dsec-title' }, '请求历史'), h('span', { className: 'dsec-meta' }, `${history.length} 条 · HTTP / HTTPS / WebSocket`), h('button', { className: 'dsec-btn', onClick: refresh }, '刷新'), h('button', { className: 'dsec-btn', onClick: clear, disabled: loading }, '清空')),
           h('div', { className: 'dsec-body' },
             error ? h('div', { className: 'dsec-error' }, error) : null,
-            h('div', { className: 'dsec-list' }, history.length ? history.map(flow => h('button', { key: flow.id, className: 'dsec-flow' + (selected?.id === flow.id ? ' active' : ''), onClick: () => setSelected(flow) }, h('span', null, flow.protocol.toUpperCase()), h('span', { className: flow.status >= 400 || flow.error || flow.response?.truncated ? 'dsec-fail' : 'dsec-pass' }, flow.response?.truncated ? '截断' : (flow.status || 'ERR')), h('span', { className: 'dsec-flow-url', title: flow.target }, flow.target), h('span', { className: 'dsec-flow-meta' }, `${flow.durationMs || 0} ms`))) : h('div', { className: 'dsec-empty' }, '尚未记录渗透模式发起的请求。')),
+            h('div', { className: 'dsec-list' }, history.length ? history.map(flow => h('button', { key: flow.id, className: 'dsec-flow' + (selected?.id === flow.id ? ' active' : ''), onClick: () => setSelected(flow) }, h('span', null, flow.protocol.toUpperCase()), h('span', { className: historyStatusClass(flow) }, historyStatusLabel(flow)), h('span', { className: 'dsec-flow-url', title: flow.target }, flow.target), h('span', { className: 'dsec-flow-meta' }, `${flow.durationMs || 0} ms`))) : h('div', { className: 'dsec-empty' }, '尚未记录渗透模式发起的请求。')),
             hasMore ? h('button', { className: 'dsec-btn', onClick: loadMore, disabled: loading }, loading ? '加载中…' : '加载更早记录') : null,
             h(RequestDetail, { flow: selected }),
           ),
