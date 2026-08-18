@@ -1,0 +1,71 @@
+{
+  "name": "dsh-security",
+  "version": "0.1.0",
+  "description": "DeepSeek Harness pentest and structured code-audit presets with API inventory and Markdown reports",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Xs1KVerOA/dsh-plugin.git",
+    "directory": "dsh-security"
+  },
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./tools": "./tools.js",
+    "./audit-tools": "./audit-tools.js",
+    "./preset-root": "./preset-root.js",
+    "./storage-sqlite": "./storage-sqlite.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "tools.js",
+    "audit-tools.js",
+    "preset-root.js",
+    "storage-sqlite.js",
+    "client.js",
+    "scripts/check-core-release.mjs",
+    "cordis.patch.yml",
+    "presets/pentest/agent.cordis.yml",
+    "presets/pentest/preset.yml",
+    "presets/code-audit/agent.cordis.yml",
+    "presets/code-audit/preset.yml",
+    "README.md",
+    "README.zh-CN.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-primitives",
+        "@deepseek-ai/dsh-client-ui-input-trigger"
+      ]
+    }
+  },
+  "scripts": {
+    "check": "node --check index.js && node --check client.js",
+    "test": "npm run check:compat && node --test test/*.test.js",
+    "check:compat": "node scripts/check-core-release.mjs",
+    "pack:release": "npm pack"
+  },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "^3.18.1",
+    "zod": "^4.4.3",
+    "ws": "^8.18.0"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": ">=0.1.0",
+    "@deepseek-ai/dsh-storage-domain": "0.1.0-rc.5",
+    "@deepseek-ai/dsh-storage": "0.1.0-rc.5",
+    "@deepseek-ai/dsh-tools": "0.1.0-rc.5",
+    "@deepseek-ai/dsh-client-ui-input-trigger": "0.1.0-rc.5",
+    "react": ">=18.0.0"
+  }
+}

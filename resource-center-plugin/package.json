@@ -1,0 +1,93 @@
+{
+  "name": "dsh-resource-center",
+  "version": "0.1.0",
+  "description": "DeepSeek Harness 的资源中心、服务管理与 Web 测试侧栏",
+  "license": "MIT",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "resource-center",
+    "workspace",
+    "service-management",
+    "web-testing",
+    "mitm",
+    "web-fuzzer",
+    "ssh",
+    "database"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Xs1KVerOA/dsh-plugin.git",
+    "directory": "resource-center-plugin"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "client/",
+    "client/modules/usage-stats/",
+    "client/modules/right-sidebar/",
+    "scripts/build-client.js",
+    "scripts/check-core-release.mjs",
+    "test-host.js",
+    "service-manager-host.js",
+    "usage-stats-host.js",
+    "usage-pricing.json",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-ui-input-trigger"
+      ]
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": ">=0.1.0",
+    "@deepseek-ai/dsh-credentials": "0.1.0-rc.5",
+    "@deepseek-ai/dsh-fs": "0.1.0-rc.5",
+    "@deepseek-ai/dsh-tools": "0.1.0-rc.5",
+    "@deepseek-ai/dsh-client-ui-sidebar": "0.1.0-rc.5",
+    "@deepseek-ai/dsh-client-ui-input-trigger": "0.1.0-rc.5",
+    "react": ">=18.0.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.0.0",
+    "@elastic/elasticsearch": "^8.0.0",
+    "@smithy/node-http-handler": "^3.0.0",
+    "basic-ftp": "^5.0.0",
+    "cassandra-driver": "^4.7.0",
+    "dockerode": "^4.0.0",
+    "mongodb": "^6.0.0",
+    "mssql": "^11.0.0",
+    "mysql2": "^3.0.0",
+    "pg": "^8.0.0",
+    "redis": "^4.0.0",
+    "socks": "^2.8.0",
+    "schemastery": "^3.18.0",
+    "ssh2": "^1.16.0"
+  },
+  "scripts": {
+    "build:client": "node scripts/build-client.js",
+    "check": "npm run build:client -- --check && node --check index.js && node --check test-host.js && node --check service-manager-host.js && node --check usage-stats-host.js && node --check client/main.js && node --check client/modules/workspace/index.js && node --check client/modules/service-manager/index.js && node --check client/modules/test/index.js && node --check client/modules/usage-stats/index.js && node --check client/modules/right-sidebar/index.js && node --check client.js",
+    "test": "npm run build:client -- --check && npm run check:compat && node --test test/*.test.js",
+    "check:compat": "node scripts/check-core-release.mjs"
+  }
+}

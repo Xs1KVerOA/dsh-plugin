@@ -1,0 +1,14 @@
+- insert:
+    - id: dsh-security
+      name: 'dsh-security'
+    - id: dsh-security-storage-sqlite
+      name: 'dsh-security/storage-sqlite'
+      config:
+        path: !!js dshHomePath('storages', 'security-sessions.db')
+    - id: dsh-security-preset-root
+      name: 'dsh-security/preset-root'
+- id: storage-domain
+  config:
+    backend: json
+    routes:
+      security: sqlite
