@@ -114,7 +114,7 @@ test('protects browser API routes with a page token and same-origin check', asyn
 
   const run = await runtime.auditStart({ targetPath: '/tmp/example', authorization: 'test' }, { sessionId: 'audit' })
   await runtime.auditAddApi({ runId: run.id, entryId: 'GET /admin', entryType: 'http', method: 'GET', path: '/admin', handler: 'adminHandler' }, { sessionId: 'audit' })
-  await runtime.auditAddCandidate({ runId: run.id, candidateId: 'auth-bypass', title: '认证绕过', entryId: 'GET /admin', cvssVector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H' }, { sessionId: 'audit' })
+  await runtime.auditAddCandidate({ runId: run.id, candidateId: 'auth-bypass', title: '认证绕过', status: 'confirmed', entryId: 'GET /admin', entry: 'GET /admin', source: ['adminHandler input'], sink: ['authorization check'], evidence: ['internal/admin.go:42'], evidenceLocations: [{ file: 'internal/admin.go', line: 42, role: 'source' }], impact: '未授权访问管理接口', cvssVector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H' }, { sessionId: 'audit' })
   const report = await runtime.auditReport({ runId: run.id, title: '示例报告', markdown: '# 示例报告\n\n已验证。' }, { sessionId: 'audit' })
 
   await runtime.report({ target: 'offline-target.invalid:8443', title: 'DNS 诊断', markdown: '# DNS 诊断\n\n本地解析器不可用。' }, { sessionId: 'secret', agent: { session: securitySession } })

@@ -5,11 +5,11 @@
 功能包括：
 
 - 渗透模式：`dsh_security_request` 发起受限的 HTTP/HTTPS/WebSocket 请求并记录请求包、响应包；`dsh_security_report` 按 `域名:端口` 合并报告。
-- 代码审计模式：`dsh_code_audit_start` 建立审计运行，`dsh_code_audit_update_understanding` 记录产品用途、核心能力、功能边界、运行假设和技术栈，`dsh_code_audit_add_api` 记录代码提取的入口/API，`dsh_code_audit_add_candidate` 记录 Entry → Source → Sink → Guards → Active 候选，`dsh_code_audit_report` 提交 verifier 复核后的结构化报告。
+- 代码审计模式：`dsh_code_audit_start` 建立审计运行，`dsh_code_audit_update_understanding` 记录产品用途、核心能力、功能边界、运行假设和技术栈，`dsh_code_audit_add_api` 记录代码提取的入口/API，`dsh_code_audit_add_candidate` 要求关联已有 API 并记录入口、Source、Sink、影响和证据位置，`dsh_code_audit_review_candidate` 复核候选状态，`dsh_code_audit_report` 提交结构化报告。最终报告只统计 confirmed，needs-review 和 false-positive 分区展示，并包含 API 覆盖率与未覆盖入口。
 - 渗透模式支持输入 `@` 引用代码审计模式的会话或审计报告。候选只展示代码审计来源；发送时按来源会话和报告 ID 重新校验，并以有界的只读审计资料注入当前提示词，普通模式和代码审计模式不能使用该引用。
 - 渗透模式的“历史记录”在代码审计模式中变为“API 清单”；报告页先展示产品理解和技术栈，再按 CVSS 3.1 分数降序展示漏洞、严重性统计、修复优先级和 Markdown 正文。
 
-渗透工具只挂载到 `pentest` preset，代码审计工具只挂载到 `code-audit` preset，普通模式不会暴露这些工具。客户端根据当前会话或祖先会话动态显示对应栏目；每个会话页头会显示实际模式。渗透模式默认不要求主机白名单；当目标本身或 DNS 解析结果属于私网、localhost、IPv6 回环/私网或 `100.64.0.0/10` 共享地址段时，工具会先通过 `ctx.approval` 发起一次性用户审批，审批通过后才建立网络连接。代码审计遵循 baseline → planner → queue worker → verifier → report 流程，深度审计要求 code-review-graph 可用。
+渗透工具只挂载到 `pentest` preset，代码审计工具只挂载到 `code-audit` preset，普通模式不会暴露这些工具。客户端根据当前会话或祖先会话动态显示对应栏目；每个会话页头会显示实际模式。渗透模式默认不要求主机白名单；当目标本身或 DNS 解析结果属于私网、localhost、IPv6 回环/私网或 `100.64.0.0/10` 共享地址段时，工具会先通过 `ctx.approval` 发起一次性用户审批，审批通过后才建立网络连接。代码审计模式只负责收集产品理解、API 清单、审计候选和结构化报告，不依赖额外图谱或外部审计编排。
 
 ## 安装
 

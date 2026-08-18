@@ -46,12 +46,15 @@ const findingSchema = z.object({ id: recordId, sessionId, title: z.string(), sev
 const exchangeSchema = z.object({ id: recordId, sessionId, time: z.string(), protocol: z.string(), target: z.string(), key: z.string(), requestPacket: z.string(), responsePacket: z.string(), request: z.object({ method: z.string(), url: z.string(), headers, body: z.string(), messages }), response: z.object({ status: z.number().nullable(), statusText: z.string(), headers, body: z.string(), messages, truncated: z.boolean().optional() }), durationMs: z.number(), error: z.string().optional(), callId: z.string() })
 const reportSchema = z.object({ id: recordId, sessionId, key: z.string(), host: z.string(), port: z.number(), title: z.string(), markdown: z.string(), updatedAt: z.string() })
 const stringList = z.array(z.string())
+const AUDIT_CANDIDATE_STATUSES = ['needs-review', 'confirmed', 'false-positive', 'accepted-risk']
 const policySchema = z.object({ id: recordId, sessionId, requireAllowlist: z.boolean(), allowedHosts: stringList, allowPrivateTargets: z.boolean(), updatedAt: z.string() })
 const understandingSchema = z.object({ productSummary: z.string(), productPurpose: z.string(), coreCapabilities: stringList, boundaries: stringList, assumptions: stringList, techStack: z.array(z.record(z.string(), z.any())), status: z.string(), updatedAt: z.string() })
 const auditRunSchema = z.object({ id: recordId, sessionId, targetPath: z.string(), auditMode: z.string(), language: z.string(), scope: z.string(), authorization: z.string(), graphRequired: z.boolean(), graphStatus: z.string(), status: z.string(), productUnderstanding: understandingSchema.optional(), createdAt: z.string(), updatedAt: z.string() })
-const apiSchema = z.object({ id: recordId, sessionId, runId: recordId, entryId: z.string(), entryType: z.string(), method: z.string(), path: z.string(), handler: z.string(), auth: z.string(), module: z.string(), active: z.string(), featureSummary: z.string(), sourceCandidates: stringList, sinkCandidates: stringList, riskTags: stringList, targetPaths: stringList, graphHints: stringList, priority: z.string(), confidence: z.string(), createdAt: z.string(), updatedAt: z.string() })
-const auditCandidateSchema = z.object({ id: recordId, sessionId, runId: recordId, candidateId: z.string(), domain: z.string(), status: z.string(), severity: z.string(), title: z.string(), entryId: z.string(), entryType: z.string(), entry: z.string(), auth: z.string(), active: z.string(), source: stringList, sink: stringList, chain: stringList, guards: stringList, impact: z.string(), confidence: z.string(), queueItem: z.string(), description: z.string(), remediation: z.string(), cvss: z.string(), cvssVector: z.string().optional(), cvssScore: z.number().nullable().optional(), cvssSeverity: z.string().optional(), createdAt: z.string(), updatedAt: z.string() })
-const auditReportSchema = z.object({ id: recordId, sessionId, runId: recordId, title: z.string(), status: z.string(), summary: z.string(), markdown: z.string(), counts: z.record(z.string(), z.number()), findings: z.array(z.record(z.string(), z.any())), topPriorities: stringList, observations: stringList, productUnderstanding: understandingSchema.optional(), updatedAt: z.string() })
+const evidenceLocationSchema = z.object({ file: z.string(), lineStart: z.number().int().nullable().optional(), lineEnd: z.number().int().nullable().optional(), symbol: z.string().optional(), role: z.string().optional(), snippet: z.string().optional() })
+const selfCheckSchema = z.object({ reachable: z.string(), authorization: z.string(), inputValidation: z.string(), productionCode: z.string(), sufficientEvidence: z.string() })
+const apiSchema = z.object({ id: recordId, sessionId, runId: recordId, entryId: z.string(), entryType: z.string(), method: z.string(), path: z.string(), handler: z.string(), auth: z.string(), module: z.string(), active: z.string(), featureSummary: z.string(), sourceCandidates: stringList, sinkCandidates: stringList, riskTags: stringList, targetPaths: stringList, graphHints: stringList, contextFiles: stringList.optional(), relatedSymbols: stringList.optional(), authGuards: stringList.optional(), configRefs: stringList.optional(), dataModels: stringList.optional(), errorHandlers: stringList.optional(), middleware: stringList.optional(), priority: z.string(), confidence: z.string(), language: z.string().optional(), sourceConfidence: z.string().optional(), aiAuthConclusion: z.string().optional(), auditCoverage: z.string().optional(), auditDomains: stringList.optional(), createdAt: z.string(), updatedAt: z.string() })
+const auditCandidateSchema = z.object({ id: recordId, sessionId, runId: recordId, candidateId: z.string(), domain: z.string(), status: z.enum([...AUDIT_CANDIDATE_STATUSES, 'candidate']), severity: z.string(), title: z.string(), entryId: z.string(), entryType: z.string(), entry: z.string(), auth: z.string(), active: z.string(), source: stringList, sink: stringList, chain: stringList, guards: stringList, evidence: stringList.optional(), evidenceLocations: z.array(evidenceLocationSchema).optional(), impact: z.string(), confidence: z.string(), queueItem: z.string(), description: z.string(), remediation: z.string(), cvss: z.string(), cvssVector: z.string().optional(), cvssScore: z.number().nullable().optional(), cvssSeverity: z.string().optional(), selfCheck: selfCheckSchema.optional(), reviewNotes: z.string().optional(), reviewedAt: z.string().optional(), createdAt: z.string(), updatedAt: z.string() })
+const auditReportSchema = z.object({ id: recordId, sessionId, runId: recordId, title: z.string(), status: z.string(), summary: z.string(), markdown: z.string(), counts: z.record(z.string(), z.number()), findings: z.array(z.record(z.string(), z.any())), reviewItems: z.array(z.record(z.string(), z.any())).optional(), excludedItems: z.array(z.record(z.string(), z.any())).optional(), acceptedRiskItems: z.array(z.record(z.string(), z.any())).optional(), coverage: z.record(z.string(), z.any()).optional(), topPriorities: stringList, observations: stringList, productUnderstanding: understandingSchema.optional(), updatedAt: z.string() })
 
 export const securityDomain = defineDomain({
   name: 'security',
@@ -215,12 +218,15 @@ async function approvePrivateTarget(url, addresses, exec) {
   const outcome = await approval.request({
     agent: exec.agent,
     toolName: 'dsh_security_request',
+    grantKey: 'dsh-security:protected-target',
     ...(exec.callId !== undefined ? { callId: exec.callId } : {}),
     reason: `目标 ${redactUrl(url).toString()} 解析到受保护的私网/内部地址（${shownAddresses}），继续访问可能触达企业内网或本机资源。请确认本次访问已获授权。`,
     ...(exec.signal ? { signal: exec.signal } : {}),
   })
   switch (outcome) {
-    case 'allowed-once': return
+    case 'allowed-once':
+    case 'allowed-session':
+    case 'allowed-always': return
     case 'rejected': throw new Error('用户拒绝访问私网/内部地址')
     case 'cancelled': throw new Error('私网/内部地址访问审批已取消')
     case 'unavailable': throw new Error('访问私网/内部地址需要用户审批，但当前没有可用的审批通道')
@@ -428,7 +434,13 @@ function normalizeTechStack(value, maxBytes) {
   for (const group of value.slice(0, 100)) {
     const category = limitedText(String(group?.category || group?.name || '其他'), 128)
     const items = []
-    for (const item of Array.isArray(group?.items) ? group.items.slice(0, 100) : []) {
+    const rawItems = Array.isArray(group?.items)
+      ? group.items.slice(0, 100)
+      : Object.entries(group && typeof group === 'object' ? group : {})
+        .filter(([key]) => !['category', 'name'].includes(key))
+        .slice(0, 100)
+        .map(([label, value]) => ({ label, value }))
+    for (const item of rawItems) {
       const label = limitedText(String(item?.label || item?.name || ''), 128)
       const itemValue = limitedText(String(item?.value || item?.description || ''), maxBytes)
       if (!label && !itemValue) continue
@@ -441,6 +453,15 @@ function normalizeTechStack(value, maxBytes) {
     if (total >= maxBytes) break
   }
   return result
+}
+
+function deriveApiAuthConclusion(input = {}) {
+  const explicit = String(input.aiAuthConclusion || '').trim()
+  if (explicit) return limitedText(explicit, 64)
+  const tags = textList(input.riskTags, 512, 100).map(tag => tag.toLowerCase())
+  if (tags.some(tag => /auth|idor|identity|permission|access/.test(tag))) return 'auth-risk'
+  if (tags.includes('no-findings-expected')) return 'no-risk-found'
+  return 'pending'
 }
 
 function stableKey(value) {
@@ -502,6 +523,65 @@ function cvssForInput(input = {}) {
   return { vector: result.vector, score: result.score, severity: result.severity }
 }
 
+function safeCvssForInput(input = {}) {
+  try { return cvssForInput(input) } catch { return { vector: '', score: null, severity: '' } }
+}
+
+function normalizeAuditCandidateStatus(value) {
+  const raw = String(value || '').trim().toLowerCase()
+  if (!raw || raw === 'candidate') return 'needs-review'
+  if (!AUDIT_CANDIDATE_STATUSES.includes(raw)) throw new Error(`候选状态无效：${raw}，仅支持 ${AUDIT_CANDIDATE_STATUSES.join(', ')}`)
+  return raw
+}
+
+function candidateStatus(item) {
+  try { return normalizeAuditCandidateStatus(item?.status) } catch { return 'needs-review' }
+}
+
+function candidateEvidenceList(value, label) {
+  const result = textList(value, 4096, 100)
+  if (!result.length) throw new Error(`${label} 不能为空`)
+  return result
+}
+
+function normalizeEvidenceLocations(value, maxBytes) {
+  if (!Array.isArray(value)) return []
+  return value.slice(0, 100).map(item => {
+    if (!item || typeof item !== 'object') return null
+    const file = limitedText(String(item.file || item.path || ''), 512)
+    if (!file) return null
+    const lineStart = Number.isInteger(item.lineStart) ? item.lineStart : Number.isInteger(item.line) ? item.line : null
+    const lineEnd = Number.isInteger(item.lineEnd) ? item.lineEnd : lineStart
+    const symbol = limitedText(String(item.symbol || ''), 256)
+    const snippet = limitedText(String(item.snippet || ''), maxBytes)
+    if (lineStart == null && !symbol && !snippet) return null
+    return { file, lineStart, lineEnd, symbol, role: limitedText(String(item.role || ''), 64), snippet }
+  }).filter(Boolean)
+}
+
+function normalizeSelfCheck(input = {}, fallback = {}) {
+  return {
+    reachable: limitedText(String(input.reachable ?? fallback.reachable ?? ''), 512),
+    authorization: limitedText(String(input.authorization ?? input.authCheck ?? fallback.authorization ?? ''), 512),
+    inputValidation: limitedText(String(input.inputValidation ?? fallback.inputValidation ?? ''), 512),
+    productionCode: limitedText(String(input.productionCode ?? fallback.productionCode ?? ''), 512),
+    sufficientEvidence: limitedText(String(input.sufficientEvidence ?? fallback.sufficientEvidence ?? ''), 512),
+  }
+}
+
+function selfCheckComplete(check) {
+  const unresolved = new Set(['', 'unknown', 'uncertain', '未确认', '无法判断', '不确定'])
+  return Object.values(check || {}).every(value => !unresolved.has(String(value).trim().toLowerCase()))
+}
+
+function auditCoverageFor(apis = [], candidates = []) {
+  const covered = new Set(candidates.map(item => String(item.entryId || '').trim()).filter(Boolean))
+  for (const api of apis) if (['reviewed', 'verified'].includes(String(api.auditCoverage || '').toLowerCase())) covered.add(String(api.entryId || '').trim())
+  const uncoveredEntries = apis.filter(api => !covered.has(String(api.entryId || '').trim())).map(api => ({ entryId: api.entryId, method: api.method, path: api.path, handler: api.handler }))
+  const total = apis.length
+  return { total, covered: total - uncoveredEntries.length, uncovered: uncoveredEntries.length, percentage: total ? Math.round(((total - uncoveredEntries.length) / total) * 1000) / 10 : 0, uncoveredEntries }
+}
+
 function severityForFinding(item) {
   const cvssSeverity = String(item.cvssSeverity || '').trim()
   if (cvssSeverity) return cvssSeverity
@@ -522,17 +602,26 @@ function auditSeverityCounts(findings = []) {
   return Object.fromEntries([...CVSS31_SEVERITIES, 'info'].map(severity => [severity, findings.filter(item => String(severityForFinding(item)).toLowerCase() === severity).length]))
 }
 
-function auditMarkdown(findings = [], run) {
+function auditMarkdown(findings = [], run, sections = {}) {
   const lines = ['# 代码审计报告', '', `- 目标：\`${run?.targetPath || '未记录'}\``, `- 审计模式：${run?.auditMode || 'advanced'}`, `- 状态：${run?.status || 'unknown'}`, '']
-  if (!findings.length) return lines.concat('## 结果', '', '未提交结构化发现。').join('\n')
-  lines.push('## 结构化发现', '')
+  const coverage = sections.coverage
+  if (coverage) lines.push(`- API 覆盖率：${coverage.covered}/${coverage.total}（${coverage.percentage}%）`, `- 未覆盖入口：${coverage.uncovered}`, '')
+  lines.push('## 已确认漏洞', '')
+  if (!findings.length) lines.push('当前没有已确认漏洞。', '')
   for (const item of findings) {
     const severity = severityForFinding(item)
-    lines.push(`### ${severity.toUpperCase()} · ${item.candidateId || item.title || '未命名发现'}`, '', `- CVSS：${item.cvssScore == null ? '未评分' : item.cvssScore}${item.cvssVector ? `（${item.cvssVector}）` : ''}`, `- 状态：${item.status || 'candidate'}`, `- 入口：${item.entry || item.entryId || '未记录'}`, `- 影响：${item.impact || '未记录'}`)
+    lines.push(`### ${severity.toUpperCase()} · ${item.candidateId || item.title || '未命名发现'}`, '', `- CVSS：${item.cvssScore == null ? '未评分' : item.cvssScore}${item.cvssVector ? `（${item.cvssVector}）` : ''}`, `- 状态：${item.status || 'confirmed'}`, `- 入口：${item.entry || item.entryId || '未记录'}`, `- 影响：${item.impact || '未记录'}`)
     if (item.chain?.length) lines.push(`- 链路：${item.chain.join(' → ')}`)
     if (item.remediation) lines.push(`- 修复：${item.remediation}`)
     lines.push('')
   }
+  const reviewItems = Array.isArray(sections.reviewItems) ? sections.reviewItems : []
+  lines.push('## 待复核项', '', ...(reviewItems.length ? reviewItems.map(item => `- ${item.title || item.candidateId || item.id}：${item.entry || item.entryId || '未记录'}`) : ['无']), '')
+  const excludedItems = Array.isArray(sections.excludedItems) ? sections.excludedItems : []
+  lines.push('## 已排除项', '', ...(excludedItems.length ? excludedItems.map(item => `- ${item.title || item.candidateId || item.id}：误报或不适用`) : ['无']), '')
+  const acceptedRiskItems = Array.isArray(sections.acceptedRiskItems) ? sections.acceptedRiskItems : []
+  lines.push('## 接受风险', '', ...(acceptedRiskItems.length ? acceptedRiskItems.map(item => `- ${item.title || item.candidateId || item.id}：${item.impact || '已记录为接受风险'}`) : ['无']), '')
+  if (coverage?.uncoveredEntries?.length) lines.push('## 未覆盖入口', '', ...coverage.uncoveredEntries.map(item => `- ${item.method || ''} ${item.path || item.entryId || '未记录'}${item.handler ? `（${item.handler}）` : ''}`), '')
   return lines.join('\n')
 }
 
@@ -716,7 +805,7 @@ export function createRuntime(rawConfig = {}, suppliedStore, sessions) {
     return withLock(locks, `session:${sid}`, async () => {
       await clearAuditStructured(sid)
       const now = new Date().toISOString()
-      const run = { id: `${sid}:audit-${Date.now()}-${stableKey(Math.random().toString(36).slice(2, 8))}`, sessionId: sid, targetPath, auditMode: String(input.auditMode || 'advanced'), language: limitedText(String(input.language || 'unknown'), 128), scope: limitedText(String(input.scope || ''), config.maxPacketBytes), authorization: limitedText(String(input.authorization || 'local repository access'), config.maxPacketBytes), graphRequired: String(input.auditMode || '').toLowerCase() === 'deep', graphStatus: String(input.graphStatus || 'unknown'), status: 'planning', productUnderstanding: { productSummary: '', productPurpose: '', coreCapabilities: [], boundaries: [], assumptions: [], techStack: [], status: 'pending', updatedAt: now }, createdAt: now, updatedAt: now }
+      const run = { id: `${sid}:audit-${Date.now()}-${stableKey(Math.random().toString(36).slice(2, 8))}`, sessionId: sid, targetPath, auditMode: 'standard', language: limitedText(String(input.language || 'unknown'), 128), scope: limitedText(String(input.scope || ''), config.maxPacketBytes), authorization: limitedText(String(input.authorization || 'local repository access'), config.maxPacketBytes), graphRequired: false, graphStatus: 'not-applicable', status: 'planning', productUnderstanding: { productSummary: '', productPurpose: '', coreCapabilities: [], boundaries: [], assumptions: [], techStack: [], status: 'pending', updatedAt: now }, createdAt: now, updatedAt: now }
       await store.put('audit_runs', run.id, run)
       return run
     })
@@ -728,7 +817,7 @@ export function createRuntime(rawConfig = {}, suppliedStore, sessions) {
       const now = new Date().toISOString()
       const understanding = { productSummary: limitedText(String(input.productSummary || ''), config.maxReportBytes), productPurpose: limitedText(String(input.productPurpose || ''), config.maxPacketBytes), coreCapabilities: textList(input.coreCapabilities, config.maxPacketBytes), boundaries: textList(input.boundaries, config.maxPacketBytes), assumptions: textList(input.assumptions, config.maxPacketBytes), techStack: normalizeTechStack(input.techStack, config.maxPacketBytes), status: limitedText(String(input.status || 'complete'), 64), updatedAt: now }
       understandingSchema.parse(understanding)
-      const updated = { ...run, productUnderstanding: understanding, updatedAt: now, status: run.status === 'planning' ? 'baseline' : run.status }
+      const updated = { ...run, productUnderstanding: understanding, updatedAt: now, status: run.status === 'planning' ? 'understanding' : run.status }
       await store.put('audit_runs', run.id, updated)
       return { runId: run.id, understanding }
     })
@@ -741,7 +830,7 @@ export function createRuntime(rawConfig = {}, suppliedStore, sessions) {
       const existing = (await store.list('apis', sid)).filter(item => item.runId === run.id); const id = `${run.id}:api-${stableKey(entryId)}`
       if (!existing.some(item => item.id === id) && existing.length >= config.maxAuditApis) throw new Error(`API 清单超过上限 ${config.maxAuditApis}`)
       const now = new Date().toISOString()
-      const row = { id, sessionId: sid, runId: run.id, entryId, entryType: String(input.entryType || 'http'), method: String(input.method || ''), path: limitedText(String(input.path || ''), 1024), handler: limitedText(String(input.handler || ''), 1024), auth: String(input.auth || 'unknown'), module: limitedText(String(input.module || ''), 256), active: String(input.active || 'unknown'), featureSummary: limitedText(String(input.featureSummary || ''), config.maxPacketBytes), sourceCandidates: textList(input.sourceCandidates, config.maxPacketBytes), sinkCandidates: textList(input.sinkCandidates, config.maxPacketBytes), riskTags: textList(input.riskTags, 256), targetPaths: textList(input.targetPaths, config.maxPacketBytes), graphHints: textList(input.graphHints, config.maxPacketBytes), priority: String(input.priority || 'medium'), confidence: String(input.confidence || 'unknown'), createdAt: now, updatedAt: now }
+      const row = { id, sessionId: sid, runId: run.id, entryId, entryType: String(input.entryType || 'http'), method: String(input.method || ''), path: limitedText(String(input.path || ''), 1024), handler: limitedText(String(input.handler || ''), 1024), auth: String(input.auth || 'unknown'), module: limitedText(String(input.module || ''), 256), active: String(input.active || 'unknown'), featureSummary: limitedText(String(input.featureSummary || ''), config.maxPacketBytes), sourceCandidates: textList(input.sourceCandidates, config.maxPacketBytes), sinkCandidates: textList(input.sinkCandidates, config.maxPacketBytes), riskTags: textList(input.riskTags, 256), targetPaths: textList(input.targetPaths, config.maxPacketBytes), graphHints: textList(input.graphHints, config.maxPacketBytes), contextFiles: textList(input.contextFiles, config.maxPacketBytes, 100), relatedSymbols: textList(input.relatedSymbols, 4096, 100), authGuards: textList(input.authGuards, config.maxPacketBytes, 100), configRefs: textList(input.configRefs, config.maxPacketBytes, 100), dataModels: textList(input.dataModels, config.maxPacketBytes, 100), errorHandlers: textList(input.errorHandlers, config.maxPacketBytes, 100), middleware: textList(input.middleware, config.maxPacketBytes, 100), priority: String(input.priority || 'medium'), confidence: String(input.confidence || 'unknown'), language: limitedText(String(input.language || run.language || 'unknown'), 64), sourceConfidence: limitedText(String(input.sourceConfidence || input.confidence || 'unknown'), 64), aiAuthConclusion: deriveApiAuthConclusion(input), auditCoverage: limitedText(String(input.auditCoverage || 'extracted'), 64), auditDomains: textList(input.auditDomains, 512, 32), createdAt: now, updatedAt: now }
       await store.put('apis', id, row); await store.put('audit_runs', run.id, { ...run, updatedAt: now, status: 'evidence' }); return row
     })
   }
@@ -750,26 +839,67 @@ export function createRuntime(rawConfig = {}, suppliedStore, sessions) {
     return withLock(locks, `session:${sid}`, async () => {
       const run = await auditRunFor(sid, input.runId); if (!run) throw new Error('请先使用 dsh_code_audit_start 创建审计运行')
       const candidateId = limitedText(String(input.candidateId || ''), 256); if (!candidateId) throw new Error('candidateId 不能为空')
+      const apis = (await store.list('apis', sid)).filter(item => item.runId === run.id)
+      const entryId = limitedText(String(input.entryId || ''), 256); if (!entryId) throw new Error('entryId 不能为空')
+      const api = apis.find(item => item.entryId === entryId); if (!api) throw new Error(`候选必须关联当前运行中的 API：${entryId}`)
+      const entry = limitedText(String(input.entry || ''), config.maxPacketBytes); if (!entry) throw new Error('entry 不能为空')
+      const source = candidateEvidenceList(input.source, 'Source')
+      const sink = candidateEvidenceList(input.sink, 'Sink')
+      const impact = limitedText(String(input.impact || ''), config.maxPacketBytes); if (!impact) throw new Error('影响不能为空')
+      const evidence = candidateEvidenceList(input.evidence, '证据位置')
+      const evidenceLocations = normalizeEvidenceLocations(input.evidenceLocations, config.maxPacketBytes)
+      if (!evidenceLocations.length) throw new Error('evidenceLocations 不能为空，至少提供一个文件和行号/代码位置')
       const existing = (await store.list('audit_candidates', sid)).filter(item => item.runId === run.id); const id = `${run.id}:candidate-${stableKey(candidateId)}`
       if (!existing.some(item => item.id === id) && existing.length >= config.maxAuditCandidates) throw new Error(`审计候选超过上限 ${config.maxAuditCandidates}`)
       const now = new Date().toISOString()
-      const cvss = cvssForInput(input)
-      const row = { id, sessionId: sid, runId: run.id, candidateId, domain: String(input.domain || 'unknown'), status: String(input.status || 'candidate'), severity: String(input.severity || cvss.severity || 'unknown').toLowerCase(), title: limitedText(String(input.title || candidateId), config.maxPacketBytes), entryId: limitedText(String(input.entryId || ''), 256), entryType: String(input.entryType || 'unknown'), entry: limitedText(String(input.entry || ''), config.maxPacketBytes), auth: String(input.auth || 'unknown'), active: String(input.active || 'unknown'), source: textList(input.source, config.maxPacketBytes), sink: textList(input.sink, config.maxPacketBytes), chain: textList(input.chain, config.maxPacketBytes), guards: textList(input.guards, config.maxPacketBytes), impact: limitedText(String(input.impact || ''), config.maxPacketBytes), confidence: String(input.confidence || 'unknown'), queueItem: limitedText(String(input.queueItem || ''), 1024), description: limitedText(String(input.description || ''), config.maxPacketBytes), remediation: limitedText(String(input.remediation || ''), config.maxPacketBytes), cvss: limitedText(String(input.cvss || ''), 128), cvssVector: cvss.vector, cvssScore: cvss.score, cvssSeverity: cvss.severity, createdAt: now, updatedAt: now }
-      await store.put('audit_candidates', id, row); await store.put('audit_runs', run.id, { ...run, updatedAt: now, status: 'verification' }); return row
+      normalizeAuditCandidateStatus(input.status)
+      const cvss = safeCvssForInput(input)
+      const row = { id, sessionId: sid, runId: run.id, candidateId, domain: String(input.domain || 'unknown'), status: 'needs-review', severity: String(input.severity || cvss.severity || 'unknown').toLowerCase(), title: limitedText(String(input.title || candidateId), config.maxPacketBytes), entryId, entryType: String(input.entryType || api.entryType || 'unknown'), entry, auth: String(input.auth || 'unknown'), active: String(input.active || 'unknown'), source, sink, chain: textList(input.chain, config.maxPacketBytes), guards: textList(input.guards, config.maxPacketBytes), evidence, evidenceLocations, impact, confidence: String(input.confidence || 'unknown'), queueItem: limitedText(String(input.queueItem || ''), 1024), description: limitedText(String(input.description || ''), config.maxPacketBytes), remediation: limitedText(String(input.remediation || ''), config.maxPacketBytes), cvss: limitedText(String(input.cvss || ''), 128), cvssVector: cvss.vector, cvssScore: cvss.score, cvssSeverity: cvss.severity, reviewNotes: '', createdAt: now, updatedAt: now }
+      await store.put('audit_candidates', id, row); await store.put('audit_runs', run.id, { ...run, updatedAt: now, status: 'reviewing' }); return row
+    })
+  }
+  async function auditReviewCandidate(input, exec = {}) {
+    assertCodeAuditSession(exec, sessions); const sid = getSessionId(exec); if (!sid) throw new Error('无法确定当前会话')
+    return withLock(locks, `session:${sid}`, async () => {
+      const run = await auditRunFor(sid, input.runId); if (!run) throw new Error('请先使用 dsh_code_audit_start 创建审计运行')
+      const candidateId = limitedText(String(input.candidateId || ''), 256); if (!candidateId) throw new Error('candidateId 不能为空')
+      const candidates = (await store.list('audit_candidates', sid)).filter(item => item.runId === run.id)
+      const candidate = candidates.find(item => item.id === candidateId || item.candidateId === candidateId); if (!candidate) throw new Error(`候选不存在：${candidateId}`)
+      const requestedStatus = normalizeAuditCandidateStatus(input.status)
+      const cvss = safeCvssForInput({ ...candidate, ...input, cvssVector: input.cvssVector || candidate.cvssVector })
+      const selfCheck = normalizeSelfCheck(input, candidate.selfCheck)
+      const evidenceLocations = input.evidenceLocations === undefined ? normalizeEvidenceLocations(candidate.evidenceLocations, config.maxPacketBytes) : normalizeEvidenceLocations(input.evidenceLocations, config.maxPacketBytes)
+      if (!evidenceLocations.length) throw new Error('复核缺少证据位置，至少提供一个文件和行号/代码位置')
+      const status = requestedStatus !== 'needs-review' && (cvss.score == null || !selfCheckComplete(selfCheck)) ? 'needs-review' : requestedStatus
+      const now = new Date().toISOString()
+      const updated = { ...candidate, status, evidenceLocations, selfCheck, confidence: String(input.confidence || candidate.confidence || 'unknown'), reviewNotes: limitedText(String(input.reviewNotes || candidate.reviewNotes || ''), config.maxPacketBytes), cvss: limitedText(String(input.cvss || candidate.cvss || ''), 128), cvssVector: cvss.vector || candidate.cvssVector, cvssScore: cvss.score == null ? candidate.cvssScore ?? null : cvss.score, cvssSeverity: cvss.severity || candidate.cvssSeverity || '', reviewedAt: now, updatedAt: now }
+      await store.put('audit_candidates', candidate.id, updated); await store.put('audit_runs', run.id, { ...run, updatedAt: now, status: status === 'confirmed' || status === 'false-positive' || status === 'accepted-risk' ? 'reviewed' : 'reviewing' }); return updated
     })
   }
   async function auditReport(input, exec = {}) {
     assertCodeAuditSession(exec, sessions); const sid = getSessionId(exec); if (!sid) throw new Error('无法确定当前会话')
     return withLock(locks, `session:${sid}`, async () => {
       const run = await auditRunFor(sid, input.runId); if (!run) throw new Error('请先使用 dsh_code_audit_start 创建审计运行')
-      const candidates = (await store.list('audit_candidates', sid)).filter(item => item.runId === run.id)
-      const findings = sortAuditFindings((Array.isArray(input.findings) && input.findings.length ? input.findings : candidates).slice(0, config.maxAuditCandidates).map(item => {
-        const cvss = cvssForInput(item)
+      const allCandidates = (await store.list('audit_candidates', sid)).filter(item => item.runId === run.id)
+      const requested = Array.isArray(input.findings) && input.findings.length ? input.findings.map(item => String(item.id || item.candidateId || '')).filter(Boolean) : []
+      const candidates = requested.length ? allCandidates.filter(item => requested.includes(item.id) || requested.includes(item.candidateId)) : allCandidates
+      if (requested.length && candidates.length !== new Set(requested).size) throw new Error('报告只能引用当前运行中已存在的候选')
+      const apis = (await store.list('apis', sid)).filter(item => item.runId === run.id)
+      const toReportItem = item => {
+        const cvss = safeCvssForInput(item)
         const score = cvss.score
         const cvssSeverity = cvss.severity || String(item.cvssSeverity || '')
-        return { id: limitedText(String(item.id || item.candidateId || ''), 256), candidateId: limitedText(String(item.candidateId || ''), 256), title: limitedText(String(item.title || item.candidateId || ''), config.maxPacketBytes), severity: String(item.severity || cvssSeverity || 'unknown').toLowerCase(), cvssVector: cvss.vector || limitedText(String(item.cvssVector || ''), 256), cvssScore: score, cvssSeverity, status: limitedText(String(item.status || 'candidate'), 64), entry: limitedText(String(item.entry || item.entryId || ''), config.maxPacketBytes), impact: limitedText(String(item.impact || ''), config.maxPacketBytes), remediation: limitedText(String(item.remediation || ''), config.maxPacketBytes), confidence: limitedText(String(item.confidence || 'unknown'), 64), ...(Array.isArray(item.chain) ? { chain: textList(item.chain, config.maxPacketBytes, 100) } : {}) }
-      }))
-      const markdown = limitedText(String(input.markdown || auditMarkdown(findings, run)), config.maxReportBytes); const now = new Date().toISOString(); const id = `${run.id}:report`; const row = { id, sessionId: sid, runId: run.id, title: limitedText(String(input.title || '代码审计最终报告'), config.maxPacketBytes), status: String(input.status || 'final'), summary: limitedText(String(input.summary || `${findings.length} 条结构化发现`), config.maxPacketBytes), markdown, counts: auditSeverityCounts(findings), findings, topPriorities: textList(input.topPriorities, config.maxPacketBytes), observations: textList(input.observations, config.maxPacketBytes), ...(run.productUnderstanding ? { productUnderstanding: run.productUnderstanding } : {}), updatedAt: now }
+        return { id: limitedText(String(item.id || item.candidateId || ''), 256), candidateId: limitedText(String(item.candidateId || ''), 256), title: limitedText(String(item.title || item.candidateId || ''), config.maxPacketBytes), severity: String(item.severity || cvssSeverity || 'unknown').toLowerCase(), cvssVector: cvss.vector || limitedText(String(item.cvssVector || ''), 256), cvssScore: score, cvssSeverity, status: candidateStatus(item), entry: limitedText(String(item.entry || item.entryId || ''), config.maxPacketBytes), impact: limitedText(String(item.impact || ''), config.maxPacketBytes), remediation: limitedText(String(item.remediation || ''), config.maxPacketBytes), confidence: limitedText(String(item.confidence || 'unknown'), 64), evidence: textList(item.evidence, config.maxPacketBytes), evidenceLocations: normalizeEvidenceLocations(item.evidenceLocations, config.maxPacketBytes), selfCheck: item.selfCheck ? normalizeSelfCheck(item.selfCheck) : null, reviewNotes: limitedText(String(item.reviewNotes || ''), config.maxPacketBytes), ...(Array.isArray(item.chain) ? { chain: textList(item.chain, config.maxPacketBytes, 100) } : {}) }
+      }
+      const reportItems = candidates.map(toReportItem)
+      const findings = sortAuditFindings(reportItems.filter(item => item.status === 'confirmed' && item.cvssScore != null))
+      const reviewItems = reportItems.filter(item => item.status === 'needs-review' || (item.status === 'confirmed' && item.cvssScore == null))
+      const excludedItems = reportItems.filter(item => item.status === 'false-positive')
+      const acceptedRiskItems = reportItems.filter(item => item.status === 'accepted-risk')
+      const coverage = auditCoverageFor(apis, allCandidates)
+      const structuredMarkdown = auditMarkdown(findings, run, { reviewItems, excludedItems, acceptedRiskItems, coverage })
+      const suppliedMarkdown = String(input.markdown || '').trim()
+      const markdown = limitedText(suppliedMarkdown ? `${suppliedMarkdown}\n\n---\n\n${structuredMarkdown}` : structuredMarkdown, config.maxReportBytes); const now = new Date().toISOString(); const id = `${run.id}:report`; const row = { id, sessionId: sid, runId: run.id, title: limitedText(String(input.title || '代码审计最终报告'), config.maxPacketBytes), status: String(input.status || 'final'), summary: limitedText(String(input.summary || `${findings.length} 条已确认发现，${reviewItems.length} 条待复核`), config.maxPacketBytes), markdown, counts: auditSeverityCounts(findings), findings, reviewItems, excludedItems, acceptedRiskItems, coverage, topPriorities: textList(input.topPriorities, config.maxPacketBytes), observations: textList(input.observations, config.maxPacketBytes), ...(run.productUnderstanding ? { productUnderstanding: run.productUnderstanding } : {}), updatedAt: now }
       await store.put('audit_reports', id, row); await store.put('audit_runs', run.id, { ...run, updatedAt: now, status: row.status }); return row
     })
   }
@@ -851,7 +981,7 @@ export function createRuntime(rawConfig = {}, suppliedStore, sessions) {
     return limitedText(text, config.maxReferenceBytes)
   }
   async function clear(sid) { return withLock(locks, `session:${String(sid)}`, () => store.clear(String(sid))) }
-  return { config, sessions, store, request, start, addAsset: (input, exec) => addStructured('assets', input, exec, 'asset'), addFact: (input, exec) => addStructured('facts', input, exec, 'fact'), addFinding: (input, exec) => addStructured('findings', input, exec, 'finding'), report, auditStart, auditUpdateUnderstanding, auditAddApi, auditAddCandidate, auditReport, auditApis, auditReports, auditState, auditReferenceCandidates, auditReferenceContent, state, stateSummary, history, reports, clear, policy: policyFor, updatePolicy: (sid, input) => updatePolicy(sid, input) }
+  return { config, sessions, store, request, start, addAsset: (input, exec) => addStructured('assets', input, exec, 'asset'), addFact: (input, exec) => addStructured('facts', input, exec, 'fact'), addFinding: (input, exec) => addStructured('findings', input, exec, 'finding'), report, auditStart, auditUpdateUnderstanding, auditAddApi, auditAddCandidate, auditReviewCandidate, auditReport, auditApis, auditReports, auditState, auditReferenceCandidates, auditReferenceContent, state, stateSummary, history, reports, clear, policy: policyFor, updatePolicy: (sid, input) => updatePolicy(sid, input) }
 }
 
 function sendJson(res, status, body) { res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', vary: 'Origin' }); res.end(JSON.stringify(body)) }

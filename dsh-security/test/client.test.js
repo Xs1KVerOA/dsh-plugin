@@ -54,3 +54,22 @@ test('registers security history and report conversation views', () => {
   sync()
   assert.deepEqual([...active.keys()], ['security-session-mode', 'code-audit-apis', 'code-audit-reports'])
 })
+
+test('renders the structured API inventory contract', () => {
+  const source = fs.readFileSync(new URL('../client.js', import.meta.url), 'utf8')
+  for (const label of ['搜索路径或方法', '方法', '路径', '类型', '语言', '来源置信度', 'AI 鉴权结论', '审计覆盖', '关联风险', '审计域']) assert.match(source, new RegExp(label))
+  assert.match(source, /dsec-api-search/)
+  assert.match(source, /dsec-badge-good/)
+  assert.match(source, /auditDomains/)
+  assert.match(source, /CandidateGroup/)
+  assert.match(source, /API 覆盖率/)
+})
+
+test('keeps DSH code-audit mode independent from local deep-audit skill stages', () => {
+  const files = [
+    new URL('../audit-tools.js', import.meta.url),
+    new URL('../presets/code-audit/agent.cordis.yml', import.meta.url),
+    new URL('../presets/code-audit/preset.yml', import.meta.url),
+  ].map(url => fs.readFileSync(url, 'utf8')).join('\n')
+  assert.doesNotMatch(files, /L0\.5|L1\.5|code-review-graph|queue worker|verifier|深度审计/)
+})

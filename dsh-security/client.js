@@ -13,9 +13,9 @@
 .dsec-view{display:flex;flex-direction:column;width:100%;max-width:100%;min-width:0;min-height:0;overflow:hidden;color:var(--dsw-alias-label-primary,#25282d);font-size:12px;background:var(--dsw-alias-bg-layer-1,#fff)}
 .dsec-view *{box-sizing:border-box;min-width:0}.dsec-head{display:flex;align-items:center;gap:8px;width:100%;min-width:0;padding:11px 14px;border-bottom:1px solid var(--dsw-alias-border-l1,#e5e7eb);flex:0 0 auto;flex-wrap:wrap}.dsec-title{font-weight:650;min-width:0;flex:1 1 140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dsec-meta{min-width:0;color:var(--dsw-alias-label-tertiary,#969da7);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dsec-body{display:flex;width:100%;max-width:100%;min-width:0;min-height:0;overflow:auto;overflow-x:hidden;flex:1;flex-direction:column;gap:9px;padding:12px 14px}.dsec-btn{flex:0 0 auto;border:1px solid var(--dsw-alias-border-l2,#d8dce2);border-radius:6px;padding:5px 9px;background:var(--dsw-alias-bg-layer-1,#fff);color:inherit;cursor:pointer;font:inherit;font-size:11px}.dsec-btn:hover{background:var(--dsw-alias-bg-layer-2,#f1f3f6)}.dsec-btn:disabled{opacity:.5;cursor:default}.dsec-warning,.dsec-error{max-width:100%;padding:9px 10px;border-radius:6px;line-height:1.5;overflow-wrap:anywhere}.dsec-warning{background:#fff8e6;color:#8a621c}.dsec-error{background:#fff0f0;color:#bd4747}.dsec-list{display:flex;flex-direction:column;gap:5px;width:100%;max-width:100%;min-height:0;overflow:auto;overflow-x:hidden}.dsec-flow{display:grid;width:100%;max-width:100%;min-width:0;grid-template-columns:48px 54px minmax(0,1fr) auto;gap:7px;align-items:center;text-align:left;padding:7px 8px;border:1px solid var(--dsw-alias-border-l1,#e5e7eb);border-radius:6px;background:transparent;color:inherit;cursor:pointer;font:inherit}.dsec-flow:hover,.dsec-flow.active{background:var(--dsw-alias-bg-layer-2,#f1f3f6)}.dsec-flow-url{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dsec-flow-meta{min-width:72px;text-align:right;color:var(--dsw-alias-label-tertiary,#969da7);font-size:10px;white-space:nowrap}.dsec-pass{color:#32864b}.dsec-fail{color:#c04b4b}.dsec-detail{display:grid;width:100%;max-width:100%;min-width:0;grid-template-columns:minmax(0,1fr);gap:9px}.dsec-card{min-width:0;border:1px solid var(--dsw-alias-border-l1,#e5e7eb);border-radius:6px;overflow:hidden}.dsec-card-title{padding:7px 9px;background:var(--dsw-alias-bg-layer-2,#f5f6f8);font-weight:600}.dsec-pre{width:100%;max-width:100%;margin:0;padding:9px;max-height:290px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;font:10px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}.dsec-report{width:100%;max-width:100%;min-width:0;padding:2px 0 14px;overflow-wrap:anywhere}.dsec-report-head{display:flex;align-items:center;gap:8px;min-width:0}.dsec-report-title{font-weight:650;min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dsec-markdown{width:100%;max-width:100%;min-width:0;padding-top:6px;overflow-wrap:anywhere}.dsec-markdown :where(pre,table){display:block;max-width:100%;overflow:auto}.dsec-markdown :where(img,video){max-width:100%;height:auto}.dsec-markdown :where(code,a){overflow-wrap:anywhere}.dsec-report-list{width:100%;max-width:100%;min-width:0}.dsec-empty{max-width:100%;color:var(--dsw-alias-label-tertiary,#969da7);overflow-wrap:anywhere}
 @media (min-width:800px){.dsec-detail{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.dsec-body{overflow:hidden}.dsec-report-list{overflow:auto}}.dsec-mode{display:inline-flex;align-items:center;gap:5px;max-width:280px;padding:3px 8px;border:1px solid var(--dsw-alias-border-l1,#e5e7eb);border-radius:999px;color:var(--dsw-alias-label-secondary,#5f6670);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dsec-mode-pentest{border-color:#f0c36a;background:#fff8e6;color:#8a621c}.dsec-mode-audit{border-color:#a9c7f4;background:#f1f6ff;color:#275c9e}.dsec-mode-standard{background:var(--dsw-alias-bg-layer-2,#f5f6f8)}.dsec-mode-name{overflow:hidden;text-overflow:ellipsis}.dsec-mode-policy{color:var(--dsw-alias-label-tertiary,#969da7);font-size:10px}
-@media (max-width:560px){.dsec-head{align-items:flex-start}.dsec-title{flex-basis:calc(100% - 92px)}.dsec-meta{order:3;flex:1 1 100%;white-space:normal}.dsec-flow{grid-template-columns:42px 48px minmax(0,1fr)}.dsec-flow-meta{grid-column:2 / -1;min-width:0;text-align:left}}.dsec-api-grid{display:grid;grid-template-columns:108px minmax(160px,1fr) minmax(150px,1fr) 80px 100px;min-width:680px;border:1px solid var(--dsw-alias-border-l1,#e5e7eb);border-radius:6px;overflow:auto}.dsec-api-cell{padding:8px;border-bottom:1px solid var(--dsw-alias-border-l1,#e5e7eb);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dsec-api-head{background:var(--dsw-alias-bg-layer-2,#f5f6f8);font-weight:600}.dsec-api-row{display:contents}.dsec-api-row:last-child .dsec-api-cell{border-bottom:0}.dsec-api-button{width:100%;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;font:inherit}.dsec-api-button:hover{background:var(--dsw-alias-bg-layer-2,#f5f6f8)}.dsec-tags{display:flex;flex-wrap:wrap;gap:4px}.dsec-tag{padding:2px 5px;border-radius:4px;background:var(--dsw-alias-bg-layer-2,#f1f3f6);font-size:10px}.dsec-summary{display:flex;flex-wrap:wrap;gap:6px}.dsec-summary-card{min-width:78px;padding:8px;border:1px solid var(--dsw-alias-border-l1,#e5e7eb);border-radius:6px;background:var(--dsw-alias-bg-layer-1,#fff)}.dsec-summary-number{display:block;font-size:16px;font-weight:650}.dsec-summary-label{color:var(--dsw-alias-label-tertiary,#969da7);font-size:10px}.dsec-finding{padding:9px 0;border-bottom:1px solid var(--dsw-alias-border-l1,#e5e7eb)}.dsec-finding:last-child{border-bottom:0}.dsec-finding-title{font-weight:650}.dsec-finding-meta{color:var(--dsw-alias-label-tertiary,#969da7);font-size:11px}.dsec-code-report{display:flex;flex-direction:column;gap:10px}
+@media (max-width:560px){.dsec-head{align-items:flex-start}.dsec-title{flex-basis:calc(100% - 92px)}.dsec-meta{order:3;flex:1 1 100%;white-space:normal}.dsec-flow{grid-template-columns:42px 48px minmax(0,1fr)}.dsec-flow-meta{grid-column:2 / -1;min-width:0;text-align:left}}.dsec-api-toolbar{display:flex;align-items:center;gap:8px;width:100%;min-width:0}.dsec-api-search{width:min(320px,100%);height:34px;padding:7px 10px;border:1px solid #cfe0f1;border-radius:6px;background:#fff;color:inherit;font:inherit;outline:none}.dsec-api-search:focus{border-color:#6aa7df;box-shadow:0 0 0 2px rgba(73,145,214,.12)}.dsec-api-scroll{flex:1;min-height:0;width:100%;overflow:auto;padding-bottom:2px}.dsec-api-grid{display:grid;grid-template-columns:90px minmax(210px,1.6fr) 130px 72px 110px 170px 100px minmax(190px,1.4fr) 130px;min-width:1180px;border:1px solid #dbe8f4;border-radius:7px;overflow:hidden;background:#fff}.dsec-api-cell{min-height:50px;padding:10px 9px;border-bottom:1px solid #e7eef6;overflow:hidden;text-overflow:ellipsis;white-space:normal;display:flex;align-items:center;gap:5px}.dsec-api-head{position:sticky;top:0;z-index:1;background:#f1f6fb;color:#315b7e;font-weight:650;min-height:36px;white-space:nowrap}.dsec-api-row{display:contents}.dsec-api-row:last-child .dsec-api-cell{border-bottom:0}.dsec-api-row:hover .dsec-api-cell{background:#f8fbfe}.dsec-api-button{width:100%;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;font:inherit}.dsec-api-button:hover{background:#f2f8fd}.dsec-api-primary{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dsec-api-secondary{display:block;min-width:0;color:var(--dsw-alias-label-tertiary,#8a96a3);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dsec-api-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#183452}.dsec-tags{display:flex;flex-wrap:wrap;gap:4px;min-width:0}.dsec-tag{padding:2px 5px;border-radius:4px;background:var(--dsw-alias-bg-layer-2,#f1f3f6);font-size:10px}.dsec-badge{display:inline-flex;align-items:center;max-width:100%;padding:3px 7px;border-radius:999px;font-size:10px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dsec-badge-good{background:#e5f7ed;color:#21854d}.dsec-badge-warn{background:#fff3db;color:#a66b13}.dsec-badge-risk{background:#fff0f0;color:#c94545}.dsec-badge-neutral{background:#edf1f5;color:#647181}.dsec-api-risk-cell{align-items:flex-start;flex-wrap:wrap}.dsec-summary{display:flex;flex-wrap:wrap;gap:6px}.dsec-summary-card{min-width:78px;padding:8px;border:1px solid var(--dsw-alias-border-l1,#e5e7eb);border-radius:6px;background:var(--dsw-alias-bg-layer-1,#fff)}.dsec-summary-number{display:block;font-size:16px;font-weight:650}.dsec-summary-label{color:var(--dsw-alias-label-tertiary,#969da7);font-size:10px}.dsec-finding{padding:9px 0;border-bottom:1px solid var(--dsw-alias-border-l1,#e5e7eb)}.dsec-finding:last-child{border-bottom:0}.dsec-finding-title{font-weight:650}.dsec-finding-meta{color:var(--dsw-alias-label-tertiary,#969da7);font-size:11px}.dsec-code-report{display:flex;flex-direction:column;gap:10px}
  .dsec-understanding{display:flex;flex-direction:column;gap:10px;padding:12px;border:1px solid #cfe1f5;border-radius:10px;background:linear-gradient(135deg,#fbfdff,#f4f9ff)}.dsec-eyebrow{color:#1769c2;font-size:10px;font-weight:700;letter-spacing:.16em}.dsec-section-title{font-size:16px;font-weight:700}.dsec-section-subtitle{color:#6f87a2;line-height:1.5}.dsec-understanding-summary{padding:9px 10px;border-radius:7px;background:#eef7ff;color:#496783;line-height:1.55}.dsec-understanding-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.dsec-understanding-card{min-width:0;padding:10px;border:1px solid #d5e4f3;border-radius:7px;background:rgba(255,255,255,.8)}.dsec-understanding-card-title{font-weight:650;margin-bottom:6px;color:#2d587e}.dsec-understanding-list{margin:0;padding-left:17px;color:#526b84;line-height:1.55}.dsec-understanding-list li{overflow-wrap:anywhere}.dsec-stack{padding-top:4px}.dsec-stack-title{font-weight:650;margin-bottom:7px}.dsec-stack-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.dsec-stack-card{min-width:0;border:1px solid #d5e4f3;border-top:3px solid #4d9ce8;border-radius:7px;background:#fff;overflow:hidden}.dsec-stack-card-title{padding:8px 9px;font-weight:650;background:#f4f9ff}.dsec-stack-row{display:grid;grid-template-columns:minmax(72px,.7fr) minmax(0,1.3fr);gap:8px;padding:7px 9px;border-top:1px solid #e7eef6;color:#526b84}.dsec-stack-row span:first-child{color:#89a0b7}.dsec-stack-row span:last-child{overflow-wrap:anywhere}@media (max-width:800px){.dsec-understanding-grid,.dsec-stack-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media (max-width:560px){.dsec-understanding-grid,.dsec-stack-grid{grid-template-columns:minmax(0,1fr)}}
- .dsec-api-scroll{width:100%;max-width:100%;min-width:0;overflow-x:auto;overflow-y:hidden;padding-bottom:2px}.dsec-api-grid{overflow:hidden}
+ .dsec-api-scroll{flex:1;min-height:0;width:100%;max-width:100%;min-width:0;overflow:auto;padding-bottom:2px}.dsec-api-grid{overflow:hidden}
 .dsec-policy-form{display:flex;flex-direction:column;gap:10px;max-width:720px}.dsec-checkbox-row{display:flex;align-items:center;gap:7px;font-weight:600}.dsec-policy-note{color:var(--dsw-alias-label-tertiary,#969da7);line-height:1.5}.dsec-policy-textarea{min-height:130px;width:100%;resize:vertical;font:11px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}.dsec-policy-actions{display:flex;align-items:center;gap:8px}.dsec-policy-status{color:#32864b;font-size:11px}
 `
 
@@ -338,51 +338,86 @@
 
       function CodeAuditApiView(props) {
         const [apis, setApis] = React.useState([])
+        const [run, setRun] = React.useState(null)
         const [selected, setSelected] = React.useState(null)
+        const [query, setQuery] = React.useState('')
         const [error, setError] = React.useState('')
         const [hasMore, setHasMore] = React.useState(false)
         const [nextCursor, setNextCursor] = React.useState(null)
         const [loading, setLoading] = React.useState(false)
         const requestInFlight = React.useRef(false)
         const requestGeneration = React.useRef(0)
+        const loadedMore = React.useRef(false)
+        const toggleSelected = item => setSelected(selected?.id === item.id ? null : item)
+        const typeLabel = value => ({ http: '服务端路由', rpc: '服务端路由', artifact: '配置/构建', env: '环境入口', job: '内部任务' }[String(value || '').toLowerCase()] || value || '其他入口')
+        const confidenceLabel = value => ({ high: '高', medium: '中', low: '低', unknown: '待评估' }[String(value || '').toLowerCase()] || value || '待评估')
+        const authLabel = value => ({ 'auth-risk': 'AI确认存在授权风险', 'no-risk-found': 'AI未发现授权风险', pending: '待复核' }[String(value || '').toLowerCase()] || value || '待复核')
+        const coverageLabel = value => ({ verified: '已验证', reviewed: '已复核', extracted: '已提取', pending: '待覆盖' }[String(value || '').toLowerCase()] || value || '待覆盖')
+        const badge = (value, label, tone) => h('span', { className: `dsec-badge dsec-badge-${tone}`, title: value || label }, label)
         const refresh = React.useCallback(async () => {
           if (requestInFlight.current) return
           const generation = ++requestGeneration.current
           requestInFlight.current = true
           setLoading(true)
-          try { const result = await api(`audit/apis?sessionId=${encodeURIComponent(props.sessionId)}&limit=100`); if (generation !== requestGeneration.current) return; setApis(result.apis || []); setHasMore(Boolean(result.hasMore)); setNextCursor(result.nextCursor || null); setError('') } catch (cause) { if (generation === requestGeneration.current) setError(cause?.message || String(cause)) } finally { if (generation === requestGeneration.current) { requestInFlight.current = false; setLoading(false) } }
+          try {
+            const [result, state] = await Promise.all([
+              api(`audit/apis?sessionId=${encodeURIComponent(props.sessionId)}&limit=100`),
+              api(`audit/state?sessionId=${encodeURIComponent(props.sessionId)}`),
+            ])
+            if (generation !== requestGeneration.current) return
+            setApis(previous => loadedMore.current ? mergeRows(result.apis || [], previous, 'id') : (result.apis || []))
+            setHasMore(Boolean(result.hasMore))
+            setNextCursor(result.nextCursor || null)
+            setRun(state.state?.run || null)
+            setError('')
+          } catch (cause) { if (generation === requestGeneration.current) setError(cause?.message || String(cause)) } finally { if (generation === requestGeneration.current) { requestInFlight.current = false; setLoading(false) } }
         }, [props.sessionId])
         React.useEffect(() => {
           requestGeneration.current += 1; requestInFlight.current = false
-          setApis([]); setSelected(null); setHasMore(false); setNextCursor(null); setError('')
+          setApis([]); setRun(null); setSelected(null); setQuery(''); setHasMore(false); setNextCursor(null); loadedMore.current = false; setError('')
           void refresh()
           const timer = window.setInterval(refresh, 1800)
           return () => { window.clearInterval(timer); requestGeneration.current += 1; requestInFlight.current = false }
         }, [refresh])
         const loadMore = async () => {
-          if (loading || requestInFlight.current || !hasMore) return
+          if (loading || requestInFlight.current || !hasMore || !nextCursor) return
           requestInFlight.current = true
           setLoading(true)
           const generation = requestGeneration.current
-          try { const result = await api(`audit/apis?sessionId=${encodeURIComponent(props.sessionId)}&limit=100${nextCursor ? `&cursor=${encodeURIComponent(nextCursor)}` : ''}`); if (generation !== requestGeneration.current) return; setApis(previous => mergeRows(previous, result.apis || [])); setHasMore(Boolean(result.hasMore)); setNextCursor(result.nextCursor || null) } catch (cause) { if (generation === requestGeneration.current) setError(cause?.message || String(cause)) } finally { if (generation === requestGeneration.current) { requestInFlight.current = false; setLoading(false) } }
+          try { const result = await api(`audit/apis?sessionId=${encodeURIComponent(props.sessionId)}&limit=100&cursor=${encodeURIComponent(nextCursor)}`); if (generation !== requestGeneration.current) return; loadedMore.current = true; setApis(previous => mergeRows(previous, result.apis || [], 'id')); setHasMore(Boolean(result.hasMore)); setNextCursor(result.nextCursor || null) } catch (cause) { if (generation === requestGeneration.current) setError(cause?.message || String(cause)) } finally { if (generation === requestGeneration.current) { requestInFlight.current = false; setLoading(false) } }
         }
         const clear = async () => {
           if (typeof window !== 'undefined' && !window.confirm('确定清空当前代码审计的 API 清单、候选和报告吗？此操作不可撤销。')) return
-          try { await api(`clear?sessionId=${encodeURIComponent(props.sessionId)}`, { method: 'POST', body: '{}' }); setApis([]); setSelected(null); setHasMore(false); await refresh() } catch (cause) { setError(cause?.message || String(cause)) }
+          try { await api(`clear?sessionId=${encodeURIComponent(props.sessionId)}`, { method: 'POST', body: '{}' }); loadedMore.current = false; setApis([]); setSelected(null); setHasMore(false); setNextCursor(null); await refresh() } catch (cause) { setError(cause?.message || String(cause)) }
+        }
+        const normalizedQuery = query.trim().toLocaleLowerCase()
+        const filteredApis = normalizedQuery ? apis.filter(item => [item.method, item.path, item.entryId, item.entryType, item.handler, item.module, item.language, item.auth, item.aiAuthConclusion, item.auditCoverage, ...(item.riskTags || []), ...(item.auditDomains || [])].filter(Boolean).join(' ').toLocaleLowerCase().includes(normalizedQuery)) : apis
+        const renderRisk = item => {
+          const tags = Array.isArray(item.riskTags) ? item.riskTags : []
+          return tags.length ? tags.slice(0, 3).map((tag, index) => h('span', { className: 'dsec-badge dsec-badge-risk', key: `${tag}-${index}`, title: tag }, tag)).concat(tags.length > 3 ? [h('span', { className: 'dsec-badge dsec-badge-neutral', key: 'more' }, `+${tags.length - 3}`)] : []) : h('span', { className: 'dsec-meta' }, '—')
         }
         return h('section', { className: 'dsec-view' },
-          h('header', { className: 'dsec-head' }, h('span', { className: 'dsec-title' }, 'API 清单'), h('span', { className: 'dsec-meta' }, `${apis.length} 个入口 · 静态提取`), h('button', { className: 'dsec-btn', onClick: refresh }, '刷新'), h('button', { className: 'dsec-btn', onClick: clear, disabled: loading }, '清空')),
+          h('header', { className: 'dsec-head' }, h('span', { className: 'dsec-title' }, 'API 清单'), h('span', { className: 'dsec-meta' }, `${normalizedQuery ? `${filteredApis.length}/${apis.length}` : apis.length} 个入口 · 静态提取${run?.language ? ` · ${run.language}` : ''}`), h('button', { className: 'dsec-btn', onClick: refresh }, '刷新'), h('button', { className: 'dsec-btn', onClick: clear, disabled: loading }, '清空')),
           h('div', { className: 'dsec-body' }, error ? h('div', { className: 'dsec-error' }, error) : null,
-            apis.length ? h('div', { className: 'dsec-api-scroll' }, h('div', { className: 'dsec-api-grid' },
-              h('div', { className: 'dsec-api-cell dsec-api-head' }, '类型/方法'), h('div', { className: 'dsec-api-cell dsec-api-head' }, '路径/入口'), h('div', { className: 'dsec-api-cell dsec-api-head' }, 'Handler'), h('div', { className: 'dsec-api-cell dsec-api-head' }, '鉴权'), h('div', { className: 'dsec-api-cell dsec-api-head' }, '风险'),
-              apis.map(item => h('div', { className: 'dsec-api-row', key: item.id },
-                h('button', { className: 'dsec-api-cell dsec-api-button', onClick: () => setSelected(selected?.id === item.id ? null : item) }, `${item.entryType || 'unknown'}${item.method ? ` · ${item.method}` : ''}`),
-                h('button', { className: 'dsec-api-cell dsec-api-button', onClick: () => setSelected(selected?.id === item.id ? null : item), title: item.path || item.entryId }, item.path || item.entryId),
-                h('button', { className: 'dsec-api-cell dsec-api-button', onClick: () => setSelected(selected?.id === item.id ? null : item), title: item.handler }, item.handler || '—'),
-                h('div', { className: 'dsec-api-cell' }, item.auth || 'unknown'),
-                h('div', { className: 'dsec-api-cell' }, h('div', { className: 'dsec-tags' }, (item.riskTags || []).length ? item.riskTags.map(tag => h('span', { className: 'dsec-tag', key: tag }, tag)) : h('span', { className: 'dsec-meta' }, '—'))),
-              )),
-            )) : h('div', { className: 'dsec-empty' }, '尚未提取 API 入口。请先运行 dsh_code_audit_start，再按入口点调用 dsh_code_audit_add_api。'),
+            h('div', { className: 'dsec-api-toolbar' }, h('input', { className: 'dsec-api-search', value: query, onChange: event => setQuery(event.target.value), placeholder: '搜索路径或方法...', 'aria-label': '搜索路径或方法' })),
+            filteredApis.length ? h('div', { className: 'dsec-api-scroll' }, h('div', { className: 'dsec-api-grid' },
+              ['方法', '路径', '类型', '语言', '来源置信度', 'AI 鉴权结论', '审计覆盖', '关联风险', '审计域'].map(label => h('div', { className: 'dsec-api-cell dsec-api-head', key: label }, label)),
+              filteredApis.map(item => {
+                const authValue = item.aiAuthConclusion || 'pending'
+                const domains = Array.isArray(item.auditDomains) && item.auditDomains.length ? item.auditDomains : (item.module ? [item.module] : [])
+                return h('div', { className: 'dsec-api-row', key: item.id },
+                  h('button', { className: 'dsec-api-cell dsec-api-button dsec-api-code', onClick: () => toggleSelected(item) }, item.method || '—'),
+                  h('button', { className: 'dsec-api-cell dsec-api-button', onClick: () => toggleSelected(item), title: item.path || item.entryId }, h('span', { className: 'dsec-api-primary dsec-api-code' }, item.path || item.entryId), item.handler ? h('span', { className: 'dsec-api-secondary' }, item.handler) : null),
+                  h('div', { className: 'dsec-api-cell' }, typeLabel(item.entryType)),
+                  h('div', { className: 'dsec-api-cell' }, item.language || run?.language || 'unknown'),
+                  h('div', { className: 'dsec-api-cell' }, badge(item.sourceConfidence || item.confidence, confidenceLabel(item.sourceConfidence || item.confidence), item.sourceConfidence === 'high' || item.confidence === 'high' ? 'good' : 'neutral')),
+                  h('div', { className: 'dsec-api-cell' }, badge(authValue, authLabel(authValue), authValue === 'auth-risk' ? 'risk' : authValue === 'no-risk-found' ? 'good' : 'warn')),
+                  h('div', { className: 'dsec-api-cell' }, badge(item.auditCoverage, coverageLabel(item.auditCoverage), item.auditCoverage === 'verified' || item.auditCoverage === 'reviewed' ? 'good' : 'neutral')),
+                  h('div', { className: 'dsec-api-cell dsec-api-risk-cell' }, renderRisk(item)),
+                  h('div', { className: 'dsec-api-cell' }, domains.length ? domains.slice(0, 3).join(', ') : h('span', { className: 'dsec-meta' }, '—')),
+                )
+              }),
+            )) : h('div', { className: 'dsec-empty' }, normalizedQuery ? '没有匹配的 API 入口。' : '尚未提取 API 入口。请先运行 dsh_code_audit_start，再按入口点调用 dsh_code_audit_add_api。'),
             hasMore ? h('button', { className: 'dsec-btn', onClick: loadMore, disabled: loading }, loading ? '加载中…' : '加载更多 API') : null,
             selected ? h('section', { className: 'dsec-card' }, h('div', { className: 'dsec-card-title' }, `${selected.entryId} · 入口详情`), h('pre', { className: 'dsec-pre' }, JSON.stringify(selected, null, 2))) : null,
           ),
@@ -445,7 +480,7 @@
         }
         function ProductUnderstanding({ understanding }) {
           const incomplete = !understanding || (understanding.status === 'pending' && !understanding.productSummary && !understanding.productPurpose && !(understanding.coreCapabilities || []).length && !(understanding.boundaries || []).length && !(understanding.assumptions || []).length && !(understanding.techStack || []).length)
-          if (incomplete) return h('div', { className: 'dsec-warning' }, '尚未提交 L0 产品理解。请先完成产品用途、核心能力、功能边界、运行假设和技术栈分析。')
+          if (incomplete) return h('div', { className: 'dsec-warning' }, '尚未提交产品理解。请先完成产品用途、核心能力、功能边界、运行假设和技术栈分析。')
           const stack = Array.isArray(understanding.techStack) ? understanding.techStack : []
           return h('section', { className: 'dsec-understanding' },
             h('div', { className: 'dsec-eyebrow' }, 'PRODUCT UNDERSTANDING'),
@@ -462,6 +497,11 @@
             h('span', { className: 'dsec-meta' }, `基线状态：${understanding.status || 'unknown'} · ${understanding.updatedAt || ''}`),
           )
         }
+        function CandidateGroup({ title, items }) {
+          const values = Array.isArray(items) ? items : []
+          if (!values.length) return null
+          return h('section', { className: 'dsec-card' }, h('div', { className: 'dsec-card-title' }, `${title}（${values.length}）`), h('div', { style: { padding: '0 9px' } }, values.map(item => h('div', { className: 'dsec-finding', key: item.id || item.candidateId || item.title }, h('div', { className: 'dsec-finding-title' }, item.title || item.candidateId || item.id), h('div', { className: 'dsec-finding-meta' }, `${item.entry || item.entryId || '未记录'} · ${item.status || 'needs-review'}${item.cvssScore == null ? ' · 未评分' : ` · CVSS ${item.cvssScore}`}`), item.evidenceLocations?.length ? h('div', { className: 'dsec-finding-meta' }, `证据位置：${item.evidenceLocations.map(location => `${location.file}${location.lineStart == null ? '' : `:${location.lineStart}${location.lineEnd != null && location.lineEnd !== location.lineStart ? `-${location.lineEnd}` : ''}`}`).join('、')}`) : null, item.selfCheck ? h('div', { className: 'dsec-finding-meta' }, `复核自检：可达=${item.selfCheck.reachable || '未记录'} · 权限=${item.selfCheck.authorization || '未记录'} · 防护=${item.selfCheck.inputValidation || '未记录'} · 生产代码=${item.selfCheck.productionCode || '未记录'} · 证据=${item.selfCheck.sufficientEvidence || '未记录'}`) : null, item.reviewNotes ? h('div', null, item.reviewNotes) : null))))
+        }
         return h('section', { className: 'dsec-view' },
           h('header', { className: 'dsec-head' }, h('span', { className: 'dsec-title' }, '代码审计报告'), h('span', { className: 'dsec-meta' }, `${reports.length} 份结构化报告`), h('button', { className: 'dsec-btn', onClick: refresh, disabled: loading }, '刷新')),
           h('div', { className: 'dsec-body dsec-report-list' }, error ? h('div', { className: 'dsec-error' }, error) : null,
@@ -472,9 +512,13 @@
                 h('div', { className: 'dsec-meta' }, report.summary),
                 h('div', { className: 'dsec-summary' }, Object.entries(report.counts || {}).map(([severity, count]) => h('div', { className: 'dsec-summary-card', key: severity }, h('span', { className: 'dsec-summary-number' }, count), h('span', { className: 'dsec-summary-label' }, labels[severity] || severity))),),
                 report.findings?.length ? h('div', { className: 'dsec-card' }, h('div', { className: 'dsec-card-title' }, '结构化发现（按 CVSS 3.1 降序）'), h('div', { style: { padding: '0 9px' } }, report.findings.map(finding => h('div', { className: 'dsec-finding', key: finding.id || finding.title }, h('div', { className: 'dsec-finding-title' }, `${String(finding.cvssSeverity || finding.severity || 'unknown').toUpperCase()}${finding.cvssScore == null ? '' : ` · CVSS ${finding.cvssScore}`} · ${finding.title || finding.id}`), h('div', { className: 'dsec-finding-meta' }, `${finding.status || 'candidate'} · ${finding.entry || finding.entryId || '未记录'} · ${finding.confidence || 'unknown'}${finding.cvssVector ? ` · ${finding.cvssVector}` : ''}`), finding.impact ? h('div', null, finding.impact) : null))),) : null,
+                report.coverage ? h('section', { className: 'dsec-card' }, h('div', { className: 'dsec-card-title' }, `API 覆盖率 ${report.coverage.percentage || 0}%`), h('div', { className: 'dsec-summary', style: { padding: '9px' } }, h('div', { className: 'dsec-summary-card' }, h('span', { className: 'dsec-summary-number' }, report.coverage.total || 0), h('span', { className: 'dsec-summary-label' }, 'API 总数')), h('div', { className: 'dsec-summary-card' }, h('span', { className: 'dsec-summary-number' }, report.coverage.covered || 0), h('span', { className: 'dsec-summary-label' }, '已覆盖')), h('div', { className: 'dsec-summary-card' }, h('span', { className: 'dsec-summary-number' }, report.coverage.uncovered || 0), h('span', { className: 'dsec-summary-label' }, '未覆盖'))), report.coverage.uncoveredEntries?.length ? h('div', { className: 'dsec-finding-meta', style: { padding: '0 9px 9px' } }, report.coverage.uncoveredEntries.map(item => `${item.method || ''} ${item.path || item.entryId || '未记录'}`).join('、')) : null) : null,
+                h(CandidateGroup, { title: '待复核项', items: report.reviewItems }),
+                h(CandidateGroup, { title: '已排除项', items: report.excludedItems }),
+                h(CandidateGroup, { title: '接受风险', items: report.acceptedRiskItems }),
                 h('div', { className: 'dsec-markdown' }, h(MarkdownText, { text: report.markdown || '' })),
               ),
-            )) : h('div', { className: 'dsec-empty' }, '尚未提交代码审计最终报告。请在 verifier 复核后调用 dsh_code_audit_report。'),
+            )) : h('div', { className: 'dsec-empty' }, '尚未提交代码审计最终报告。完成入口分析和候选整理后调用 dsh_code_audit_report。'),
             hasMore ? h('button', { className: 'dsec-btn', onClick: loadMore, disabled: loading }, loading ? '加载中…' : '加载更多报告') : null,
           ),
         )
