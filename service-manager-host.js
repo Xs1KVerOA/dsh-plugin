@@ -787,8 +787,21 @@ async function execRedis(connection, secrets, network, params) {
   } finally { await client.quit().catch(() => client.disconnect()) }
 }
 
+function databaseOptions(entries) {
+  return Object.fromEntries(entries.filter(([, value]) => value !== undefined))
+}
+
 function mysqlConfig(connection, secrets, network, database) {
-  return { host: network.host, port: network.port, user: connection.username || undefined, password: secrets.password || undefined, database: database || undefined, multipleStatements: false, connectTimeout: 15_000, ssl: connection.options.ssl ? tlsOptions(connection, connection.host) : undefined }
+  return databaseOptions([
+    ['host', network.host],
+    ['port', network.port],
+    ['user', connection.username || undefined],
+    ['password', secrets.password || undefined],
+    ['database', database || undefined],
+    ['multipleStatements', false],
+    ['connectTimeout', 15_000],
+    ['ssl', connection.options.ssl ? tlsOptions(connection, connection.host) : undefined],
+  ])
 }
 
 async function execMysql(connection, secrets, network, params) {
@@ -813,7 +826,15 @@ async function execMysql(connection, secrets, network, params) {
 }
 
 function pgConfig(connection, secrets, network, database) {
-  return { host: network.host, port: network.port, user: connection.username || undefined, password: secrets.password || undefined, database: database || 'postgres', connectionTimeoutMillis: 15_000, ssl: connection.options.ssl ? tlsOptions(connection, connection.host) : undefined }
+  return databaseOptions([
+    ['host', network.host],
+    ['port', network.port],
+    ['user', connection.username || undefined],
+    ['password', secrets.password || undefined],
+    ['database', database || 'postgres'],
+    ['connectionTimeoutMillis', 15_000],
+    ['ssl', connection.options.ssl ? tlsOptions(connection, connection.host) : undefined],
+  ])
 }
 
 async function execPostgres(connection, secrets, network, params) {
@@ -839,7 +860,16 @@ async function execPostgres(connection, secrets, network, params) {
 }
 
 function mssqlConfig(connection, secrets, network, database) {
-  return { server: network.host, port: network.port, user: connection.username || undefined, password: secrets.password || undefined, database: database || undefined, connectionTimeout: 15_000, requestTimeout: 120_000, options: { encrypt: Boolean(connection.options.ssl), trustServerCertificate: connection.options.tlsRejectUnauthorized === false } }
+  return databaseOptions([
+    ['server', network.host],
+    ['port', network.port],
+    ['user', connection.username || undefined],
+    ['password', secrets.password || undefined],
+    ['database', database || undefined],
+    ['connectionTimeout', 15_000],
+    ['requestTimeout', 120_000],
+    ['options', { encrypt: Boolean(connection.options.ssl), trustServerCertificate: connection.options.tlsRejectUnauthorized === false }],
+  ])
 }
 
 async function execMssql(connection, secrets, network, params) {
