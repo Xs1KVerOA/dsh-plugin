@@ -64,10 +64,10 @@
 .dsm-action{display:flex;align-items:center;gap:8px;width:100%;padding:7px 10px;border:0;border-radius:8px;background:transparent;color:inherit;cursor:pointer;font:inherit;text-align:left}
 .dsm-action:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(128,128,128,.14))}.dsm-action-icon{width:20px;text-align:center}.dsm-action-label{font-size:12.5px;color:var(--dsw-alias-state-business-primary,#3578e5);font-weight:600}
 .dsm-backdrop{position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.45);display:flex;align-items:stretch;justify-content:flex-end}
-.dsm-center-pane-layer{position:fixed;left:min(var(--dsh-sidebar-width,280px),100vw);right:0;top:0;bottom:0;z-index:24;display:flex;pointer-events:none}
+.dsm-center-pane-layer{position:fixed;left:min(var(--dsh-sidebar-width,280px),100vw);right:var(--dsh-host-right-panel-width,0px);top:0;bottom:0;z-index:24;display:flex;pointer-events:none}
 .dsm-center-pane-grid{--dsm-bg:#fff;--dsm-text:#1c1f26;--dsm-muted:#667085;--dsm-soft:#f6f8fb;--dsm-line:#e5e7eb;--dsm-accent:#3578e5;width:100%;height:100%;min-width:0;box-sizing:border-box;pointer-events:auto;background:var(--dsm-bg);border-left:1px solid var(--dsm-line);color:var(--dsm-text);box-shadow:-12px 0 30px rgba(15,23,42,.04)}
 .dsm-center-pane{display:flex;width:100%;height:100%;min-width:0;min-height:0;flex-direction:column;background:var(--dsm-bg);overflow:hidden;color:var(--dsm-text)}
-.dsm-center-pane-head{display:flex;align-items:center;gap:8px;flex:0 0 48px;padding:0 12px;border-bottom:1px solid var(--dsm-line,rgba(128,128,128,.18));background:var(--dsm-bg,#fff)}
+.dsm-center-pane-head{display:flex;align-items:center;gap:8px;flex:0 0 48px;padding:0 calc(12px + var(--dsh-host-toggle-width,0px)) 0 12px;border-bottom:1px solid var(--dsm-line,rgba(128,128,128,.18));background:var(--dsm-bg,#fff)}
 .dsm-center-pane-title{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:650}
 .dsm-center-pane-kind{flex:0 0 auto;color:var(--dsm-muted,#6b7280);font-size:10px}
 .dsm-center-pane-action{width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:6px;background:transparent;color:var(--dsm-muted,#6b7280);cursor:pointer;font-size:15px}
@@ -165,11 +165,15 @@
       let serverCatalogPromise = null
       let serverCatalogExpiresAt = 0
 
-      function serverAlias(connection) {
+      function serverAlias(connection, used = new Set()) {
         const name = String(connection.name || '').trim()
         const base = /^[A-Za-z0-9_-]+$/.test(name) ? name : String(connection.id)
-        const existing = serverByAlias.get(base)
-        return existing && String(existing.id) !== String(connection.id) ? `${base}_${connection.id}` : base
+        if (!used.has(base)) return base
+        const suffix = String(connection.id || 'connection')
+        let alias = `${base}_${suffix}`
+        let index = 2
+        while (used.has(alias)) alias = `${base}_${suffix}_${index++}`
+        return alias
       }
 
       function escapeXml(value) {
@@ -179,8 +183,10 @@
       function cacheServers(connections) {
         serverByAlias.clear()
         serverById.clear()
+        const used = new Set()
         for (const connection of connections || []) {
-          const alias = serverAlias(connection)
+          const alias = serverAlias(connection, used)
+          used.add(alias)
           const item = { ...connection, alias }
           serverByAlias.set(alias, item)
           serverById.set(String(connection.id), item)
@@ -201,14 +207,16 @@
 
       function serverReferenceMarkup(connection) {
         const endpoint = connection.host ? `${connection.host}${connection.port ? ':' + connection.port : ''}` : '本机'
-        return `<dsh-server-ref id="${escapeXml(connection.id)}" name="${escapeXml(connection.name)}" alias="${escapeXml(connection.alias || serverAlias(connection))}" type="${escapeXml(connection.type)}" transport="service-manager" tool="dsh_server_manage" credential-scope="dsh-credentials" endpoint="${escapeXml(endpoint)}" database="${escapeXml(connection.database || '')}" />`
+        const cached = serverById.get(String(connection.id))
+        const alias = connection.alias || cached?.alias || serverAlias(connection, new Set(serverByAlias.keys()))
+        return `<dsh-server-ref id="${escapeXml(connection.id)}" name="${escapeXml(connection.name)}" alias="${escapeXml(alias)}" type="${escapeXml(connection.type)}" transport="service-manager" tool="dsh_server_manage" credential-scope="dsh-credentials" endpoint="${escapeXml(endpoint)}" database="${escapeXml(connection.database || '')}" />`
       }
 
       function createServerInputSource() {
         const source = {
           trigger: '@',
-          name: 'server',
-          order: 10,
+          name: '服务连接',
+          order: 30,
           async candidates(_session, { query, signal }) {
             const servers = await refreshServers()
             if (signal.aborted) return []
@@ -231,12 +239,12 @@
           matchSpace(_session, token) {
             const connection = serverByAlias.get(String(token).slice(1))
             if (!connection) return undefined
-            return { insert: { source: 'server', ref: String(connection.id), label: connection.name, clipboardText: `@${connection.alias}` } }
+            return { insert: { source: '服务连接', ref: String(connection.id), label: connection.name, clipboardText: `@${connection.alias}` } }
           },
           onPick({ candidate }) {
             const connection = serverByAlias.get(candidate.name)
             if (!connection) return undefined
-            return { insert: { source: 'server', ref: String(connection.id), label: connection.name, clipboardText: `@${connection.alias}` } }
+            return { insert: { source: '服务连接', ref: String(connection.id), label: connection.name, clipboardText: `@${connection.alias}` } }
           },
           codec: {
             clipboardText(ref) {
@@ -245,7 +253,9 @@
             },
             async serialize(ref, signal) {
               const payload = await apiRequest({ op: 'reference', id: String(ref) }, signal)
-              const connection = { ...payload.connection, alias: serverAlias(payload.connection) }
+              const cached = serverById.get(String(payload.connection.id))
+              const used = new Set([...serverByAlias.entries()].filter(([, item]) => String(item.id) !== String(payload.connection.id)).map(([alias]) => alias))
+              const connection = { ...payload.connection, alias: cached?.alias || serverAlias(payload.connection, used) }
               serverByAlias.set(connection.alias, connection)
               serverById.set(String(connection.id), connection)
               return serverReferenceMarkup(connection)
@@ -462,19 +472,24 @@
         const [loading, setLoading] = useState(false)
         const [loadingTables, setLoadingTables] = useState(false)
         const [busy, setBusy] = useState(false)
+        const databaseRequestRef = useRef(0)
+        const tablesRequestRef = useRef(0)
 
         const loadDatabases = () => {
+          const requestId = ++databaseRequestRef.current
           setLoading(true); setError('')
           api({ op: 'exec', id: connection.id, params: { op: 'listDatabases' } }).then(value => {
+            if (requestId !== databaseRequestRef.current) return
             const items = resultDatabaseNames(value)
             setDatabases(items)
             setSelectedDatabase(current => current && (items.length === 0 || items.includes(current)) ? current : items[0] || connection.database || '')
-          }).catch(loadError => setError(loadError.message)).finally(() => setLoading(false))
+          }).catch(loadError => { if (requestId === databaseRequestRef.current) setError(loadError.message) }).finally(() => { if (requestId === databaseRequestRef.current) setLoading(false) })
         }
         const loadTables = database => {
-          if (!database) { setTables([]); return }
+          const requestId = ++tablesRequestRef.current
+          if (!database) { setTables([]); setLoadingTables(false); return }
           setLoadingTables(true); setError('')
-          api({ op: 'exec', id: connection.id, params: { op: 'listTables', database } }).then(value => setTables(resultTableNames(value))).catch(loadError => { setTables([]); setError(loadError.message) }).finally(() => setLoadingTables(false))
+          api({ op: 'exec', id: connection.id, params: { op: 'listTables', database } }).then(value => { if (requestId === tablesRequestRef.current) setTables(resultTableNames(value)) }).catch(loadError => { if (requestId === tablesRequestRef.current) { setTables([]); setError(loadError.message) } }).finally(() => { if (requestId === tablesRequestRef.current) setLoadingTables(false) })
         }
         const refreshSchema = () => { loadDatabases(); if (selectedDatabase) loadTables(selectedDatabase) }
         const run = params => {
@@ -537,14 +552,18 @@
         const [result, setResult] = useState(null)
         const [error, setError] = useState('')
         const [busy, setBusy] = useState(false)
+        const keysRequestRef = useRef(0)
+        const valueRequestRef = useRef(0)
         const databaseOptions = [...new Set([...Array.from({ length: 16 }, (_, index) => String(index)), database])].filter(Boolean)
         const loadKeys = () => {
+          const requestId = ++keysRequestRef.current
           setBusy(true); setError('')
-          api({ op: 'exec', id: connection.id, params: { op: 'listKeys', database, pattern } }).then(response => setKeys(response.items || [])).catch(loadError => setError(loadError.message)).finally(() => setBusy(false))
+          api({ op: 'exec', id: connection.id, params: { op: 'listKeys', database, pattern } }).then(response => { if (requestId === keysRequestRef.current) setKeys(response.items || []) }).catch(loadError => { if (requestId === keysRequestRef.current) setError(loadError.message) }).finally(() => { if (requestId === keysRequestRef.current) setBusy(false) })
         }
         const selectKey = key => {
+          const requestId = ++valueRequestRef.current
           setSelectedKey(key); setBusy(true); setError('')
-          api({ op: 'exec', id: connection.id, params: { op: 'getKey', database, key } }).then(response => { setResult(response); setValue(response.data == null ? '' : String(response.data)) }).catch(loadError => setError(loadError.message)).finally(() => setBusy(false))
+          api({ op: 'exec', id: connection.id, params: { op: 'getKey', database, key } }).then(response => { if (requestId === valueRequestRef.current) { setResult(response); setValue(response.data == null ? '' : String(response.data)) } }).catch(loadError => { if (requestId === valueRequestRef.current) setError(loadError.message) }).finally(() => { if (requestId === valueRequestRef.current) setBusy(false) })
         }
         const execute = params => {
           setBusy(true); setResult(null); setError('')
@@ -552,7 +571,7 @@
         }
         const saveKey = () => execute({ op: 'setKey', key: selectedKey, value })
         const deleteKey = () => execute({ op: 'delKey', key: selectedKey }).then(() => { setSelectedKey(''); setValue(''); loadKeys() })
-        useEffect(() => { loadKeys() }, [database])
+        useEffect(() => { setSelectedKey(''); setValue(''); setResult(null); loadKeys() }, [database])
         return h(React.Fragment, null,
           h(WorkspaceHeader, { connection, onBack, onEdit }),
           h(ServiceOverview, { connection, api }),
@@ -585,13 +604,16 @@
         const [result, setResult] = useState(null)
         const [error, setError] = useState('')
         const [busy, setBusy] = useState(false)
+        const indicesRequestRef = useRef(0)
         const loadIndices = () => {
+          const requestId = ++indicesRequestRef.current
           setBusy(true); setError('')
           api({ op: 'exec', id: connection.id, params: { op: 'listIndices' } }).then(response => {
+            if (requestId !== indicesRequestRef.current) return
             const items = Array.isArray(response.data) ? response.data.map(item => String(item.index || '')).filter(Boolean) : []
             setIndices(items)
             if (!index && items[0]) { setIndex(items[0]); setPath(`/${encodeURIComponent(items[0])}/_search`) }
-          }).catch(loadError => setError(loadError.message)).finally(() => setBusy(false))
+          }).catch(loadError => { if (requestId === indicesRequestRef.current) setError(loadError.message) }).finally(() => { if (requestId === indicesRequestRef.current) setBusy(false) })
         }
         const execute = () => {
           setBusy(true); setResult(null); setError('')
@@ -631,17 +653,22 @@
         const [result, setResult] = useState(null)
         const [error, setError] = useState('')
         const [busy, setBusy] = useState(false)
+        const databaseRequestRef = useRef(0)
+        const collectionsRequestRef = useRef(0)
         const loadDatabases = () => {
+          const requestId = ++databaseRequestRef.current
           setBusy(true); setError('')
           api({ op: 'exec', id: connection.id, params: { op: 'listDatabases' } }).then(response => {
+            if (requestId !== databaseRequestRef.current) return
             const items = Array.isArray(response.data?.databases) ? response.data.databases.map(item => String(item.name || '')).filter(Boolean) : []
             setDatabases(items); setDatabase(current => current && (items.length === 0 || items.includes(current)) ? current : items[0] || connection.database || '')
-          }).catch(loadError => setError(loadError.message)).finally(() => setBusy(false))
+          }).catch(loadError => { if (requestId === databaseRequestRef.current) setError(loadError.message) }).finally(() => { if (requestId === databaseRequestRef.current) setBusy(false) })
         }
         const loadCollections = db => {
-          if (!db) { setCollections([]); return }
+          const requestId = ++collectionsRequestRef.current
+          if (!db) { setCollections([]); setBusy(false); return }
           setBusy(true); setError('')
-          api({ op: 'exec', id: connection.id, params: { op: 'listCollections', database: db } }).then(response => setCollections(Array.isArray(response.data) ? response.data.map(item => String(item.name || '')).filter(Boolean) : [])).catch(loadError => { setCollections([]); setError(loadError.message) }).finally(() => setBusy(false))
+          api({ op: 'exec', id: connection.id, params: { op: 'listCollections', database: db } }).then(response => { if (requestId === collectionsRequestRef.current) setCollections(Array.isArray(response.data) ? response.data.map(item => String(item.name || '')).filter(Boolean) : []) }).catch(loadError => { if (requestId === collectionsRequestRef.current) { setCollections([]); setError(loadError.message) } }).finally(() => { if (requestId === collectionsRequestRef.current) setBusy(false) })
         }
         const executeFind = () => {
           if (!database || !collection) return
@@ -688,17 +715,22 @@
         const [result, setResult] = useState(null)
         const [error, setError] = useState('')
         const [busy, setBusy] = useState(false)
+        const keyspacesRequestRef = useRef(0)
+        const tablesRequestRef = useRef(0)
         const loadKeyspaces = () => {
+          const requestId = ++keyspacesRequestRef.current
           setBusy(true); setError('')
           api({ op: 'exec', id: connection.id, params: { op: 'listKeyspaces' } }).then(response => {
+            if (requestId !== keyspacesRequestRef.current) return
             const items = resultColumnIndex(response, /keyspace/i) >= 0 ? (response.rows || []).map(row => String(row?.[resultColumnIndex(response, /keyspace/i)] || '')).filter(Boolean) : []
             setKeyspaces(items); setKeyspace(current => current && (items.length === 0 || items.includes(current)) ? current : items[0] || connection.database || '')
-          }).catch(loadError => setError(loadError.message)).finally(() => setBusy(false))
+          }).catch(loadError => { if (requestId === keyspacesRequestRef.current) setError(loadError.message) }).finally(() => { if (requestId === keyspacesRequestRef.current) setBusy(false) })
         }
         const loadTables = ks => {
-          if (!ks) { setTables([]); return }
+          const requestId = ++tablesRequestRef.current
+          if (!ks) { setTables([]); setBusy(false); return }
           setBusy(true); setError('')
-          api({ op: 'exec', id: connection.id, params: { op: 'listTables', keyspace: ks } }).then(response => setTables(resultTableNames(response))).catch(loadError => { setTables([]); setError(loadError.message) }).finally(() => setBusy(false))
+          api({ op: 'exec', id: connection.id, params: { op: 'listTables', keyspace: ks } }).then(response => { if (requestId === tablesRequestRef.current) setTables(resultTableNames(response)) }).catch(loadError => { if (requestId === tablesRequestRef.current) { setTables([]); setError(loadError.message) } }).finally(() => { if (requestId === tablesRequestRef.current) setBusy(false) })
         }
         const run = params => {
           setBusy(true); setResult(null); setError('')
@@ -847,6 +879,8 @@
         const [terminalInput, setTerminalInput] = useState('')
         const [terminalBusy, setTerminalBusy] = useState(false)
         const terminalOutputRef = useRef(null)
+        const terminalIdRef = useRef('')
+        useEffect(() => { terminalIdRef.current = terminalId }, [terminalId])
         const terminalRequest = (operation, extra = {}) => api({ op: 'exec', id: connection.id, params: { op: operation, terminalId, ...extra } })
         const appendTerminal = value => {
           const text = normalizeTerminalText(value?.text)
@@ -882,8 +916,9 @@
           if (output) output.scrollTop = output.scrollHeight
         }, [terminalText])
         useEffect(() => () => {
-          if (terminalId) api({ op: 'exec', id: connection.id, params: { op: 'terminalClose', terminalId } }).catch(() => {})
-        }, [connection.id, terminalId])
+          const activeTerminalId = terminalIdRef.current
+          if (activeTerminalId) api({ op: 'exec', id: connection.id, params: { op: 'terminalClose', terminalId: activeTerminalId } }).catch(() => {})
+        }, [connection.id])
         return h('section', { className: 'dsm-ssh-terminal-panel' },
           h('div', { className: 'dsm-actions', style: { marginTop: 0 } },
             !terminalId ? h('button', { className: 'dsm-btn primary', disabled: terminalBusy, onClick: openTerminal }, terminalBusy ? '连接中…' : '打开远程终端') : h('button', { className: 'dsm-btn danger', onClick: closeTerminal }, '关闭终端'),

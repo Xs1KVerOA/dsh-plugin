@@ -19,6 +19,7 @@ test('client entry loads the default sidebar modules', async () => {
   assert.deepEqual([...definitions.keys()], [
     'dsh-resource-center',
     'dsh-resource-center-service-manager',
+    'dsh-resource-center-test',
   ])
 })
 
@@ -32,5 +33,13 @@ test('client entry loads workspace as a dependency of service-manager', async ()
   assert.deepEqual([...definitions.keys()], [
     'dsh-resource-center',
     'dsh-resource-center-service-manager',
+  ])
+})
+
+test('client entry loads workspace as a dependency of the Test module', async () => {
+  const definitions = await loadDefinitions(['test'])
+  assert.deepEqual([...definitions.keys()], [
+    'dsh-resource-center',
+    'dsh-resource-center-test',
   ])
 })

@@ -1,10 +1,12 @@
 import { apply as applyServiceManager } from './service-manager-host.js'
+import { applyWebTesting, TestConfig } from './test-host.js'
 
 export const name = 'dsh-resource-center'
 
-// The host route is only used for session-title persistence. All list data and
-// workspace grouping still come from the native DSH client stores.
+// Host routes persist session titles and serialize bounded session references.
+// All list data and workspace grouping still come from the native DSH client stores.
 export const inject = ['webServer', 'sessions', 'credentials', 'fs', 'tools']
+export const Config = TestConfig
 
 function json(res, status, body) {
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8' })
@@ -58,7 +60,21 @@ function contentSnippet(events, query) {
   return text.slice(start, end).replace(/\s+/g, ' ').trim()
 }
 
-export function apply(ctx) {
+function xmlEscape(value) {
+  return String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[character])
+}
+
+function xmlCdata(value) {
+  return `<![CDATA[${String(value ?? '').replaceAll(']]>', ']]]]><![CDATA[>')}]]>`
+}
+
+function sessionReferenceMarkup(session) {
+  const title = session?.displayTitle || session?.title || session?.id || '未命名会话'
+  const content = sessionText(session?.events || []).parts.join('\n').slice(0, 120000)
+  return `<dsh-session-ref id="${xmlEscape(session.id)}" title="${xmlEscape(title)}">\n${xmlCdata(content)}\n</dsh-session-ref>`
+}
+
+export function apply(ctx, config = {}) {
   const webServer = ctx.get('webServer')
   const sessions = ctx.get('sessions')
   const sessionTitle = ctx.get('sessionTitle')
@@ -110,5 +126,24 @@ export function apply(ctx) {
     },
   }), 'dsh-resource-center: content search route')
 
+  ctx.effect(() => webServer.register({
+    kind: 'exact',
+    path: '/api/dsh-resource-center/session-reference',
+    handler: async (req, res) => {
+      if (req.method !== 'POST') return json(res, 405, { ok: false, error: '仅支持 POST' })
+      try {
+        const body = await readJson(req)
+        const id = String(body?.id || '').trim()
+        if (!id) return json(res, 400, { ok: false, error: 'id 不能为空' })
+        const session = sessions && typeof sessions.get === 'function' ? sessions.get(id) : undefined
+        if (!session) return json(res, 404, { ok: false, error: '会话不存在' })
+        return json(res, 200, { ok: true, markup: sessionReferenceMarkup(session) })
+      } catch (error) {
+        return json(res, 400, { ok: false, error: error?.message || String(error) })
+      }
+    },
+  }), 'dsh-resource-center: session reference route')
+
   applyServiceManager(ctx)
+  applyWebTesting(ctx, config)
 }

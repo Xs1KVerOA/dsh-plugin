@@ -19,11 +19,23 @@
         // part of the selected sidebar module set.
         serviceManager = undefined
       }
+      let testModule
+      try {
+        testModule = require('dsh-resource-center-test')
+      } catch {
+        // Test is optional so the workspace can still be developed and loaded
+        // without the test sidebar module.
+        testModule = undefined
+      }
       const h = React.createElement
 
       const CSS = `
 .drc-dock{position:fixed;left:0;top:var(--dsh-sidebar-top,114px);width:var(--dsh-sidebar-rail-width,48px);height:calc(100vh - var(--dsh-sidebar-top,114px) - var(--dsh-sidebar-bottom,100px));z-index:24;display:flex;min-height:0;overflow:hidden;color:var(--dsw-alias-label-primary,#25282d);box-sizing:border-box;background:var(--dsw-alias-bg-layer-1,#fff);box-shadow:8px 0 24px rgba(22,35,55,.08);isolation:isolate;transition:width .16s ease}
 .drc-dock.drc-open{width:min(var(--dsh-sidebar-width,280px),100vw)}
+html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open{top:0;height:100vh;background:transparent;box-shadow:none;pointer-events:none}
+html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-rail{height:100%;padding-top:calc(var(--dsh-sidebar-top,114px) + 10px);background:transparent;border-right-color:transparent;pointer-events:none}
+html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-rail-button{pointer-events:auto}
+html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-events:auto}
 .drc-dock *{box-sizing:border-box}
 .drc-rail{width:var(--dsh-sidebar-rail-width,48px);flex:0 0 var(--dsh-sidebar-rail-width,48px);display:flex;flex-direction:column;align-items:center;padding:10px 0;border-right:1px solid var(--dsw-alias-border-l1,#e5e7eb);background:var(--dsw-alias-bg-layer-1,#fafbfc)}
 .drc-rail-button{position:relative;width:38px;height:38px;display:flex;align-items:center;justify-content:center;border:0;border-radius:9px;background:transparent;color:var(--dsw-alias-label-secondary,#7b818b);cursor:pointer;transition:background .15s,color .15s}
@@ -152,6 +164,134 @@
           if (!response.ok || result.ok === false) throw new Error(result.error || '重命名失败')
           return result
         })
+      }
+
+      function sessionSnapshot(sessions) {
+        try {
+          return sessions && sessions.list && typeof sessions.list.getSnapshot === 'function'
+            ? sessions.list.getSnapshot()
+            : { current: undefined, byId: {} }
+        } catch {
+          return { current: undefined, byId: {} }
+        }
+      }
+
+      function sessionTitle(session) {
+        return String(session?.displayTitle || session?.title || session?.id || '未命名会话').trim() || '未命名会话'
+      }
+
+      function sessionContent(value, state = { size: 0, parts: [] }) {
+        if (state.size >= 12000 || value == null) return state
+        if (typeof value === 'string') {
+          const part = value.slice(0, 12000 - state.size)
+          state.parts.push(part)
+          state.size += part.length
+          return state
+        }
+        if (Array.isArray(value)) {
+          for (const item of value) {
+            sessionContent(item, state)
+            if (state.size >= 12000) break
+          }
+          return state
+        }
+        if (typeof value === 'object') {
+          for (const item of Object.values(value)) {
+            sessionContent(item, state)
+            if (state.size >= 12000) break
+          }
+        }
+        return state
+      }
+
+      function sessionAlias(session, used) {
+        const id = String(session?.id || '')
+        const base = sessionTitle(session).replace(/[^\p{L}\p{N}_-]+/gu, '-').replace(/^-+|-+$/g, '').slice(0, 42) || `session-${id.slice(-6)}`
+        let alias = base
+        if (used.has(alias)) alias = `${base}-${id.slice(-6)}`
+        let index = 2
+        while (used.has(alias)) alias = `${base}-${index++}`
+        used.add(alias)
+        return alias
+      }
+
+      function createSessionInputSource(sessions) {
+        const aliases = new Map()
+        const listeners = new Set()
+        const rebuild = (currentId = '') => {
+          aliases.clear()
+          const used = new Set()
+          const snapshot = sessionSnapshot(sessions)
+          for (const session of Object.values(snapshot.byId || {})) {
+            if (!session || String(session.id) === String(currentId) || session.origin === 'subagent' || session.blank) continue
+            aliases.set(sessionAlias(session, used), session)
+          }
+          return snapshot
+        }
+        const resolve = ref => {
+          const snapshot = sessionSnapshot(sessions)
+          return snapshot.byId?.[String(ref)] || [...aliases.values()].find(session => String(session.id) === String(ref))
+        }
+        return {
+          trigger: '@',
+          name: '会话',
+          order: 1,
+          async candidates(session, { query, signal }) {
+            const snapshot = rebuild(session?.sessionId)
+            if (signal.aborted) return []
+            const needle = String(query || '').trim().toLocaleLowerCase()
+            return [...aliases.entries()]
+              .map(([alias, item]) => {
+                const content = sessionContent(item.events).parts.join(' ').replace(/\s+/g, ' ').trim()
+                return { alias, item, content }
+              })
+              .filter(({ alias, item, content }) => !needle || `${alias} ${sessionTitle(item)} ${item.id} ${content}`.toLocaleLowerCase().includes(needle))
+              .map(({ alias, item, content }) => ({
+                name: alias,
+                description: `${sessionTitle(item)} · ${String(item.id || '').slice(0, 12)}`,
+                icon: '◉',
+                hint: content ? `引用会话内容 · ${content.slice(0, 68)}` : '引用会话内容',
+              }))
+          },
+          warm(session) { rebuild(session?.sessionId) },
+          lexicon(session) { rebuild(session?.sessionId); return [...aliases.keys()] },
+          subscribeLexicon(_session, listener) {
+            listeners.add(listener)
+            const unsubscribe = sessions?.list && typeof sessions.list.subscribe === 'function' ? sessions.list.subscribe(() => { listeners.forEach(callback => callback()) }) : undefined
+            return () => { listeners.delete(listener); unsubscribe?.() }
+          },
+          matchSpace(session, token) {
+            rebuild(session?.sessionId)
+            const sessionItem = aliases.get(String(token).slice(1))
+            if (!sessionItem) return undefined
+            const alias = [...aliases.entries()].find(([, item]) => String(item.id) === String(sessionItem.id))?.[0] || `session-${String(sessionItem.id).slice(-6)}`
+            return { insert: { source: '会话', ref: String(sessionItem.id), label: sessionTitle(sessionItem), clipboardText: `@${alias}` } }
+          },
+          onPick({ candidate }) {
+            const sessionItem = aliases.get(candidate.name)
+            if (!sessionItem) return undefined
+            return { insert: { source: '会话', ref: String(sessionItem.id), label: sessionTitle(sessionItem), clipboardText: `@${candidate.name}` } }
+          },
+          codec: {
+            clipboardText(ref) {
+              const sessionItem = resolve(ref)
+              if (!sessionItem) return `@session-${String(ref).slice(-6)}`
+              const used = new Set()
+              const snapshot = sessionSnapshot(sessions)
+              for (const item of Object.values(snapshot.byId || {})) {
+                if (item && String(item.id) !== String(snapshot.current || '')) aliases.set(sessionAlias(item, used), item)
+              }
+              const alias = [...aliases.entries()].find(([, item]) => String(item.id) === String(ref))?.[0] || `session-${String(ref).slice(-6)}`
+              return `@${alias}`
+            },
+            async serialize(ref, signal) {
+              const response = await fetch('/api/dsh-resource-center/session-reference', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: String(ref) }), signal })
+              const result = await response.json().catch(() => ({}))
+              if (!response.ok || result.ok === false) throw new Error(result.error || '会话引用加载失败')
+              return result.markup
+            },
+          },
+        }
       }
 
       function WorkspaceTree(props) {
@@ -443,11 +583,23 @@
         const settingsRect = settings?.getBoundingClientRect?.()
         const dockBottom = settingsRect && settingsRect.top > top + 120 ? settingsRect.top - 56 : window.innerHeight - 100
         const bottom = Math.max(24, Math.round(window.innerHeight - dockBottom))
+        const hostToggleCluster = document.querySelector('.W-zNGW_toggleCluster')
+        const hostToggleRect = hostToggleCluster?.getBoundingClientRect?.()
+        const hostRightPanel = document.querySelector('.W-zNGW_panel')
+        const hostRightPanelRect = hostRightPanel?.getBoundingClientRect?.()
+        const hostRightPanelStyle = hostRightPanel ? getComputedStyle(hostRightPanel) : null
+        const rightPanelHidden = hostRightPanel?.classList?.contains?.('W-zNGW_panelHidden')
+        const rightPanelVisible = Boolean(!rightPanelHidden && hostRightPanelRect && hostRightPanelStyle && hostRightPanelStyle.visibility !== 'hidden' && hostRightPanelStyle.display !== 'none' && hostRightPanelRect.width > 0)
+        const rightPanelWidth = rightPanelVisible ? Math.max(0, Math.round(window.innerWidth - hostRightPanelRect.left)) : 0
+        const toggleWidth = hostToggleRect && hostToggleRect.width > 0 ? Math.round(hostToggleRect.width) : 0
         const style = document.documentElement.style
+        document.documentElement.dataset.dshSidebarCollapsed = collapsed ? 'true' : 'false'
         style.setProperty('--dsh-sidebar-width', `${width}px`)
         style.setProperty('--dsh-sidebar-top', `${top}px`)
         style.setProperty('--dsh-sidebar-bottom', `${bottom}px`)
         style.setProperty('--dsh-sidebar-rail-width', '48px')
+        style.setProperty('--dsh-host-right-panel-width', `${rightPanelWidth}px`)
+        style.setProperty('--dsh-host-toggle-width', `${toggleWidth}px`)
       }
 
       function setDockLayoutOpen() {
@@ -458,6 +610,10 @@
         if (typeof document === 'undefined' || typeof window === 'undefined' || !document.documentElement) return undefined
         let hostRootObserver
         let observedHostRoot
+        let hostRightPanelObserver
+        let observedHostRightPanel
+        let hostRightPanelContainerObserver
+        let observedHostRightPanelContainer
         const refreshHostRootObserver = () => {
           const hostRoot = document.querySelector('.hHd-Xa_root')
           if (hostRoot === observedHostRoot) return
@@ -468,12 +624,36 @@
             hostRootObserver.observe(hostRoot, { attributes: true, attributeFilter: ['class', 'style'] })
           }
         }
+        const refreshHostRightPanelObserver = () => {
+          const hostRightPanel = document.querySelector('.W-zNGW_panel')
+          if (hostRightPanel === observedHostRightPanel) return
+          hostRightPanelObserver?.disconnect()
+          hostRightPanelContainerObserver?.disconnect()
+          observedHostRightPanel = hostRightPanel
+          observedHostRightPanelContainer = hostRightPanel?.parentElement
+          if (hostRightPanel && typeof MutationObserver === 'function') {
+            hostRightPanelObserver = new MutationObserver(update)
+            hostRightPanelObserver.observe(hostRightPanel, { attributes: true, attributeFilter: ['class', 'style'] })
+            if (observedHostRightPanelContainer) {
+              hostRightPanelContainerObserver = new MutationObserver(update)
+              hostRightPanelContainerObserver.observe(observedHostRightPanelContainer, { attributes: true, attributeFilter: ['class', 'style'], subtree: true })
+            }
+          }
+        }
         const update = () => {
           refreshHostRootObserver()
+          refreshHostRightPanelObserver()
           syncHostLayoutMetrics()
         }
         update()
         window.addEventListener('resize', update)
+        const hostToggleClick = event => {
+          const target = event.target
+          if (!target || typeof target.closest !== 'function' || !target.closest('.W-zNGW_toggleCluster')) return
+          if (typeof requestAnimationFrame === 'function') requestAnimationFrame(update)
+          else setTimeout(update, 0)
+        }
+        document.addEventListener('click', hostToggleClick, true)
         const observers = []
         const observe = node => {
           if (!node || typeof ResizeObserver !== 'function') return
@@ -488,6 +668,8 @@
         observe(document.querySelector('.hHd-Xa_newSession'))
         const settings = [...(document.querySelectorAll?.('button') || [])].find(button => button.textContent.trim() === '设置')
         observe(settings)
+        observe(document.querySelector('.W-zNGW_toggleCluster'))
+        observe(document.querySelector('.W-zNGW_panel'))
         let bodyMutationObserver
         if (document.body && typeof MutationObserver === 'function') {
           bodyMutationObserver = new MutationObserver(update)
@@ -495,8 +677,11 @@
         }
         return () => {
           window.removeEventListener('resize', update)
+          document.removeEventListener('click', hostToggleClick, true)
           observers.forEach(observer => observer.disconnect())
           hostRootObserver?.disconnect()
+          hostRightPanelObserver?.disconnect()
+          hostRightPanelContainerObserver?.disconnect()
           bodyMutationObserver?.disconnect()
         }
       }
@@ -627,8 +812,13 @@
         const sidebar = createResourceCenterService()
         ctx.provide('resourceCenter', sidebar)
         ctx.provide('dshResourceCenter', sidebar)
+        const inputTriggers = ctx.get('inputTriggers')
+        if (inputTriggers) ctx.effect(() => inputTriggers.registerSource(createSessionInputSource(ctx.get('sessions'))), 'dsh-resource-center: @conversation source')
         if (serviceManager && typeof serviceManager.apply === 'function') {
           serviceManager.apply(ctx, { sidebar })
+        }
+        if (testModule && typeof testModule.apply === 'function') {
+          testModule.apply(ctx, { sidebar })
         }
         ctx.effect(() => {
           const style = document.createElement('style')

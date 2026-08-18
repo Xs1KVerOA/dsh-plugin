@@ -9,6 +9,10 @@
       registryKey: 'serviceManager',
       dependencies: ['workspace'],
     },
+    test: {
+      registryKey: 'test',
+      dependencies: ['workspace'],
+    },
   }
   const requestedModules = Array.isArray(global.__DSH_RESOURCE_CENTER_MODULES)
     ? global.__DSH_RESOURCE_CENTER_MODULES

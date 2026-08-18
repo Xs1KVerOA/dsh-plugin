@@ -1,7 +1,7 @@
 {
   "name": "dsh-resource-center",
   "version": "0.1.0",
-  "description": "DeepSeek Harness 的资源中心与服务管理侧栏",
+  "description": "DeepSeek Harness 的资源中心、服务管理与 Web 测试侧栏",
   "license": "MIT",
   "keywords": [
     "dsh",
@@ -10,6 +10,9 @@
     "resource-center",
     "workspace",
     "service-management",
+    "web-testing",
+    "mitm",
+    "web-fuzzer",
     "ssh",
     "database"
   ],
@@ -33,6 +36,7 @@
     "client.js",
     "client/",
     "scripts/build-client.js",
+    "test-host.js",
     "service-manager-host.js",
     "cordis.patch.yml",
     "README.md"
@@ -72,11 +76,12 @@
     "pg": "^8.0.0",
     "redis": "^4.0.0",
     "socks": "^2.8.0",
+    "schemastery": "^3.18.0",
     "ssh2": "^1.16.0"
   },
   "scripts": {
     "build:client": "node scripts/build-client.js",
-    "check": "npm run build:client -- --check && node --check index.js && node --check service-manager-host.js && node --check client/main.js && node --check client/modules/workspace/index.js && node --check client/modules/service-manager/index.js && node --check client.js",
+    "check": "npm run build:client -- --check && node --check index.js && node --check test-host.js && node --check service-manager-host.js && node --check client/main.js && node --check client/modules/workspace/index.js && node --check client/modules/service-manager/index.js && node --check client/modules/test/index.js && node --check client.js",
     "test": "npm run build:client -- --check && node --test test/*.test.js"
   }
 }
