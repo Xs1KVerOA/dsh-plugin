@@ -169,6 +169,104 @@ test('resource center owns an independent usage-stats route and records model/se
   assert.ok(saved.length >= 1)
 })
 
+test('usage stats migrates legacy files without discarding counters', async () => {
+  const routes = []
+  const saved = []
+  const bucket = () => ({ calls: 2, input: 10, cacheHit: 1, cacheMiss: 9, output: 20, cost: 0.1 })
+  const fs = {
+    async resolve() { return { displayPath: '/tmp/.dsh-resource-center-usage-stats.json' } },
+    async readText() {
+      return JSON.stringify({
+        total: bucket(),
+        byBand: { before: bucket(), afterPeak: bucket(), afterOffPeak: bucket() },
+        byModel: { flash: bucket(), pro: bucket(), other: bucket() },
+        updatedAt: 123,
+      })
+    },
+    async writeText(_target, text) { saved.push(JSON.parse(text)) },
+  }
+  const ctx = {
+    get(name) {
+      if (name === 'webServer') return { register(route) { routes.push(route); return () => {} } }
+      if (name === 'fs') return fs
+      if (name === 'sandboxPolicy') return { workspaceRoot: '/tmp', resolve() { return { workspaceRoot: '/tmp' } } }
+      return undefined
+    },
+    effect(factory) { factory() },
+    timeout(callback, milliseconds) {
+      const timer = setTimeout(callback, milliseconds)
+      timer.unref?.()
+      return () => clearTimeout(timer)
+    },
+  }
+  applyUsageStats(ctx)
+  await new Promise(resolve => setImmediate(resolve))
+  const route = routes.find(item => item.path === usageStatsPath)
+  let body
+  await route.handler({ method: 'GET', url: usageStatsPath }, {
+    writeHead() {},
+    end(value) { body = JSON.parse(value) },
+  })
+  assert.equal(body.stats.version, 1)
+  assert.equal(body.stats.total.calls, 2)
+  assert.equal(body.stats.meta.schemaVersion, 3)
+  assert.equal(body.stats.meta.sessionAttribution, false)
+  assert.ok(saved.length >= 1)
+})
+
+test('usage backfill shares one promise and can be cancelled', async () => {
+  const routes = []
+  const fs = {
+    async resolve() { return { displayPath: '/tmp/.dsh-resource-center-usage-stats.json' } },
+    async readText() {
+      return JSON.stringify({
+        version: 1,
+        total: { calls: 1, input: 1, cacheHit: 0, cacheMiss: 1, output: 1, cost: 0 },
+        byBand: { before: {}, afterPeak: {}, afterOffPeak: {} },
+        byModel: { flash: {}, pro: {}, other: {} },
+        meta: { schemaVersion: 3, sessionAttribution: true },
+      })
+    },
+    async writeText() {},
+  }
+  const ctx = {
+    get(name) {
+      if (name === 'webServer') return { register(route) { routes.push(route); return () => {} } }
+      if (name === 'fs') return fs
+      if (name === 'sandboxPolicy') return { workspaceRoot: '/tmp', resolve() { return { workspaceRoot: '/tmp' } } }
+      if (name === 'sessionQuery') return { async listSessions() { return [{ header: { id: 'slow-session' } }] }, async readSession() { await new Promise(() => {}) } }
+      return undefined
+    },
+    effect(factory) { factory() },
+    timeout(callback, milliseconds) {
+      const timer = setTimeout(callback, milliseconds)
+      timer.unref?.()
+      return () => clearTimeout(timer)
+    },
+  }
+  applyUsageStats(ctx)
+  await new Promise(resolve => setImmediate(resolve))
+  const route = routes.find(item => item.path === usageStatsPath)
+  let firstBody
+  let secondBody
+  const first = route.handler({ method: 'POST', url: `${usageStatsPath}?action=backfill` }, { writeHead() {}, end(value) { firstBody = JSON.parse(value) } })
+  const second = route.handler({ method: 'POST', url: `${usageStatsPath}?action=backfill` }, { writeHead() {}, end(value) { secondBody = JSON.parse(value) } })
+  await new Promise(resolve => setImmediate(resolve))
+  let running
+  await route.handler({ method: 'GET', url: usageStatsPath }, { writeHead() {}, end(value) { running = JSON.parse(value) } })
+  assert.equal(running.backfill.status, 'running')
+  let cleared
+  await route.handler({ method: 'POST', url: `${usageStatsPath}?action=clear` }, { writeHead() {}, end(value) { cleared = JSON.parse(value) } })
+  await Promise.all([first, second])
+  const firstResult = firstBody
+  const secondResult = secondBody
+  assert.equal(firstResult.ok, false)
+  assert.equal(secondResult.ok, false)
+  assert.equal(firstResult.cancelled, true)
+  assert.equal(secondResult.cancelled, true)
+  assert.equal(cleared.ok, true)
+})
+
 test('usage backfill excludes inherited fork seed events', () => {
   const inherited = { type: 'assistant/message', data: { usage: { inputTokens: 10 } } }
   const owned = { type: 'assistant/message', data: { usage: { inputTokens: 20 } } }
@@ -405,7 +503,7 @@ test('Fuzzer network settings support an HTTP proxy and validate TLS options', a
     assert.match(proxyAuth, /^Basic /)
     assert.equal(normalizeNetwork({ proxyUrl: 'socks5://127.0.0.1:1080', forceHttps: true }).forceHttps, true)
     assert.throws(() => normalizeNetwork({ cert: 'client-cert' }), /客户端证书和客户端私钥/)
-    assert.throws(() => normalizeNetwork({ interceptHttps: true }), /HTTPS 劫持需要配置 HTTP\/HTTPS MITM 代理/)
+    assert.equal('interceptHttps' in normalizeNetwork({ interceptHttps: true }), false)
   } finally {
     await new Promise(resolve => proxy.close(resolve))
   }
@@ -501,6 +599,23 @@ test('MITM keeps the configured auto-port separate from the active endpoint port
     const status = await callRuntimeApi(runtime, 'GET', '/api/dsh-web-testing/status')
     assert.equal(status.body.proxy.port, endpoint.port)
     assert.equal(status.body.mitm.listenPort, 0)
+  } finally {
+    await runtime.stopProxy()
+  }
+})
+
+test('MITM start and stop are serialized across concurrent callers', async () => {
+  const runtime = makeRuntime(normalizeConfig({ allowPrivateTargets: true }))
+  try {
+    const endpoints = await Promise.all([
+      runtime.startProxy({ host: '127.0.0.1', port: 0 }),
+      runtime.startProxy({ host: '127.0.0.1', port: 0 }),
+      runtime.startProxy({ host: '127.0.0.1', port: 0 }),
+    ])
+    assert.ok(endpoints.every(endpoint => endpoint.port === endpoints[0].port))
+    await Promise.all([runtime.stopProxy(), runtime.stopProxy(), runtime.stopProxy()])
+    const stopped = await callRuntimeApi(runtime, 'GET', '/api/dsh-web-testing/status')
+    assert.equal(stopped.body.proxy, null)
   } finally {
     await runtime.stopProxy()
   }

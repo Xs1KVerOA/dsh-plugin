@@ -13,16 +13,24 @@
         const MITM_API_BASE = '/api/dsh-web-testing'
         const MITM_BROWSER_ROUTE = `${MITM_API_BASE}/browser`
         const MITM_CONTROL_ATTR = 'data-dsh-resource-center-mitm-browser'
+        const MITM_PANEL_ATTR = 'data-dsh-resource-center-mitm-panel'
         const MITM_TARGET_ATTR = 'data-dsh-resource-center-mitm-target'
         const MITM_STYLE_ATTR = 'data-dsh-resource-center-mitm-style'
+        const RIGHT_PANEL_SELECTOR = '.W-zNGW_panel, .nArs4W_panel'
+        const RIGHT_TOGGLE_SELECTOR = '.W-zNGW_toggleCluster, .nArs4W_toggleCluster'
+        const RIGHT_PANEL_HIDDEN_CLASSES = ['W-zNGW_panelHidden', 'nArs4W_panelHidden']
+        const RIGHT_BROWSER_SELECTOR = '.W-zNGW_browser, .nArs4W_browser'
+        const RIGHT_BROWSER_BAR_SELECTOR = '.W-zNGW_browserBar, .nArs4W_browserBar'
+        const RIGHT_BROWSER_SANDBOX_SELECTOR = '.W-zNGW_sandboxStatus, .nArs4W_sandboxStatus'
+        const RIGHT_BROWSER_FRAME_SELECTOR = 'iframe.W-zNGW_browserFrame, iframe.nArs4W_browserFrame, iframe[title]'
 
         function rightPanelElement() {
-          return typeof document === 'undefined' ? null : document.querySelector('.W-zNGW_panel')
+          return typeof document === 'undefined' ? null : document.querySelector(RIGHT_PANEL_SELECTOR)
         }
 
         function rightPanelToggle() {
           if (typeof document === 'undefined') return null
-          const cluster = document.querySelector('.W-zNGW_toggleCluster')
+          const cluster = document.querySelector(RIGHT_TOGGLE_SELECTOR)
           if (!cluster) return null
           const buttons = [...cluster.querySelectorAll('button')]
           return buttons[buttons.length - 1] || null
@@ -32,23 +40,27 @@
           const panel = rightPanelElement()
           if (!panel) return false
           const style = typeof getComputedStyle === 'function' ? getComputedStyle(panel) : null
-          return !panel.classList.contains('W-zNGW_panelHidden')
+          return !RIGHT_PANEL_HIDDEN_CLASSES.some(className => panel.classList.contains(className))
             && style?.visibility !== 'hidden'
             && style?.display !== 'none'
             && panel.getBoundingClientRect().width > 0
         }
 
         function browserElement() {
-          return typeof document === 'undefined' ? null : document.querySelector('.W-zNGW_browser')
+          return typeof document === 'undefined' ? null : document.querySelector(RIGHT_BROWSER_SELECTOR)
         }
 
         function browserBarElement() {
-          return browserElement()?.querySelector('.W-zNGW_browserBar') || null
+          return browserElement()?.querySelector(RIGHT_BROWSER_BAR_SELECTOR) || null
+        }
+
+        function browserSandboxElement() {
+          return browserElement()?.querySelector(RIGHT_BROWSER_SANDBOX_SELECTOR) || null
         }
 
         function browserFrameElement() {
           const browser = browserElement()
-          return browser?.querySelector('iframe.W-zNGW_browserFrame, iframe[title]') || null
+          return browser?.querySelector(RIGHT_BROWSER_FRAME_SELECTOR) || null
         }
 
         function browserTarget(raw) {
@@ -90,6 +102,20 @@
 .dsh-resource-center-mitm-browser-toggle:disabled{cursor:wait}
 .dsh-resource-center-mitm-browser-toggle .dsh-resource-center-mitm-browser-dot{width:6px;height:6px;border-radius:50%;background:#aab4c1;box-shadow:0 0 0 2px rgba(170,180,193,.12)}
 .dsh-resource-center-mitm-browser-toggle.active .dsh-resource-center-mitm-browser-dot{background:#40b96d;box-shadow:0 0 0 2px rgba(64,185,109,.14)}
+.dsh-resource-center-mitm-browser-panel{display:flex;align-items:center;justify-content:space-between;gap:10px;flex:0 0 auto;min-height:56px;padding:8px 12px;border-bottom:1px solid #e6ebf2;background:linear-gradient(180deg,#fbfcfe,#f5f8fc);color:#344054;font:inherit}
+.dsh-resource-center-mitm-browser-panel .dsh-resource-center-mitm-browser-panel-copy{display:flex;align-items:center;gap:8px;min-width:0}
+.dsh-resource-center-mitm-browser-panel .dsh-resource-center-mitm-browser-panel-dot{width:8px;height:8px;flex:0 0 auto;border-radius:50%;background:#aab4c1;box-shadow:0 0 0 3px rgba(170,180,193,.12)}
+.dsh-resource-center-mitm-browser-panel.active .dsh-resource-center-mitm-browser-panel-dot{background:#40b96d;box-shadow:0 0 0 3px rgba(64,185,109,.14)}
+.dsh-resource-center-mitm-browser-panel .dsh-resource-center-mitm-browser-panel-text{display:flex;flex-direction:column;gap:2px;min-width:0}
+.dsh-resource-center-mitm-browser-panel .dsh-resource-center-mitm-browser-panel-title{font-size:12px;font-weight:600;line-height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dsh-resource-center-mitm-browser-panel .dsh-resource-center-mitm-browser-panel-meta{font-size:10px;line-height:14px;color:#8a96a6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dsh-resource-center-mitm-browser-panel .dsh-resource-center-mitm-browser-panel-action{height:28px;flex:0 0 auto;padding:0 10px;border:1px solid #cbd7e6;border-radius:6px;background:#fff;color:#3578e5;font:inherit;font-size:11px;line-height:26px;cursor:pointer;transition:background .15s,border-color .15s,color .15s,box-shadow .15s}
+.dsh-resource-center-mitm-browser-panel .dsh-resource-center-mitm-browser-panel-action:hover{background:#edf4ff;border-color:#8eb4ef}
+.dsh-resource-center-mitm-browser-panel.active .dsh-resource-center-mitm-browser-panel-action{border-color:#f0b6b6;background:#fff7f7;color:#c24141}
+.dsh-resource-center-mitm-browser-panel.active .dsh-resource-center-mitm-browser-panel-action:hover{background:#fff0f0;border-color:#e78b8b}
+.dsh-resource-center-mitm-browser-panel.busy{opacity:.75}
+.dsh-resource-center-mitm-browser-panel.error .dsh-resource-center-mitm-browser-panel-meta{color:#c24141}
+.dsh-resource-center-mitm-browser-panel .dsh-resource-center-mitm-browser-panel-action:disabled{cursor:wait;opacity:.7}
 `
           document.head?.appendChild(style)
         }
@@ -107,9 +133,14 @@
           let browserControlBar
           let browserControlButton
           let browserControlText
+          let browserControlPanel
+          let browserControlPanelButton
+          let browserControlPanelTitle
+          let browserControlPanelMeta
           let browserStyle
           let mitmSnapshot
           let mitmRefreshPromise
+          let mitmRefreshController
           let mitmBusy = false
           let mitmError = ''
 
@@ -120,9 +151,25 @@
             })
           }
 
+          const fetchWithTimeout = async (input, options = {}, timeoutMs = 10000) => {
+            const controller = typeof AbortController === 'function' ? new AbortController() : null
+            const parentSignal = options.signal
+            let timer
+            const abort = () => controller?.abort()
+            if (parentSignal?.aborted) abort()
+            else parentSignal?.addEventListener?.('abort', abort, { once: true })
+            if (controller) timer = setTimeout(() => controller.abort(), timeoutMs)
+            try {
+              return await fetch(input, { ...options, ...(controller ? { signal: controller.signal } : {}) })
+            } finally {
+              if (timer) clearTimeout(timer)
+              parentSignal?.removeEventListener?.('abort', abort)
+            }
+          }
+
           const requestMitm = async (path, options = {}) => {
             if (typeof fetch !== 'function') throw new Error('浏览器不支持 fetch')
-            const response = await fetch(`${MITM_API_BASE}/${String(path).replace(/^\/+/, '')}`, {
+            const response = await fetchWithTimeout(`${MITM_API_BASE}/${String(path).replace(/^\/+/, '')}`, {
               ...options,
               headers: { 'content-type': 'application/json', ...(options.headers || {}) },
             })
@@ -158,25 +205,50 @@
           }
 
           const updateBrowserControl = () => {
-            if (!browserControlButton) return
+            if (!browserControlButton && !browserControlPanelButton) return
             const active = browserMitmEnabled()
             const endpoint = mitmSnapshot?.proxy
             const endpointLabel = endpoint ? ` · ${endpoint.host}:${endpoint.port}` : ''
-            browserControlButton.classList.toggle('active', active)
-            browserControlButton.classList.toggle('busy', mitmBusy)
-            browserControlButton.disabled = mitmBusy
-            browserControlButton.setAttribute('aria-pressed', String(active))
-            browserControlButton.title = mitmError
+            const title = mitmError
               ? `MITM 监听错误：${mitmError}`
               : active
                 ? `已跟随资源中心 MITM 监听${endpointLabel}；点击停止`
                 : '跟随资源中心左侧 MITM 配置启动监听'
-            if (browserControlText) browserControlText.textContent = mitmBusy ? '连接中…' : active ? 'MITM 已开' : 'MITM 监听'
+            const label = mitmBusy ? '连接中…' : active ? 'MITM 已开' : 'MITM 监听'
+            const panelTitle = mitmError ? 'MITM 监听启动失败' : mitmBusy ? (active ? '正在停止 MITM 监听…' : '正在启动 MITM 监听…') : active ? 'MITM 监听已启动' : '启动共享 MITM 监听'
+            const panelMeta = mitmError || (active ? `跟随左侧配置${endpointLabel}` : '启动后自动使用左侧 MITM 配置')
+            const panelLabel = mitmBusy ? (active ? '停止中…' : '启动中…') : active ? '停止监听' : '启动监听'
+            const updateButton = (button, text, buttonTitle) => {
+              if (!button) return
+              if (button.classList.contains('active') !== active) button.classList.toggle('active', active)
+              if (button.classList.contains('busy') !== mitmBusy) button.classList.toggle('busy', mitmBusy)
+              if (button.disabled !== mitmBusy) button.disabled = mitmBusy
+              if (button.getAttribute('aria-pressed') !== String(active)) button.setAttribute('aria-pressed', String(active))
+              if (button.title !== buttonTitle) button.title = buttonTitle
+              const textNode = button.querySelector('.dsh-resource-center-mitm-browser-text')
+              if (textNode && textNode.textContent !== text) textNode.textContent = text
+            }
+            updateButton(browserControlButton, label, title)
+            if (browserControlPanel) {
+              if (browserControlPanel.classList.contains('active') !== active) browserControlPanel.classList.toggle('active', active)
+              if (browserControlPanel.classList.contains('busy') !== mitmBusy) browserControlPanel.classList.toggle('busy', mitmBusy)
+              if (browserControlPanel.classList.contains('error') !== Boolean(mitmError)) browserControlPanel.classList.toggle('error', Boolean(mitmError))
+            }
+            if (browserControlPanelTitle && browserControlPanelTitle.textContent !== panelTitle) browserControlPanelTitle.textContent = panelTitle
+            if (browserControlPanelMeta && browserControlPanelMeta.textContent !== panelMeta) browserControlPanelMeta.textContent = panelMeta
+            if (browserControlPanelButton) {
+              if (browserControlPanelButton.textContent !== panelLabel) browserControlPanelButton.textContent = panelLabel
+              if (browserControlPanelButton.disabled !== mitmBusy) browserControlPanelButton.disabled = mitmBusy
+              if (browserControlPanelButton.title !== title) browserControlPanelButton.title = title
+              if (browserControlPanelButton.getAttribute('aria-pressed') !== String(active)) browserControlPanelButton.setAttribute('aria-pressed', String(active))
+            }
           }
 
           const refreshMitmStatus = async ({ silent = false } = {}) => {
             if (mitmRefreshPromise) return mitmRefreshPromise
-            mitmRefreshPromise = requestMitm('status').then(result => {
+            const controller = typeof AbortController === 'function' ? new AbortController() : null
+            mitmRefreshController = controller
+            mitmRefreshPromise = requestMitm('status', controller ? { signal: controller.signal } : undefined).then(result => {
               mitmSnapshot = result
               mitmError = ''
               updateBrowserControl()
@@ -184,11 +256,15 @@
               notify()
               return result
             }).catch(error => {
+              if (error?.name === 'AbortError') return null
               mitmError = error?.message || String(error)
               updateBrowserControl()
               if (!silent) notify()
               return null
-            }).finally(() => { mitmRefreshPromise = undefined })
+            }).finally(() => {
+              if (mitmRefreshController === controller) mitmRefreshController = undefined
+              mitmRefreshPromise = undefined
+            })
             return mitmRefreshPromise
           }
 
@@ -224,8 +300,9 @@
           }
 
           const mountBrowserMitmControl = () => {
+            const browser = browserElement()
             const bar = browserBarElement()
-            if (!bar) return
+            if (!browser || !bar) return
             const changedBar = browserControlBar !== bar
             browserControlBar = bar
             installBrowserMitmStyle()
@@ -248,6 +325,38 @@
             }
             browserControlButton = button
             browserControlText = button.querySelector('.dsh-resource-center-mitm-browser-text')
+            let panel = browser.querySelector(`[${MITM_PANEL_ATTR}]`)
+            if (!panel) {
+              panel = document.createElement('section')
+              panel.className = 'dsh-resource-center-mitm-browser-panel'
+              panel.setAttribute(MITM_PANEL_ATTR, '')
+              panel.setAttribute('aria-label', 'MITM 监听控制')
+              const copy = document.createElement('div')
+              copy.className = 'dsh-resource-center-mitm-browser-panel-copy'
+              const dot = document.createElement('span')
+              dot.className = 'dsh-resource-center-mitm-browser-panel-dot'
+              dot.setAttribute('aria-hidden', 'true')
+              const text = document.createElement('div')
+              text.className = 'dsh-resource-center-mitm-browser-panel-text'
+              const title = document.createElement('strong')
+              title.className = 'dsh-resource-center-mitm-browser-panel-title'
+              const meta = document.createElement('span')
+              meta.className = 'dsh-resource-center-mitm-browser-panel-meta'
+              text.append(title, meta)
+              copy.append(dot, text)
+              const action = document.createElement('button')
+              action.type = 'button'
+              action.className = 'dsh-resource-center-mitm-browser-panel-action'
+              action.addEventListener('click', () => { void toggleMitm() })
+              panel.append(copy, action)
+              const sandbox = browserSandboxElement()
+              if (sandbox?.parentElement === browser) sandbox.after(panel)
+              else bar.after(panel)
+            }
+            browserControlPanel = panel
+            browserControlPanelButton = panel.querySelector('.dsh-resource-center-mitm-browser-panel-action')
+            browserControlPanelTitle = panel.querySelector('.dsh-resource-center-mitm-browser-panel-title')
+            browserControlPanelMeta = panel.querySelector('.dsh-resource-center-mitm-browser-panel-meta')
             updateBrowserControl()
             rewriteBrowserFrame()
             if (changedBar || !mitmSnapshot) void refreshMitmStatus({ silent: true })
@@ -264,16 +373,21 @@
             browserObserver = undefined
             browserPollTimer = undefined
             observedBrowser = browser
+            browserControlPanel?.remove()
             browserControlBar = undefined
             browserControlButton = undefined
             browserControlText = undefined
+            browserControlPanel = undefined
+            browserControlPanelButton = undefined
+            browserControlPanelTitle = undefined
+            browserControlPanelMeta = undefined
             if (!browser) return
             if (typeof MutationObserver === 'function') {
               browserObserver = new MutationObserver(() => {
                 mountBrowserMitmControl()
                 rewriteBrowserFrame()
               })
-              browserObserver.observe(browser, { childList: true, subtree: true, attributes: true, attributeFilter: ['src'] })
+              browserObserver.observe(browser, { childList: true, attributes: true, attributeFilter: ['src'] })
             }
             mountBrowserMitmControl()
             browserPollTimer = setInterval(() => { void refreshMitmStatus({ silent: true }); mountBrowserMitmControl() }, 1600)
@@ -287,7 +401,7 @@
               observedPanel = panel
               if (panel && typeof MutationObserver === 'function') {
                 panelObserver = new MutationObserver(() => { observeBrowser(); notify() })
-                panelObserver.observe(panel, { attributes: true, attributeFilter: ['class', 'style'], childList: true, subtree: true })
+                panelObserver.observe(panel, { attributes: true, attributeFilter: ['class', 'style'], childList: true })
               }
               if (panel && typeof ResizeObserver === 'function') {
                 resizeObserver = new ResizeObserver(notify)
@@ -361,12 +475,15 @@
             dispose() {
               disposed = true
               listeners.clear()
+              mitmRefreshController?.abort()
+              mitmRefreshController = undefined
               bodyObserver?.disconnect()
               panelObserver?.disconnect()
               resizeObserver?.disconnect()
               browserObserver?.disconnect()
               if (browserPollTimer) clearInterval(browserPollTimer)
               browserControlButton?.remove()
+              browserControlPanel?.remove()
               browserStyle?.remove()
               bodyObserver = undefined
               panelObserver = undefined
@@ -378,12 +495,16 @@
               browserControlBar = undefined
               browserControlButton = undefined
               browserControlText = undefined
+              browserControlPanel = undefined
+              browserControlPanelButton = undefined
+              browserControlPanelTitle = undefined
+              browserControlPanelMeta = undefined
             },
           }
 
           if (typeof document !== 'undefined' && document.body && typeof MutationObserver === 'function') {
             bodyObserver = new MutationObserver(() => { observePanel(); notify() })
-            bodyObserver.observe(document.body, { childList: true, subtree: true })
+            bodyObserver.observe(document.querySelector('.hHd-Xa_root') || document.body, { childList: true })
           }
           if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') window.addEventListener('resize', notify)
           const originalDispose = bridge.dispose

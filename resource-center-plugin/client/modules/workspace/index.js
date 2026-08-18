@@ -73,6 +73,20 @@
       const DSH_CENTER_BRAND_ICON = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(DSH_CENTER_BRAND_SVG)}`
       const CURRENT_SESSION_USAGE_PATH = '/api/dsh-resource-center/usage-stats'
 
+      function fetchWithTimeout(input, options = {}, timeoutMs = 12000) {
+        const controller = typeof AbortController === 'function' ? new AbortController() : null
+        const parentSignal = options.signal
+        let timer
+        const abort = () => controller?.abort()
+        if (parentSignal?.aborted) abort()
+        else parentSignal?.addEventListener?.('abort', abort, { once: true })
+        if (controller) timer = setTimeout(() => controller.abort(), timeoutMs)
+        return fetch(input, { ...options, ...(controller ? { signal: controller.signal } : {}) }).finally(() => {
+          if (timer) clearTimeout(timer)
+          parentSignal?.removeEventListener?.('abort', abort)
+        })
+      }
+
       function installDocumentBranding() {
         if (typeof document === 'undefined' || !document.head) return () => {}
         const previousTitle = document.title
@@ -92,7 +106,7 @@
         }
         sync()
         const observer = typeof MutationObserver === 'function' ? new MutationObserver(sync) : undefined
-        observer?.observe(document.head, { childList: true, subtree: true, characterData: true })
+        observer?.observe(document.head, { childList: true, characterData: true })
         return () => {
           observer?.disconnect()
           if (ownsBrandLink) brandLink.remove()
@@ -108,6 +122,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-rail{height:100%
 html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-rail-button{pointer-events:auto}
 html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-events:auto}
 .drc-dock *{box-sizing:border-box}
+.pI_x6G_frame.dsh-resource-center-right-inset .pI_x6G_centerCol{box-sizing:border-box;min-width:0;padding-right:var(--dsh-resource-center-right-width,0px)}
 .drc-rail{width:var(--dsh-resource-center-rail-width,48px);flex:0 0 var(--dsh-resource-center-rail-width,48px);display:flex;flex-direction:column;align-items:center;padding:10px 0;border-right:1px solid var(--dsw-alias-border-l1,#e5e7eb);background:var(--dsw-alias-bg-layer-1,#fafbfc)}
 .drc-rail-button{position:relative;width:38px;height:38px;display:flex;align-items:center;justify-content:center;border:0;border-radius:9px;background:transparent;color:var(--dsw-alias-label-secondary,#7b818b);cursor:pointer;transition:background .15s,color .15s}
 .drc-rail-button:hover{background:var(--dsw-alias-bg-layer-2,#f0f2f5);color:var(--dsw-alias-label-primary,#25282d)}
@@ -244,7 +259,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           const controller = typeof AbortController === 'function' ? new AbortController() : undefined
           requestController = controller
           try {
-            const response = await fetch(`${CURRENT_SESSION_USAGE_PATH}?sessionId=${encodeURIComponent(currentSessionId)}`, controller ? { signal: controller.signal } : undefined)
+            const response = await fetchWithTimeout(`${CURRENT_SESSION_USAGE_PATH}?sessionId=${encodeURIComponent(currentSessionId)}`, controller ? { signal: controller.signal } : undefined)
             const result = await response.json().catch(() => ({}))
             if (!response.ok || result.ok === false || currentSessionId !== nextSessionId) return
             usage = result.currentSession?.usage || usage
@@ -263,7 +278,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         if (store && typeof store.subscribe === 'function') unsubscribe = store.subscribe(onSessionChange)
         if (typeof MutationObserver === 'function') {
           observer = new MutationObserver(paint)
-          observer.observe(document.body, { childList: true, subtree: true })
+          observer.observe(document.querySelector('.hHd-Xa_root') || document.body, { childList: true })
         }
         if (typeof window !== 'undefined' && typeof window.setInterval === 'function') timer = window.setInterval(refresh, 10_000)
         void refresh()
@@ -337,7 +352,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
       }
 
       function requestRename(id, title) {
-        return fetch('/api/dsh-resource-center/rename-session', {
+        return fetchWithTimeout('/api/dsh-resource-center/rename-session', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ id, title }),
@@ -493,7 +508,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
             },
             async serialize(ref, signal) {
               if (!resolve(ref)) throw new Error('会话不存在或已归档，不能引用')
-              const response = await fetch('/api/dsh-resource-center/session-reference', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: String(ref) }), signal })
+              const response = await fetchWithTimeout('/api/dsh-resource-center/session-reference', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: String(ref) }), signal })
               const result = await response.json().catch(() => ({}))
               if (!response.ok || result.ok === false) throw new Error(result.error || '会话引用加载失败')
               return result.markup
@@ -552,7 +567,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           setSearching(true)
           setSearchError('')
           const timer = window.setTimeout(() => {
-            fetch('/api/dsh-resource-center/search-sessions', {
+            fetchWithTimeout('/api/dsh-resource-center/search-sessions', {
               method: 'POST',
               headers: { 'content-type': 'application/json' },
               body: JSON.stringify({ ids: searchableIds, query: query.trim() }),
@@ -791,9 +806,18 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         return [active, value => panelStore.set(value)]
       }
 
+      const HOST_RIGHT_PANEL_SELECTOR = '.W-zNGW_panel, .nArs4W_panel'
+      const HOST_RIGHT_TOGGLE_SELECTOR = '.W-zNGW_toggleCluster, .nArs4W_toggleCluster'
+      const HOST_RIGHT_PANEL_HIDDEN_CLASSES = ['W-zNGW_panelHidden', 'nArs4W_panelHidden']
+      const HOST_FRAME_SELECTOR = '.pI_x6G_frame'
+      const HOST_CENTER_SELECTOR = '.pI_x6G_centerCol'
+      const HOST_DETAILS_SELECTOR = '.pI_x6G_detailsCol'
+
       function syncHostLayoutMetrics() {
         if (typeof document === 'undefined' || typeof window === 'undefined' || !document.documentElement) return
         const hostRoot = document.querySelector('.hHd-Xa_root')
+        const hostFrame = document.querySelector(HOST_FRAME_SELECTOR)
+        const hostDetails = document.querySelector(HOST_DETAILS_SELECTOR)
         const hostColumn = document.querySelector('.pI_x6G_sidebarCol') || hostRoot
         const hostRect = hostColumn?.getBoundingClientRect?.()
         const collapsed = hostRoot?.classList?.contains?.('hHd-Xa_collapsed') || hostColumn?.classList?.contains?.('hHd-Xa_collapsed')
@@ -805,14 +829,17 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         const settingsRect = settings?.getBoundingClientRect?.()
         const dockBottom = settingsRect && settingsRect.top > top + 120 ? settingsRect.top - 56 : window.innerHeight - 100
         const bottom = Math.max(24, Math.round(window.innerHeight - dockBottom))
-        const hostToggleCluster = document.querySelector('.W-zNGW_toggleCluster')
+        const hostToggleCluster = document.querySelector(HOST_RIGHT_TOGGLE_SELECTOR)
         const hostToggleRect = hostToggleCluster?.getBoundingClientRect?.()
-        const hostRightPanel = document.querySelector('.W-zNGW_panel')
+        const hostRightPanel = document.querySelector(HOST_RIGHT_PANEL_SELECTOR)
         const hostRightPanelRect = hostRightPanel?.getBoundingClientRect?.()
         const hostRightPanelStyle = hostRightPanel ? getComputedStyle(hostRightPanel) : null
-        const rightPanelHidden = hostRightPanel?.classList?.contains?.('W-zNGW_panelHidden')
+        const rightPanelHidden = HOST_RIGHT_PANEL_HIDDEN_CLASSES.some(className => hostRightPanel?.classList?.contains?.(className))
         const rightPanelVisible = Boolean(!rightPanelHidden && hostRightPanelRect && hostRightPanelStyle && hostRightPanelStyle.visibility !== 'hidden' && hostRightPanelStyle.display !== 'none' && hostRightPanelRect.width > 0)
-        const rightPanelWidth = rightPanelVisible ? Math.max(0, Math.round(window.innerWidth - hostRightPanelRect.left)) : 0
+        const rightPanelWidth = rightPanelVisible
+          ? Math.max(0, Math.round(Math.min(window.innerWidth, hostRightPanelRect.right) - Math.max(0, hostRightPanelRect.left)))
+          : 0
+        const rightPanelNeedsInset = Boolean(rightPanelVisible && hostFrame && hostRightPanel && !hostDetails?.contains(hostRightPanel))
         const toggleWidth = hostToggleRect && hostToggleRect.width > 0 ? Math.round(hostToggleRect.width) : 0
         const style = document.documentElement.style
         document.documentElement.dataset.dshSidebarCollapsed = collapsed ? 'true' : 'false'
@@ -822,6 +849,9 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         style.setProperty('--dsh-resource-center-rail-width', '48px')
         style.setProperty('--dsh-resource-center-right-width', `${rightPanelWidth}px`)
         style.setProperty('--dsh-host-toggle-width', `${toggleWidth}px`)
+        hostFrame?.classList.toggle('dsh-resource-center-right-inset', rightPanelNeedsInset)
+        hostFrame?.style.setProperty('--dsh-resource-center-right-width', `${rightPanelNeedsInset ? rightPanelWidth : 0}px`)
+        if (hostFrame && !hostFrame.querySelector(HOST_CENTER_SELECTOR)) hostFrame.classList.remove('dsh-resource-center-right-inset')
       }
 
       function setDockLayoutOpen() {
@@ -834,8 +864,6 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         let observedHostRoot
         let hostRightPanelObserver
         let observedHostRightPanel
-        let hostRightPanelContainerObserver
-        let observedHostRightPanelContainer
         const refreshHostRootObserver = () => {
           const hostRoot = document.querySelector('.hHd-Xa_root')
           if (hostRoot === observedHostRoot) return
@@ -847,19 +875,13 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           }
         }
         const refreshHostRightPanelObserver = () => {
-          const hostRightPanel = document.querySelector('.W-zNGW_panel')
+          const hostRightPanel = document.querySelector(HOST_RIGHT_PANEL_SELECTOR)
           if (hostRightPanel === observedHostRightPanel) return
           hostRightPanelObserver?.disconnect()
-          hostRightPanelContainerObserver?.disconnect()
           observedHostRightPanel = hostRightPanel
-          observedHostRightPanelContainer = hostRightPanel?.parentElement
           if (hostRightPanel && typeof MutationObserver === 'function') {
             hostRightPanelObserver = new MutationObserver(update)
             hostRightPanelObserver.observe(hostRightPanel, { attributes: true, attributeFilter: ['class', 'style'] })
-            if (observedHostRightPanelContainer) {
-              hostRightPanelContainerObserver = new MutationObserver(update)
-              hostRightPanelContainerObserver.observe(observedHostRightPanelContainer, { attributes: true, attributeFilter: ['class', 'style'], subtree: true })
-            }
           }
         }
         const update = () => {
@@ -871,7 +893,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         window.addEventListener('resize', update)
         const hostToggleClick = event => {
           const target = event.target
-          if (!target || typeof target.closest !== 'function' || !target.closest('.W-zNGW_toggleCluster')) return
+          if (!target || typeof target.closest !== 'function' || !target.closest(HOST_RIGHT_TOGGLE_SELECTOR)) return
           if (typeof requestAnimationFrame === 'function') requestAnimationFrame(update)
           else setTimeout(update, 0)
         }
@@ -890,12 +912,12 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         observe(document.querySelector('.hHd-Xa_newSession'))
         const settings = [...(document.querySelectorAll?.('button') || [])].find(button => button.textContent.trim() === '设置')
         observe(settings)
-        observe(document.querySelector('.W-zNGW_toggleCluster'))
-        observe(document.querySelector('.W-zNGW_panel'))
-        let bodyMutationObserver
+        observe(document.querySelector(HOST_RIGHT_TOGGLE_SELECTOR))
+        observe(document.querySelector(HOST_RIGHT_PANEL_SELECTOR))
+        let hostStructureObserver
         if (document.body && typeof MutationObserver === 'function') {
-          bodyMutationObserver = new MutationObserver(update)
-          bodyMutationObserver.observe(document.body, { childList: true, subtree: true })
+          hostStructureObserver = new MutationObserver(update)
+          hostStructureObserver.observe(hostRoot || document.body, { childList: true })
         }
         return () => {
           window.removeEventListener('resize', update)
@@ -903,8 +925,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           observers.forEach(observer => observer.disconnect())
           hostRootObserver?.disconnect()
           hostRightPanelObserver?.disconnect()
-          hostRightPanelContainerObserver?.disconnect()
-          bodyMutationObserver?.disconnect()
+          hostStructureObserver?.disconnect()
         }
       }
 

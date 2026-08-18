@@ -116,8 +116,24 @@
         document.head.appendChild(style)
       }
 
+      async function fetchWithTimeout(input, options = {}, timeoutMs = 12000) {
+        const controller = typeof AbortController === 'function' ? new AbortController() : null
+        const parentSignal = options.signal
+        let timer
+        const abort = () => controller?.abort()
+        if (parentSignal?.aborted) abort()
+        else parentSignal?.addEventListener?.('abort', abort, { once: true })
+        if (controller) timer = setTimeout(() => controller.abort(), timeoutMs)
+        try {
+          return await fetch(input, { ...options, ...(controller ? { signal: controller.signal } : {}) })
+        } finally {
+          if (timer) clearTimeout(timer)
+          parentSignal?.removeEventListener?.('abort', abort)
+        }
+      }
+
       async function api(path, options) {
-        const response = await fetch('/api/dsh-web-testing/' + path.replace(/^\//, ''), {
+        const response = await fetchWithTimeout('/api/dsh-web-testing/' + path.replace(/^\//, ''), {
           ...options,
           headers: { 'content-type': 'application/json', ...(options && options.headers) },
         })
@@ -386,7 +402,6 @@
         const [key, setKey] = React.useState('')
         const [rejectUnauthorized, setRejectUnauthorized] = React.useState(true)
         const [forceHttps, setForceHttps] = React.useState(false)
-        const [interceptHttps, setInterceptHttps] = React.useState(false)
         const [result, setResult] = React.useState(null)
         const [selectedIndex, setSelectedIndex] = React.useState(null)
         const [selectedFlow, setSelectedFlow] = React.useState(null)
@@ -427,7 +442,6 @@
             key: String(spec?.key ?? key ?? ''),
             rejectUnauthorized: spec?.rejectUnauthorized ?? rejectUnauthorized,
             forceHttps: spec?.forceHttps ?? forceHttps,
-            interceptHttps: spec?.interceptHttps ?? interceptHttps,
           }
           const historyId = `history_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
           const createdAt = Date.now()
@@ -447,10 +461,10 @@
           } finally { setBusy(false) }
         }, [loadResult, historyInstanceId, historyInstanceLabel, setHistory])
 
-        const run = React.useCallback(() => execute({ raw, payloads, maxCases, concurrency, timeoutMs, proxyUrl, ca, cert, key, rejectUnauthorized, forceHttps, interceptHttps }), [raw, payloads, maxCases, concurrency, timeoutMs, proxyUrl, ca, cert, key, rejectUnauthorized, forceHttps, interceptHttps, execute])
+        const run = React.useCallback(() => execute({ raw, payloads, maxCases, concurrency, timeoutMs, proxyUrl, ca, cert, key, rejectUnauthorized, forceHttps }), [raw, payloads, maxCases, concurrency, timeoutMs, proxyUrl, ca, cert, key, rejectUnauthorized, forceHttps, execute])
 
         const reset = React.useCallback(() => {
-          setRaw(DEFAULT_RAW); setPayloads('{\n  "user": ["admin", "guest"]\n}'); setMaxCases('100'); setConcurrency('4'); setTimeoutMs('30000'); setProxyUrl(''); setCa(''); setCert(''); setKey(''); setRejectUnauthorized(true); setForceHttps(false); setInterceptHttps(false); setResult(null); setSelectedIndex(null); setSelectedFlow(null); setError('')
+          setRaw(DEFAULT_RAW); setPayloads('{\n  "user": ["admin", "guest"]\n}'); setMaxCases('100'); setConcurrency('4'); setTimeoutMs('30000'); setProxyUrl(''); setCa(''); setCert(''); setKey(''); setRejectUnauthorized(true); setForceHttps(false); setResult(null); setSelectedIndex(null); setSelectedFlow(null); setError('')
         }, [])
         const clearResult = React.useCallback(() => { setResult(null); setSelectedIndex(null); setSelectedFlow(null); setError('') }, [])
         const extractHistory = React.useCallback(entry => {
@@ -465,7 +479,6 @@
           setKey(entry?.network?.key || '')
           setRejectUnauthorized(entry?.network?.rejectUnauthorized !== false)
           setForceHttps(entry?.network?.forceHttps === true)
-          setInterceptHttps(entry?.network?.interceptHttps === true)
           setResult(null); setSelectedIndex(null); setSelectedFlow(null); setError(''); setHistoryOpen(false); setHistoryQuery('')
         }, [])
         const replayHistory = React.useCallback(entry => {
@@ -480,7 +493,6 @@
           setKey(entry?.network?.key || '')
           setRejectUnauthorized(entry?.network?.rejectUnauthorized !== false)
           setForceHttps(entry?.network?.forceHttps === true)
-          setInterceptHttps(entry?.network?.interceptHttps === true)
           setHistoryOpen(false); setHistoryQuery('')
           void execute({ ...entry, ...entry.network, replayOf: entry?.id })
         }, [execute])
@@ -496,17 +508,16 @@
           setKey(snapshot?.key || '')
           setRejectUnauthorized(snapshot?.rejectUnauthorized !== false)
           setForceHttps(snapshot?.forceHttps === true)
-          setInterceptHttps(snapshot?.interceptHttps === true)
           setResult(snapshot?.result || null); setSelectedIndex(snapshot?.selectedIndex ?? null); setSelectedFlow(snapshot?.selectedFlow || null); setError('')
         }, [])
-        const snapshot = React.useCallback(() => ({ raw, payloads, maxCases, concurrency, timeoutMs, proxyUrl, ca, cert, key, rejectUnauthorized, forceHttps, interceptHttps, result, selectedIndex, selectedFlow }), [raw, payloads, maxCases, concurrency, timeoutMs, proxyUrl, ca, cert, key, rejectUnauthorized, forceHttps, interceptHttps, result, selectedIndex, selectedFlow])
+        const snapshot = React.useCallback(() => ({ raw, payloads, maxCases, concurrency, timeoutMs, proxyUrl, ca, cert, key, rejectUnauthorized, forceHttps, result, selectedIndex, selectedFlow }), [raw, payloads, maxCases, concurrency, timeoutMs, proxyUrl, ca, cert, key, rejectUnauthorized, forceHttps, result, selectedIndex, selectedFlow])
         const clearHistory = React.useCallback(() => setHistory([]), [])
         const toggleHistory = React.useCallback(() => setHistoryOpen(open => !open), [])
-        return { raw, setRaw, payloads, setPayloads, maxCases, setMaxCases, concurrency, setConcurrency, timeoutMs, setTimeoutMs, proxyUrl, setProxyUrl, ca, setCa, cert, setCert, key, setKey, rejectUnauthorized, setRejectUnauthorized, forceHttps, setForceHttps, interceptHttps, setInterceptHttps, result, selectedIndex, selectedFlow, error, busy, loadingFlow, loadResult, run, reset, clearResult, history, historyQuery, setHistoryQuery, historyOpen, toggleHistory, clearHistory, extractHistory, replayHistory, restore, snapshot }
+        return { raw, setRaw, payloads, setPayloads, maxCases, setMaxCases, concurrency, setConcurrency, timeoutMs, setTimeoutMs, proxyUrl, setProxyUrl, ca, setCa, cert, setCert, key, setKey, rejectUnauthorized, setRejectUnauthorized, forceHttps, setForceHttps, result, selectedIndex, selectedFlow, error, busy, loadingFlow, loadResult, run, reset, clearResult, history, historyQuery, setHistoryQuery, historyOpen, toggleHistory, clearHistory, extractHistory, replayHistory, restore, snapshot }
       }
 
       function FuzzerConfigSidebar({ state }) {
-        const { payloads, setPayloads, maxCases, setMaxCases, concurrency, setConcurrency, timeoutMs, setTimeoutMs, proxyUrl, setProxyUrl, ca, setCa, cert, setCert, key, setKey, rejectUnauthorized, setRejectUnauthorized, forceHttps, setForceHttps, interceptHttps, setInterceptHttps } = state
+        const { payloads, setPayloads, maxCases, setMaxCases, concurrency, setConcurrency, timeoutMs, setTimeoutMs, proxyUrl, setProxyUrl, ca, setCa, cert, setCert, key, setKey, rejectUnauthorized, setRejectUnauthorized, forceHttps, setForceHttps } = state
         const caseCount = estimatePayloadCases(payloads, maxCases)
         return h('div', { className: 'dwt-sidebar-fuzzer-config', 'aria-label': 'Fuzzer 配置' },
           h('div', { className: 'dwt-fuzzer-sidebar-hero' },
@@ -531,8 +542,7 @@
               h(Field, { label: '客户端私钥（PEM）' }, h('textarea', { className: 'dwt-textarea dwt-network-pem', value: key, onChange: event => setKey(event.target.value), placeholder: '可选，与客户端证书同时配置' })),
               h('label', { className: 'dwt-checkbox-row' }, h('input', { type: 'checkbox', checked: !rejectUnauthorized, onChange: event => setRejectUnauthorized(!event.target.checked) }), '跳过 TLS 证书校验'),
               h('label', { className: 'dwt-checkbox-row' }, h('input', { type: 'checkbox', checked: forceHttps, onChange: event => setForceHttps(event.target.checked) }), '强制使用 HTTPS'),
-              h('label', { className: 'dwt-checkbox-row' }, h('input', { type: 'checkbox', checked: interceptHttps, onChange: event => setInterceptHttps(event.target.checked) }), '启用 HTTPS 劫持 / MITM'),
-              h('div', { className: 'dwt-config-note' }, 'HTTPS 劫持需要配置支持 CONNECT 和 HTTPS MITM 的 HTTP/HTTPS 代理，并信任该代理签发的 CA；内置 MITM 当前仅做 CONNECT 透传。'),
+              h('div', { className: 'dwt-config-note' }, '内置代理的 HTTPS CONNECT 只做 TCP 透传，不解密 HTTPS。需要解密时，请将请求发送到支持 MITM 的外部代理，并把它签发的 CA 填入上方配置。'),
             ),
           ),
           h('details', { className: 'dwt-config-section', open: true },
@@ -748,6 +758,7 @@
         const [responseHeadersText, setResponseHeadersText] = React.useState('{}')
         const loadedRef = React.useRef(false)
         const refreshInFlight = React.useRef(false)
+        const refreshController = React.useRef(null)
         const flowActionInFlight = React.useRef(false)
         const [savingConfig, setSavingConfig] = React.useState(false)
 
@@ -762,13 +773,29 @@
         const refresh = React.useCallback(async () => {
           if (refreshInFlight.current) return
           refreshInFlight.current = true
+          const controller = typeof AbortController === 'function' ? new AbortController() : null
+          refreshController.current = controller
           try {
-            const [nextStatus, nextFlows] = await Promise.all([api('status'), api('flows?limit=200')])
+            const requestOptions = controller ? { signal: controller.signal } : undefined
+            const [nextStatus, nextFlows] = await Promise.all([api('status', requestOptions), api('flows?limit=200', requestOptions)])
             setStatus(nextStatus); setFlows(nextFlows.flows || [])
             if (!loadedRef.current && nextStatus.mitm) { applyRemoteConfig(nextStatus.mitm); loadedRef.current = true }
-          } catch (cause) { setError(cause?.message || String(cause)) } finally { refreshInFlight.current = false }
+          } catch (cause) {
+            if (cause?.name !== 'AbortError') setError(cause?.message || String(cause))
+          } finally {
+            if (refreshController.current === controller) refreshController.current = null
+            refreshInFlight.current = false
+          }
         }, [applyRemoteConfig])
-        React.useEffect(() => { refresh(); const timer = window.setInterval(refresh, 1600); return () => window.clearInterval(timer) }, [refresh])
+        React.useEffect(() => {
+          refresh()
+          const timer = window.setInterval(refresh, 1600)
+          return () => {
+            window.clearInterval(timer)
+            refreshController.current?.abort()
+            refreshController.current = null
+          }
+        }, [refresh])
 
         const updateConfig = (key, value) => setConfig(current => ({ ...current, [key]: value }))
         const saveConfig = async () => {

@@ -412,9 +412,6 @@ export function normalizeNetwork(network = {}) {
   const cert = String(network.cert || '').trim()
   const key = String(network.key || '').trim()
   if ((cert && !key) || (!cert && key)) throw new Error('客户端证书和客户端私钥必须同时配置')
-  if (network.interceptHttps === true && (!proxy || !['http:', 'https:'].includes(proxy.protocol))) {
-    throw new Error('HTTPS 劫持需要配置 HTTP/HTTPS MITM 代理')
-  }
   return {
     proxyUrl,
     proxy,
@@ -423,7 +420,6 @@ export function normalizeNetwork(network = {}) {
     key: key || undefined,
     rejectUnauthorized: network.rejectUnauthorized !== false,
     forceHttps: network.forceHttps === true,
-    interceptHttps: network.interceptHttps === true,
   }
 }
 
@@ -1038,33 +1034,56 @@ function matchPath(pathname, suffix) {
 }
 
 export function makeRuntime(config) {
-  const state = { config, mitm: normalizeMitmConfig(), flows: [], rules: [], pending: new Map(), nextFlow: 1, server: undefined, endpoint: undefined }
+  const state = { config, mitm: normalizeMitmConfig(), flows: [], rules: [], pending: new Map(), nextFlow: 1, server: undefined, endpoint: undefined, proxyError: '' }
+  let startPromise
+  let stopPromise
 
   async function startProxy(options = {}) {
     if (state.server) return state.endpoint
-    const host = normalizeLoopbackHost(options.host || state.mitm.listenHost || config.listenHost)
-    const port = clampInt(options.port, state.mitm.listenPort ?? config.listenPort, 0, 65535)
-    const server = createHttpServer((req, res) => proxyRequest(state, req, res))
-    server.on('connect', (req, socket, head) => connectTunnel(state, req, socket, head))
-    await new Promise((resolve, reject) => {
-      const onError = error => { server.removeListener('listening', onListening); reject(error) }
-      const onListening = () => { server.removeListener('error', onError); resolve() }
-      server.once('error', onError)
-      server.once('listening', onListening)
-      server.listen({ host, port })
-    })
-    const address = server.address()
-    state.server = server
-    state.endpoint = { host, port: typeof address === 'object' && address ? address.port : port, protocol: 'http' }
-    return state.endpoint
+    if (stopPromise) await stopPromise
+    if (state.server) return state.endpoint
+    if (startPromise) return startPromise
+    const operation = (async () => {
+      const host = normalizeLoopbackHost(options.host || state.mitm.listenHost || config.listenHost)
+      const port = clampInt(options.port, state.mitm.listenPort ?? config.listenPort, 0, 65535)
+      const server = createHttpServer((req, res) => proxyRequest(state, req, res))
+      server.on('connect', (req, socket, head) => connectTunnel(state, req, socket, head))
+      try {
+        await new Promise((resolve, reject) => {
+          const onError = error => { server.removeListener('listening', onListening); reject(error) }
+          const onListening = () => { server.removeListener('error', onError); resolve() }
+          server.once('error', onError)
+          server.once('listening', onListening)
+          server.listen({ host, port })
+        })
+        const address = server.address()
+        state.server = server
+        state.endpoint = { host, port: typeof address === 'object' && address ? address.port : port, protocol: 'http' }
+        state.proxyError = ''
+        return state.endpoint
+      } catch (error) {
+        state.proxyError = String(error?.message || error)
+        try { server.close() } catch {}
+        throw error
+      }
+    })()
+    startPromise = operation
+    try { return await operation } finally { if (startPromise === operation) startPromise = undefined }
   }
 
   async function stopProxy() {
-    const server = state.server
-    state.server = undefined
-    state.endpoint = undefined
-    if (!server) return
-    await new Promise(resolve => server.close(() => resolve()))
+    if (stopPromise) return stopPromise
+    const operation = (async () => {
+      const pendingStart = startPromise
+      if (pendingStart) await pendingStart.catch(() => {})
+      const server = state.server
+      state.server = undefined
+      state.endpoint = undefined
+      if (!server) return
+      await new Promise(resolve => server.close(() => resolve()))
+    })()
+    stopPromise = operation
+    try { return await operation } finally { if (stopPromise === operation) stopPromise = undefined }
   }
 
   async function browserRoute(req, res, url) {
@@ -1147,7 +1166,7 @@ export function makeRuntime(config) {
   async function apiHandler(req, res) {
     const parsed = new URL(req.url || '/', 'http://dsh-web-testing.local')
     try {
-      if (parsed.pathname === '/api/dsh-web-testing/status') return json(res, 200, { ok: true, proxy: state.endpoint || null, flowCount: state.flows.length, pendingCount: state.pending.size, config: state.config, mitm: state.mitm })
+      if (parsed.pathname === '/api/dsh-web-testing/status') return json(res, 200, { ok: true, proxy: state.endpoint || null, proxyError: state.proxyError || null, flowCount: state.flows.length, pendingCount: state.pending.size, config: state.config, mitm: state.mitm })
       if (matchPath(parsed.pathname, 'config')) {
         if (req.method === 'GET') return json(res, 200, { ok: true, mitm: state.mitm })
         if (req.method !== 'POST') return json(res, 405, { ok: false, error: '仅支持 GET/POST' })
@@ -1241,7 +1260,7 @@ export function applyWebTesting(ctx, rawConfig = {}) {
         maxCases: { type: 'number', description: 'Maximum cases, capped at 500.' },
         concurrency: { type: 'number', description: 'Concurrent requests, capped at 16.' },
         timeoutMs: { type: 'number', description: 'Per-request timeout.' },
-        network: { type: 'object', additionalProperties: true, description: 'Optional network settings: proxyUrl (HTTP/HTTPS/SOCKS5), ca/cert/key PEM, rejectUnauthorized, forceHttps, and interceptHttps.' },
+        network: { type: 'object', additionalProperties: true, description: 'Optional network settings: proxyUrl (HTTP/HTTPS/SOCKS5), ca/cert/key PEM, rejectUnauthorized, and forceHttps. HTTPS CONNECT through the built-in proxy remains TCP passthrough.' },
       },
       output: {
         schema: { type: 'object', additionalProperties: true },
@@ -1270,7 +1289,7 @@ export function applyWebTesting(ctx, rawConfig = {}) {
       },
       async execute(args) {
         const action = String(args.action)
-        if (action === 'status') return { ok: true, proxy: runtime.state.endpoint || null, flowCount: runtime.state.flows.length, pendingCount: runtime.state.pending.size, config, mitm: runtime.state.mitm }
+        if (action === 'status') return { ok: true, proxy: runtime.state.endpoint || null, proxyError: runtime.state.proxyError || null, flowCount: runtime.state.flows.length, pendingCount: runtime.state.pending.size, config, mitm: runtime.state.mitm }
         if (action === 'start') return { ok: true, proxy: await runtime.startProxy({ host: args.host, port: args.port }) }
         if (action === 'stop') { await runtime.stopProxy(); return { ok: true } }
         if (action === 'clear') {
@@ -1311,8 +1330,16 @@ export function applyWebTesting(ctx, rawConfig = {}) {
   }
 
   ctx.effect(() => {
-    if (config.autoStart) void runtime.startProxy().catch(() => {})
-    return () => { void runtime.stopProxy() }
+    const autoStart = config.autoStart
+      ? runtime.startProxy().catch(error => {
+          runtime.state.proxyError = String(error?.message || error)
+          return undefined
+        })
+      : Promise.resolve()
+    return async () => {
+      await autoStart.catch(() => {})
+      await runtime.stopProxy()
+    }
   }, 'dsh-web-testing: proxy lifecycle')
 }
 

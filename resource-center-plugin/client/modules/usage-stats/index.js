@@ -10,7 +10,7 @@
       factory(require) {
         const React = require('react')
         const h = React.createElement
-        const { useEffect, useMemo, useState } = React
+        const { useEffect, useMemo, useRef, useState } = React
 
         const EMPTY_BUCKET = { calls: 0, input: 0, cacheHit: 0, cacheMiss: 0, output: 0, cost: 0 }
         const BAND_LABELS = {
@@ -60,8 +60,22 @@
           return typeof key === 'string' && key.length >= 10 ? key.slice(5) : key
         }
 
-        function requestStats() {
-          return fetch(USAGE_STATS_PATH).then(async response => {
+        function fetchWithTimeout(input, options = {}, timeoutMs = 12000) {
+          const controller = typeof AbortController === 'function' ? new AbortController() : null
+          const parentSignal = options.signal
+          let timer
+          const abort = () => controller?.abort()
+          if (parentSignal?.aborted) abort()
+          else parentSignal?.addEventListener?.('abort', abort, { once: true })
+          if (controller) timer = setTimeout(() => controller.abort(), timeoutMs)
+          return fetch(input, { ...options, ...(controller ? { signal: controller.signal } : {}) }).finally(() => {
+            if (timer) clearTimeout(timer)
+            parentSignal?.removeEventListener?.('abort', abort)
+          })
+        }
+
+        function requestStats(options) {
+          return fetchWithTimeout(USAGE_STATS_PATH, options).then(async response => {
             const body = await response.json().catch(() => ({}))
             if (!response.ok) throw new Error(body.error || '用量统计服务不可用')
             return body
@@ -168,19 +182,36 @@
           const [busy, setBusy] = useState(false)
           const [notice, setNotice] = useState('')
           const [confirmClear, setConfirmClear] = useState(false)
+          const refreshController = useRef(null)
 
-          const load = () => requestStats().then(value => { setData(value); setError('') }).catch(reason => setError(reason?.message || String(reason)))
+          const load = () => {
+            refreshController.current?.abort()
+            const controller = typeof AbortController === 'function' ? new AbortController() : null
+            refreshController.current = controller
+            return requestStats(controller ? { signal: controller.signal } : undefined)
+              .then(value => { setData(value); setError(''); return value })
+              .catch(reason => { if (reason?.name !== 'AbortError') setError(reason?.message || String(reason)); return null })
+              .finally(() => { if (refreshController.current === controller) refreshController.current = null })
+          }
           useEffect(() => {
             let alive = true
-            const refresh = () => requestStats().then(value => { if (alive) { setData(value); setError('') } }).catch(reason => { if (alive) setError(reason?.message || String(reason)) })
+            const refresh = () => {
+              refreshController.current?.abort()
+              const controller = typeof AbortController === 'function' ? new AbortController() : null
+              refreshController.current = controller
+              requestStats(controller ? { signal: controller.signal } : undefined)
+                .then(value => { if (alive) { setData(value); setError('') } })
+                .catch(reason => { if (alive && reason?.name !== 'AbortError') setError(reason?.message || String(reason)) })
+                .finally(() => { if (refreshController.current === controller) refreshController.current = null })
+            }
             refresh()
             const timer = window.setInterval(refresh, 10000)
-            return () => { alive = false; window.clearInterval(timer) }
+            return () => { alive = false; window.clearInterval(timer); refreshController.current?.abort(); refreshController.current = null }
           }, [])
 
           const action = (name, successText) => {
             setBusy(true)
-            fetch(USAGE_STATS_PATH + '?action=' + name, { method: 'POST' }).then(async response => {
+            fetchWithTimeout(USAGE_STATS_PATH + '?action=' + name, { method: 'POST' }).then(async response => {
               const body = await response.json().catch(() => ({}))
               if (!response.ok || body.ok === false) throw new Error(body.error || '操作失败')
               setNotice(successText)
@@ -192,7 +223,12 @@
           const stats = data?.stats && data.stats.total ? data.stats : null
           const total = safeBucket(stats?.total)
           const meta = stats?.meta || {}
-          const backfillText = meta.lastBackfillAt ? '已回填 ' + (meta.lastBackfillFound || 0) + ' 条历史调用' : '首次启用后自动记录'
+          const backfill = data?.backfill || {}
+          const backfillText = backfill.status === 'running'
+            ? '正在回填 ' + (backfill.sessions || 0) + '/' + (backfill.totalSessions || '…') + ' 个会话'
+            : backfill.status === 'failed'
+              ? '回填失败：' + (backfill.error || '请重试')
+              : meta.lastBackfillAt ? '已回填 ' + (meta.lastBackfillFound || 0) + ' 条历史调用' : '首次启用后自动记录'
 
           return h('div', { className: 'dus-panel' },
             h('header', { className: 'dus-head' },
@@ -202,6 +238,7 @@
             h('div', { className: 'dus-body' },
               error ? h('div', { className: 'dus-error' }, error === '用量统计服务不可用' ? '资源中心用量统计服务不可用，请检查 Host 模块是否已加载。' : error) : null,
               notice ? h('div', { className: 'dus-notice' }, notice) : null,
+              backfill.status === 'running' ? h('div', { className: 'dus-notice' }, '历史用量正在后台回填，实时调用会暂存并在完成后合并。') : null,
               !stats ? h('div', { className: 'dus-section' }, h('div', { className: 'dus-empty' }, error ? '无法读取统计数据' : '正在读取统计数据…')) : h(React.Fragment, null,
                 h('div', { className: 'dus-card-grid' },
                   h(StatCard, { label: '总费用', value: fmtCost(total.cost), sub: backfillText, cost: true }),

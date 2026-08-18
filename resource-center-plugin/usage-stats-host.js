@@ -102,8 +102,11 @@ function add(target, entry) {
 function roundCost(value) { return Math.round(value * 1e6) / 1e6 }
 
 function normalizeLoadedStats(value) {
-  if (!value || value.version !== 1 || !value.total || !value.byBand || !value.byModel) return null
-  const stats = value
+  if (!value || typeof value !== 'object' || !value.total || !value.byBand || !value.byModel) return null
+  // Version 0 files were written before the explicit version field existed.
+  // Keep their counters and let the normal schema migration/backfill path add
+  // session attribution and the current metadata without discarding history.
+  const stats = { ...value, version: 1 }
   for (const key of ['total', 'byBand.before', 'byBand.afterPeak', 'byBand.afterOffPeak', 'byModel.flash', 'byModel.pro', 'byModel.other']) {
     const [parent, child] = key.split('.')
     if (child) stats[parent][child] = { ...bucket(), ...(stats[parent][child] || {}) }
@@ -112,6 +115,10 @@ function normalizeLoadedStats(value) {
   if (!stats.meta || typeof stats.meta !== 'object') stats.meta = {}
   if (typeof stats.meta.schemaVersion !== 'number') stats.meta.schemaVersion = 0
   if (typeof stats.meta.sessionAttribution !== 'boolean') stats.meta.sessionAttribution = false
+  if (typeof stats.meta.liveSince !== 'number') stats.meta.liveSince = 0
+  if (typeof stats.meta.lastBackfillAt !== 'number') stats.meta.lastBackfillAt = 0
+  if (typeof stats.meta.lastBackfillSessions !== 'number') stats.meta.lastBackfillSessions = 0
+  if (typeof stats.meta.lastBackfillFound !== 'number') stats.meta.lastBackfillFound = 0
   if (!stats.bySession || typeof stats.bySession !== 'object') stats.bySession = {}
   if (!stats.byModelName || typeof stats.byModelName !== 'object') stats.byModelName = {}
   if (!stats.byDay || typeof stats.byDay !== 'object') stats.byDay = {}
@@ -143,6 +150,10 @@ export function applyUsageStats(ctx) {
   let statsFile = null
   let savePromise = null
   let saveScheduled = false
+  const backfill = { status: 'idle', startedAt: 0, completedAt: 0, sessions: 0, totalSessions: 0, found: 0, failed: 0, error: '', cancelRequested: false }
+  let backfillPromise = null
+  let backfillController = null
+  const pendingLiveEvents = []
   const diag = { statsFile: null, writeRoot: null, lastError: '', attempts: [] }
   let fullPolicy = null
   let sessionRoot = null
@@ -233,7 +244,7 @@ export function applyUsageStats(ctx) {
     ctx.timeout(() => { saveScheduled = false; saveNow() }, 1500)
   }
 
-  function recordUsage(modelName, usage, timestamp, sessionId) {
+  function applyUsage(targetStats, modelName, usage, timestamp, sessionId, persist = true) {
     const model = classifyModel(modelName)
     const band = bandOf(timestamp)
     const price = PRICING[band]?.[model] || { hit: 0, miss: 0, out: 0 }
@@ -245,77 +256,161 @@ export function applyUsageStats(ctx) {
       output: usage.output,
       cost: roundCost((usage.cacheHit * price.hit + usage.cacheMiss * price.miss + usage.output * price.out) / 1e6),
     }
-    add(stats.total, entry)
-    add(stats.byBand[band], entry)
-    add(stats.byModel[model], entry)
+    add(targetStats.total, entry)
+    add(targetStats.byBand[band], entry)
+    add(targetStats.byModel[model], entry)
     const exactModel = typeof modelName === 'string' && modelName.trim() ? modelName.trim() : 'unknown'
-    if (!stats.byModelName[exactModel]) stats.byModelName[exactModel] = bucket()
-    add(stats.byModelName[exactModel], entry)
+    if (!targetStats.byModelName[exactModel]) targetStats.byModelName[exactModel] = bucket()
+    add(targetStats.byModelName[exactModel], entry)
     const id = typeof sessionId === 'string' && sessionId ? sessionId : 'unknown'
-    if (!stats.bySession[id]) stats.bySession[id] = sessionBucket()
-    const session = stats.bySession[id]
+    if (!targetStats.bySession[id]) targetStats.bySession[id] = sessionBucket()
+    const session = targetStats.bySession[id]
     add(session, entry)
     session.lastAt = Math.max(session.lastAt || 0, timestamp)
     const parts = beijingParts(timestamp)
-    if (!stats.byDay[parts.date]) stats.byDay[parts.date] = bucket()
-    add(stats.byDay[parts.date], entry)
+    if (!targetStats.byDay[parts.date]) targetStats.byDay[parts.date] = bucket()
+    add(targetStats.byDay[parts.date], entry)
     const hourKey = parts.date + ' ' + pad(parts.hour)
-    if (!stats.byHour[hourKey]) stats.byHour[hourKey] = bucket()
-    add(stats.byHour[hourKey], entry)
-    stats.recent.unshift({ ts: timestamp, time: parts.time, model: modelName, modelKey: model, band, sessionId: id, ...entry })
-    if (stats.recent.length > 100) stats.recent.length = 100
-    stats.updatedAt = timestamp
-    scheduleSave()
+    if (!targetStats.byHour[hourKey]) targetStats.byHour[hourKey] = bucket()
+    add(targetStats.byHour[hourKey], entry)
+    targetStats.recent.unshift({ ts: timestamp, time: parts.time, model: modelName, modelKey: model, band, sessionId: id, ...entry })
+    if (targetStats.recent.length > 100) targetStats.recent.length = 100
+    targetStats.updatedAt = Math.max(targetStats.updatedAt || 0, timestamp)
+    if (persist) scheduleSave()
   }
 
-  function withTimeout(promise, milliseconds, label) {
+  function recordUsage(modelName, usage, timestamp, sessionId) {
+    const event = { modelName, usage: { ...usage }, timestamp, sessionId }
+    if (backfill.status === 'running') {
+      pendingLiveEvents.push(event)
+      return
+    }
+    applyUsage(stats, modelName, usage, timestamp, sessionId)
+  }
+
+  function backfillSnapshot() { return { ...backfill } }
+
+  function throwIfBackfillCancelled(signal) {
+    if (signal?.aborted || backfill.cancelRequested) {
+      const error = new Error('backfill cancelled')
+      error.name = 'AbortError'
+      throw error
+    }
+  }
+
+  function withTimeout(promise, milliseconds, label, signal) {
     let cancel
+    let abort
     const timeout = new Promise((resolve, reject) => { cancel = ctx.timeout(() => reject(new Error('timeout ' + label)), milliseconds) })
-    const result = Promise.race([promise, timeout])
-    result.then(() => cancel?.(), () => cancel?.())
+    const cancelled = new Promise((resolve, reject) => {
+      abort = () => { const error = new Error('backfill cancelled'); error.name = 'AbortError'; reject(error) }
+      if (signal?.aborted || backfill.cancelRequested) abort()
+      else signal?.addEventListener?.('abort', abort, { once: true })
+    })
+    const result = Promise.race([promise, timeout, cancelled])
+    result.then(() => cancel?.(), () => cancel?.()).finally(() => signal?.removeEventListener?.('abort', abort))
     return result
   }
 
-  async function backfillStats() {
-    if (!sessionQuery?.listSessions || !sessionQuery?.readSession) return { ok: false, error: 'session query service unavailable' }
-    let records
-    try { records = await withTimeout(sessionQuery.listSessions(), 60000, 'listSessions') } catch (error) { return { ok: false, error: 'listSessions 失败：' + safeMessage(error) } }
-    let sessions = 0
-    let found = 0
-    let failed = 0
-    for (const record of records || []) {
-      const id = typeof record?.header?.id === 'string' ? record.header.id : null
-      if (!id) continue
-      let snapshot
-      try { snapshot = await withTimeout(sessionQuery.readSession(id), 20000, 'readSession') } catch { failed++; continue }
-      sessions++
-      let model = 'unknown'
-      for (const event of getOwnedSessionEvents(snapshot)) {
-        if (event?.type === 'request/header') {
-          const value = event.data?.header?.config?.model
-          if (typeof value === 'string' && value) model = value
-        }
-        if (event?.type !== 'assistant/message') continue
-        const usage = normalizeUsage(event.data?.usage)
-        if (!usage) continue
-        found++
-        recordUsage(model, usage, typeof event.time === 'number' ? event.time : Date.now(), id)
-      }
-      try {
-        const title = await withTimeout(sessionQuery.readTitle?.(id), 10000, 'readTitle')
-        if (title?.title && stats.bySession[id]) stats.bySession[id].title = title.title
-      } catch {
-        // Titles are optional and do not affect usage totals.
-      }
+  async function runBackfill(signal) {
+    const nextStats = emptyStats()
+    const finish = (status, error = '') => {
+      backfill.status = status
+      backfill.completedAt = Date.now()
+      backfill.error = error
+      backfill.cancelRequested = false
+      return backfillSnapshot()
     }
-    stats.recent.sort((a, b) => b.ts - a.ts)
-    stats.meta.lastBackfillAt = Date.now()
-    stats.meta.lastBackfillSessions = sessions
-    stats.meta.lastBackfillFound = found
-    stats.meta.sessionAttribution = true
-    stats.meta.schemaVersion = 3
-    await saveNow()
-    return { ok: true, sessions, found, failed }
+    const replayLiveEvents = target => {
+      for (const event of pendingLiveEvents) applyUsage(target, event.modelName, event.usage, event.timestamp, event.sessionId, false)
+      pendingLiveEvents.length = 0
+    }
+    backfill.status = 'running'
+    backfill.startedAt = Date.now()
+    backfill.completedAt = 0
+    backfill.sessions = 0
+    backfill.totalSessions = 0
+    backfill.found = 0
+    backfill.failed = 0
+    backfill.error = ''
+    try {
+      if (!sessionQuery?.listSessions || !sessionQuery?.readSession) throw new Error('session query service unavailable')
+      throwIfBackfillCancelled(signal)
+      const records = await withTimeout(sessionQuery.listSessions(), 60000, 'listSessions', signal)
+      backfill.totalSessions = Array.isArray(records) ? records.length : 0
+      for (const record of records || []) {
+        throwIfBackfillCancelled(signal)
+        const id = typeof record?.header?.id === 'string' ? record.header.id : null
+        if (!id) continue
+        let snapshot
+        try { snapshot = await withTimeout(sessionQuery.readSession(id), 20000, 'readSession', signal) } catch (error) {
+          if (error?.name === 'AbortError') throw error
+          backfill.failed++
+          continue
+        }
+        backfill.sessions++
+        let model = 'unknown'
+        for (const event of getOwnedSessionEvents(snapshot)) {
+          throwIfBackfillCancelled(signal)
+          if (event?.type === 'request/header') {
+            const value = event.data?.header?.config?.model
+            if (typeof value === 'string' && value) model = value
+          }
+          if (event?.type !== 'assistant/message') continue
+          const usage = normalizeUsage(event.data?.usage)
+          if (!usage) continue
+          backfill.found++
+          applyUsage(nextStats, model, usage, typeof event.time === 'number' ? event.time : Date.now(), id, false)
+        }
+        try {
+          const title = await withTimeout(sessionQuery.readTitle?.(id), 10000, 'readTitle', signal)
+          if (title?.title && nextStats.bySession[id]) nextStats.bySession[id].title = title.title
+        } catch (error) {
+          if (error?.name === 'AbortError') throw error
+          // Titles are optional and do not affect usage totals.
+        }
+      }
+      nextStats.recent.sort((a, b) => b.ts - a.ts)
+      nextStats.meta.lastBackfillAt = Date.now()
+      nextStats.meta.lastBackfillSessions = backfill.sessions
+      nextStats.meta.lastBackfillFound = backfill.found
+      nextStats.meta.sessionAttribution = true
+      nextStats.meta.schemaVersion = 3
+      nextStats.meta.liveSince = stats.meta.liveSince || Date.now()
+      replayLiveEvents(nextStats)
+      stats = nextStats
+      await saveNow()
+      finish('completed')
+      return { ok: true, sessions: backfill.sessions, found: backfill.found, failed: backfill.failed, backfill: backfillSnapshot() }
+    } catch (error) {
+      const cancelled = error?.name === 'AbortError' || signal?.aborted || backfill.cancelRequested
+      replayLiveEvents(stats)
+      scheduleSave()
+      const message = cancelled ? 'backfill cancelled' : safeMessage(error)
+      finish(cancelled ? 'cancelled' : 'failed', message)
+      return { ok: false, cancelled, error: message, sessions: backfill.sessions, found: backfill.found, failed: backfill.failed, backfill: backfillSnapshot() }
+    }
+  }
+
+  function startBackfill() {
+    if (backfillPromise) return backfillPromise
+    backfillController = typeof AbortController === 'function' ? new AbortController() : null
+    backfillPromise = runBackfill(backfillController?.signal).finally(() => {
+      backfillController = null
+      backfillPromise = null
+    })
+    return backfillPromise
+  }
+
+  async function cancelBackfill() {
+    if (!backfillPromise) return backfillSnapshot()
+    backfill.cancelRequested = true
+    backfillController?.abort()
+    return backfillPromise
+  }
+
+  async function backfillStats() {
+    return startBackfill()
   }
 
   if (typeof ctx.on === 'function') ctx.on('llm/stream', (options, next) => {
@@ -342,7 +437,10 @@ export function applyUsageStats(ctx) {
     })()
   })
 
-  ctx.effect(() => () => { void saveNow() }, 'dsh-resource-center: usage final persistence')
+  ctx.effect(() => async () => {
+    await cancelBackfill()
+    await saveNow()
+  }, 'dsh-resource-center: usage final persistence')
   ctx.effect(() => webServer.register({
     kind: 'exact',
     path: STATS_PATH,
@@ -351,11 +449,11 @@ export function applyUsageStats(ctx) {
         if (req.method === 'POST') {
           const action = new URL(req.url, 'http://localhost').searchParams.get('action')
           if (action === 'backfill') {
-        stats = emptyStats()
-            stats.meta.liveSince = Date.now()
             return jsonResponse(res, 200, await backfillStats())
           }
           if (action === 'clear') {
+            await cancelBackfill()
+            pendingLiveEvents.length = 0
             stats = emptyStats()
             stats.meta.liveSince = Date.now()
             await saveNow()
@@ -374,6 +472,7 @@ export function applyUsageStats(ctx) {
           ok: true,
           source: 'dsh-resource-center',
           stats,
+          backfill: backfillSnapshot(),
           currentSession,
           pricing: PRICING,
           boundaryText: String(pricingData.boundary).replace('T', ' ').replace(/[+].*$/, '') + '（北京时间）',
@@ -388,10 +487,16 @@ export function applyUsageStats(ctx) {
   }), 'dsh-resource-center: usage stats route')
 
   loadStats().then(() => {
-    if (stats.total.calls === 0 || stats.meta.sessionAttribution !== true || stats.meta.schemaVersion !== 3) {
-      stats = emptyStats()
-      stats.meta.liveSince = Date.now()
-      backfillStats().catch(error => { diag.lastError = 'auto-backfill failed: ' + safeMessage(error) })
+    stats.meta.liveSince ||= Date.now()
+    const needsBackfill = Boolean(sessionQuery?.listSessions && sessionQuery?.readSession && (
+      stats.total.calls === 0 || stats.meta.sessionAttribution !== true || stats.meta.schemaVersion !== 3
+    ))
+    if (needsBackfill) startBackfill().then(result => {
+      if (!result.ok && !result.cancelled) diag.lastError = 'auto-backfill failed: ' + result.error
+    }).catch(error => { diag.lastError = 'auto-backfill failed: ' + safeMessage(error) })
+    else if (stats.meta.schemaVersion !== 3) {
+      stats.meta.schemaVersion = 3
+      saveNow().catch(error => { diag.lastError = 'stats migration failed: ' + safeMessage(error) })
     }
   }).catch(error => { diag.lastError = 'load failed: ' + safeMessage(error) })
 }

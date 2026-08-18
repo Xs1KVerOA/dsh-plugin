@@ -88,6 +88,10 @@
     "build:client": "node scripts/build-client.js",
     "check": "npm run build:client -- --check && node --check index.js && node --check test-host.js && node --check service-manager-host.js && node --check usage-stats-host.js && node --check client/main.js && node --check client/modules/workspace/index.js && node --check client/modules/service-manager/index.js && node --check client/modules/test/index.js && node --check client/modules/usage-stats/index.js && node --check client/modules/right-sidebar/index.js && node --check client.js",
     "test": "npm run build:client -- --check && npm run check:compat && node --test test/*.test.js",
+    "test:e2e": "if [ -n \"$DSH_E2E_URL\" ]; then playwright test; else echo '跳过浏览器 E2E：请设置 DSH_E2E_URL 后运行'; fi",
     "check:compat": "node scripts/check-core-release.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0"
   }
 }

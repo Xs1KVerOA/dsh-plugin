@@ -119,8 +119,23 @@
         document.head.appendChild(style)
       }
 
+      function fetchWithTimeout(input, options = {}, timeoutMs = 12000) {
+        const parentSignal = options.signal
+        const controller = typeof AbortController === 'function' ? new AbortController() : null
+        let timer
+        const abortParent = () => controller?.abort()
+        if (parentSignal?.aborted) controller?.abort()
+        else parentSignal?.addEventListener?.('abort', abortParent, { once: true })
+        if (controller) timer = setTimeout(() => controller.abort(), timeoutMs)
+        return fetch(input, { ...options, ...(controller ? { signal: controller.signal } : {}) })
+          .finally(() => {
+            if (timer) clearTimeout(timer)
+            parentSignal?.removeEventListener?.('abort', abortParent)
+          })
+      }
+
       function apiRequest(body, signal) {
-        return fetch('/api/dsh-service-manage', {
+        return fetchWithTimeout('/api/dsh-service-manage', {
           method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal,
         }).then(async response => {
           const payload = await response.json().catch(() => ({}))
@@ -782,19 +797,23 @@
         const [busy, setBusy] = useState(false)
         const [updatedAt, setUpdatedAt] = useState(null)
         const inspectInFlight = useRef(false)
+        const inspectController = useRef(null)
         const fetchSnapshot = active => {
           if (inspectInFlight.current) return Promise.resolve()
           inspectInFlight.current = true
+          const controller = typeof AbortController === 'function' ? new AbortController() : null
+          inspectController.current = controller
           setBusy(true)
           setError('')
-          return api({ op: 'exec', id: connection.id, params: { op: 'inspect' } }).then(value => {
+          return api({ op: 'exec', id: connection.id, params: { op: 'inspect' } }, controller?.signal).then(value => {
             if (!active) return
             setSnapshot(value.data || value)
             setUpdatedAt(new Date())
           }).catch(loadError => {
-            if (active) setError(loadError.message)
+            if (active && loadError?.name !== 'AbortError') setError(loadError.message)
           }).finally(() => {
             inspectInFlight.current = false
+            if (inspectController.current === controller) inspectController.current = null
             if (active) setBusy(false)
           })
         }
@@ -805,7 +824,7 @@
           }
           tick()
           const timer = setInterval(tick, 10_000)
-          return () => { active = false; clearInterval(timer) }
+          return () => { active = false; clearInterval(timer); inspectController.current?.abort() }
         }, [connection.id])
         const cpu = snapshot?.cpu || {}
         const memory = snapshot?.memory || {}
@@ -880,8 +899,10 @@
         const [terminalBusy, setTerminalBusy] = useState(false)
         const terminalOutputRef = useRef(null)
         const terminalIdRef = useRef('')
+        const terminalReadInFlight = useRef(false)
+        const terminalReadController = useRef(null)
         useEffect(() => { terminalIdRef.current = terminalId }, [terminalId])
-        const terminalRequest = (operation, extra = {}) => api({ op: 'exec', id: connection.id, params: { op: operation, terminalId, ...extra } })
+        const terminalRequest = (operation, extra = {}, signal) => api({ op: 'exec', id: connection.id, params: { op: operation, terminalId, ...extra } }, signal)
         const appendTerminal = value => {
           const text = normalizeTerminalText(value?.text)
           if (text) setTerminalText(current => current + text)
@@ -908,14 +929,25 @@
         }
         useEffect(() => {
           if (!terminalId) return undefined
-          const timer = setInterval(() => terminalRequest('terminalRead').then(appendTerminal).catch(() => {}), 500)
-          return () => clearInterval(timer)
+          const readTerminal = () => {
+            if (terminalReadInFlight.current) return
+            terminalReadInFlight.current = true
+            const controller = typeof AbortController === 'function' ? new AbortController() : null
+            terminalReadController.current = controller
+            terminalRequest('terminalRead', {}, controller?.signal).then(appendTerminal).catch(() => {}).finally(() => {
+              terminalReadInFlight.current = false
+              if (terminalReadController.current === controller) terminalReadController.current = null
+            })
+          }
+          const timer = setInterval(readTerminal, 500)
+          return () => { clearInterval(timer); terminalReadController.current?.abort() }
         }, [terminalId])
         useEffect(() => {
           const output = terminalOutputRef.current
           if (output) output.scrollTop = output.scrollHeight
         }, [terminalText])
         useEffect(() => () => {
+          terminalReadController.current?.abort()
           const activeTerminalId = terminalIdRef.current
           if (activeTerminalId) api({ op: 'exec', id: connection.id, params: { op: 'terminalClose', terminalId: activeTerminalId } }).catch(() => {})
         }, [connection.id])
@@ -1169,6 +1201,8 @@
         const [terminalInput, setTerminalInput] = useState('')
         const [terminalBusy, setTerminalBusy] = useState(false)
         const terminalOutputRef = useRef(null)
+        const terminalReadInFlight = useRef(false)
+        const terminalReadController = useRef(null)
         const set = (key, value) => setFields(current => ({ ...current, [key]: value }))
         const run = () => {
           setBusy(true); setResult(null)
@@ -1179,7 +1213,7 @@
           const text = normalizeTerminalText(value?.text)
           if (text) setTerminalText(current => current + text)
         }
-        const terminalRequest = (operation, extra = {}) => api({ op: 'exec', id: connection.id, params: { op: operation, terminalId, ...extra } })
+        const terminalRequest = (operation, extra = {}, signal) => api({ op: 'exec', id: connection.id, params: { op: operation, terminalId, ...extra } }, signal)
         const openTerminal = () => {
           setTerminalBusy(true)
           terminalRequest('terminalOpen', { terminalId: undefined }).then(value => { setTerminalId(value.terminalId || ''); setTerminalText(normalizeTerminalText(value.text)) }).catch(error => setTerminalText(current => current + `\n  [连接失败] ${normalizeTerminalText(error.message)}\n  `)).finally(() => setTerminalBusy(false))
@@ -1197,14 +1231,24 @@
         }
         useEffect(() => {
           if (!terminalId) return undefined
-          const timer = setInterval(() => terminalRequest('terminalRead').then(appendTerminal).catch(() => {}), 500)
-          return () => clearInterval(timer)
+          const readTerminal = () => {
+            if (terminalReadInFlight.current) return
+            terminalReadInFlight.current = true
+            const controller = typeof AbortController === 'function' ? new AbortController() : null
+            terminalReadController.current = controller
+            terminalRequest('terminalRead', {}, controller?.signal).then(appendTerminal).catch(() => {}).finally(() => {
+              terminalReadInFlight.current = false
+              if (terminalReadController.current === controller) terminalReadController.current = null
+            })
+          }
+          const timer = setInterval(readTerminal, 500)
+          return () => { clearInterval(timer); terminalReadController.current?.abort() }
         }, [terminalId])
         useEffect(() => {
           const output = terminalOutputRef.current
           if (output) output.scrollTop = output.scrollHeight
         }, [terminalText])
-        useEffect(() => () => { if (terminalId) api({ op: 'exec', id: connection.id, params: { op: 'terminalClose', terminalId } }).catch(() => {}) }, [connection.id, terminalId])
+        useEffect(() => () => { terminalReadController.current?.abort(); if (terminalId) api({ op: 'exec', id: connection.id, params: { op: 'terminalClose', terminalId } }).catch(() => {}) }, [connection.id, terminalId])
         const queryLabel = ['mysql', 'mariadb', 'postgresql', 'mssql'].includes(connection.type) ? 'SQL' : connection.type === 'cassandra' ? 'CQL' : connection.type === 'mongodb' ? 'JSON 操作' : connection.type === 'elasticsearch' ? 'JSON Body' : '命令 / 查询'
         const queryKey = ['mysql', 'mariadb', 'postgresql', 'mssql'].includes(connection.type) ? 'sql' : connection.type === 'cassandra' ? 'cql' : connection.type === 'elasticsearch' ? 'body' : 'text'
         const needsQuery = ['query', 'exec'].includes(op)
@@ -1354,7 +1398,7 @@
         inject: [],
       apply(ctx, options = {}) {
         installStyle()
-        const api = body => apiRequest(body)
+        const api = (body, signal) => apiRequest(body, signal)
         const sidebar = options.sidebar || ctx.get('resourceCenter') || ctx.get('dshResourceCenter')
         if (!sidebar || typeof sidebar.registerActivity !== 'function') return
         ctx.effect(() => sidebar.registerActivity({

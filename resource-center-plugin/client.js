@@ -74,6 +74,20 @@
       const DSH_CENTER_BRAND_ICON = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(DSH_CENTER_BRAND_SVG)}`
       const CURRENT_SESSION_USAGE_PATH = '/api/dsh-resource-center/usage-stats'
 
+      function fetchWithTimeout(input, options = {}, timeoutMs = 12000) {
+        const controller = typeof AbortController === 'function' ? new AbortController() : null
+        const parentSignal = options.signal
+        let timer
+        const abort = () => controller?.abort()
+        if (parentSignal?.aborted) abort()
+        else parentSignal?.addEventListener?.('abort', abort, { once: true })
+        if (controller) timer = setTimeout(() => controller.abort(), timeoutMs)
+        return fetch(input, { ...options, ...(controller ? { signal: controller.signal } : {}) }).finally(() => {
+          if (timer) clearTimeout(timer)
+          parentSignal?.removeEventListener?.('abort', abort)
+        })
+      }
+
       function installDocumentBranding() {
         if (typeof document === 'undefined' || !document.head) return () => {}
         const previousTitle = document.title
@@ -93,7 +107,7 @@
         }
         sync()
         const observer = typeof MutationObserver === 'function' ? new MutationObserver(sync) : undefined
-        observer?.observe(document.head, { childList: true, subtree: true, characterData: true })
+        observer?.observe(document.head, { childList: true, characterData: true })
         return () => {
           observer?.disconnect()
           if (ownsBrandLink) brandLink.remove()
@@ -109,6 +123,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-rail{height:100%
 html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-rail-button{pointer-events:auto}
 html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-events:auto}
 .drc-dock *{box-sizing:border-box}
+.pI_x6G_frame.dsh-resource-center-right-inset .pI_x6G_centerCol{box-sizing:border-box;min-width:0;padding-right:var(--dsh-resource-center-right-width,0px)}
 .drc-rail{width:var(--dsh-resource-center-rail-width,48px);flex:0 0 var(--dsh-resource-center-rail-width,48px);display:flex;flex-direction:column;align-items:center;padding:10px 0;border-right:1px solid var(--dsw-alias-border-l1,#e5e7eb);background:var(--dsw-alias-bg-layer-1,#fafbfc)}
 .drc-rail-button{position:relative;width:38px;height:38px;display:flex;align-items:center;justify-content:center;border:0;border-radius:9px;background:transparent;color:var(--dsw-alias-label-secondary,#7b818b);cursor:pointer;transition:background .15s,color .15s}
 .drc-rail-button:hover{background:var(--dsw-alias-bg-layer-2,#f0f2f5);color:var(--dsw-alias-label-primary,#25282d)}
@@ -245,7 +260,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           const controller = typeof AbortController === 'function' ? new AbortController() : undefined
           requestController = controller
           try {
-            const response = await fetch(`${CURRENT_SESSION_USAGE_PATH}?sessionId=${encodeURIComponent(currentSessionId)}`, controller ? { signal: controller.signal } : undefined)
+            const response = await fetchWithTimeout(`${CURRENT_SESSION_USAGE_PATH}?sessionId=${encodeURIComponent(currentSessionId)}`, controller ? { signal: controller.signal } : undefined)
             const result = await response.json().catch(() => ({}))
             if (!response.ok || result.ok === false || currentSessionId !== nextSessionId) return
             usage = result.currentSession?.usage || usage
@@ -264,7 +279,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         if (store && typeof store.subscribe === 'function') unsubscribe = store.subscribe(onSessionChange)
         if (typeof MutationObserver === 'function') {
           observer = new MutationObserver(paint)
-          observer.observe(document.body, { childList: true, subtree: true })
+          observer.observe(document.querySelector('.hHd-Xa_root') || document.body, { childList: true })
         }
         if (typeof window !== 'undefined' && typeof window.setInterval === 'function') timer = window.setInterval(refresh, 10_000)
         void refresh()
@@ -338,7 +353,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
       }
 
       function requestRename(id, title) {
-        return fetch('/api/dsh-resource-center/rename-session', {
+        return fetchWithTimeout('/api/dsh-resource-center/rename-session', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ id, title }),
@@ -494,7 +509,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
             },
             async serialize(ref, signal) {
               if (!resolve(ref)) throw new Error('会话不存在或已归档，不能引用')
-              const response = await fetch('/api/dsh-resource-center/session-reference', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: String(ref) }), signal })
+              const response = await fetchWithTimeout('/api/dsh-resource-center/session-reference', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: String(ref) }), signal })
               const result = await response.json().catch(() => ({}))
               if (!response.ok || result.ok === false) throw new Error(result.error || '会话引用加载失败')
               return result.markup
@@ -553,7 +568,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           setSearching(true)
           setSearchError('')
           const timer = window.setTimeout(() => {
-            fetch('/api/dsh-resource-center/search-sessions', {
+            fetchWithTimeout('/api/dsh-resource-center/search-sessions', {
               method: 'POST',
               headers: { 'content-type': 'application/json' },
               body: JSON.stringify({ ids: searchableIds, query: query.trim() }),
@@ -792,9 +807,18 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         return [active, value => panelStore.set(value)]
       }
 
+      const HOST_RIGHT_PANEL_SELECTOR = '.W-zNGW_panel, .nArs4W_panel'
+      const HOST_RIGHT_TOGGLE_SELECTOR = '.W-zNGW_toggleCluster, .nArs4W_toggleCluster'
+      const HOST_RIGHT_PANEL_HIDDEN_CLASSES = ['W-zNGW_panelHidden', 'nArs4W_panelHidden']
+      const HOST_FRAME_SELECTOR = '.pI_x6G_frame'
+      const HOST_CENTER_SELECTOR = '.pI_x6G_centerCol'
+      const HOST_DETAILS_SELECTOR = '.pI_x6G_detailsCol'
+
       function syncHostLayoutMetrics() {
         if (typeof document === 'undefined' || typeof window === 'undefined' || !document.documentElement) return
         const hostRoot = document.querySelector('.hHd-Xa_root')
+        const hostFrame = document.querySelector(HOST_FRAME_SELECTOR)
+        const hostDetails = document.querySelector(HOST_DETAILS_SELECTOR)
         const hostColumn = document.querySelector('.pI_x6G_sidebarCol') || hostRoot
         const hostRect = hostColumn?.getBoundingClientRect?.()
         const collapsed = hostRoot?.classList?.contains?.('hHd-Xa_collapsed') || hostColumn?.classList?.contains?.('hHd-Xa_collapsed')
@@ -806,14 +830,17 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         const settingsRect = settings?.getBoundingClientRect?.()
         const dockBottom = settingsRect && settingsRect.top > top + 120 ? settingsRect.top - 56 : window.innerHeight - 100
         const bottom = Math.max(24, Math.round(window.innerHeight - dockBottom))
-        const hostToggleCluster = document.querySelector('.W-zNGW_toggleCluster')
+        const hostToggleCluster = document.querySelector(HOST_RIGHT_TOGGLE_SELECTOR)
         const hostToggleRect = hostToggleCluster?.getBoundingClientRect?.()
-        const hostRightPanel = document.querySelector('.W-zNGW_panel')
+        const hostRightPanel = document.querySelector(HOST_RIGHT_PANEL_SELECTOR)
         const hostRightPanelRect = hostRightPanel?.getBoundingClientRect?.()
         const hostRightPanelStyle = hostRightPanel ? getComputedStyle(hostRightPanel) : null
-        const rightPanelHidden = hostRightPanel?.classList?.contains?.('W-zNGW_panelHidden')
+        const rightPanelHidden = HOST_RIGHT_PANEL_HIDDEN_CLASSES.some(className => hostRightPanel?.classList?.contains?.(className))
         const rightPanelVisible = Boolean(!rightPanelHidden && hostRightPanelRect && hostRightPanelStyle && hostRightPanelStyle.visibility !== 'hidden' && hostRightPanelStyle.display !== 'none' && hostRightPanelRect.width > 0)
-        const rightPanelWidth = rightPanelVisible ? Math.max(0, Math.round(window.innerWidth - hostRightPanelRect.left)) : 0
+        const rightPanelWidth = rightPanelVisible
+          ? Math.max(0, Math.round(Math.min(window.innerWidth, hostRightPanelRect.right) - Math.max(0, hostRightPanelRect.left)))
+          : 0
+        const rightPanelNeedsInset = Boolean(rightPanelVisible && hostFrame && hostRightPanel && !hostDetails?.contains(hostRightPanel))
         const toggleWidth = hostToggleRect && hostToggleRect.width > 0 ? Math.round(hostToggleRect.width) : 0
         const style = document.documentElement.style
         document.documentElement.dataset.dshSidebarCollapsed = collapsed ? 'true' : 'false'
@@ -823,6 +850,9 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         style.setProperty('--dsh-resource-center-rail-width', '48px')
         style.setProperty('--dsh-resource-center-right-width', `${rightPanelWidth}px`)
         style.setProperty('--dsh-host-toggle-width', `${toggleWidth}px`)
+        hostFrame?.classList.toggle('dsh-resource-center-right-inset', rightPanelNeedsInset)
+        hostFrame?.style.setProperty('--dsh-resource-center-right-width', `${rightPanelNeedsInset ? rightPanelWidth : 0}px`)
+        if (hostFrame && !hostFrame.querySelector(HOST_CENTER_SELECTOR)) hostFrame.classList.remove('dsh-resource-center-right-inset')
       }
 
       function setDockLayoutOpen() {
@@ -835,8 +865,6 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         let observedHostRoot
         let hostRightPanelObserver
         let observedHostRightPanel
-        let hostRightPanelContainerObserver
-        let observedHostRightPanelContainer
         const refreshHostRootObserver = () => {
           const hostRoot = document.querySelector('.hHd-Xa_root')
           if (hostRoot === observedHostRoot) return
@@ -848,19 +876,13 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           }
         }
         const refreshHostRightPanelObserver = () => {
-          const hostRightPanel = document.querySelector('.W-zNGW_panel')
+          const hostRightPanel = document.querySelector(HOST_RIGHT_PANEL_SELECTOR)
           if (hostRightPanel === observedHostRightPanel) return
           hostRightPanelObserver?.disconnect()
-          hostRightPanelContainerObserver?.disconnect()
           observedHostRightPanel = hostRightPanel
-          observedHostRightPanelContainer = hostRightPanel?.parentElement
           if (hostRightPanel && typeof MutationObserver === 'function') {
             hostRightPanelObserver = new MutationObserver(update)
             hostRightPanelObserver.observe(hostRightPanel, { attributes: true, attributeFilter: ['class', 'style'] })
-            if (observedHostRightPanelContainer) {
-              hostRightPanelContainerObserver = new MutationObserver(update)
-              hostRightPanelContainerObserver.observe(observedHostRightPanelContainer, { attributes: true, attributeFilter: ['class', 'style'], subtree: true })
-            }
           }
         }
         const update = () => {
@@ -872,7 +894,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         window.addEventListener('resize', update)
         const hostToggleClick = event => {
           const target = event.target
-          if (!target || typeof target.closest !== 'function' || !target.closest('.W-zNGW_toggleCluster')) return
+          if (!target || typeof target.closest !== 'function' || !target.closest(HOST_RIGHT_TOGGLE_SELECTOR)) return
           if (typeof requestAnimationFrame === 'function') requestAnimationFrame(update)
           else setTimeout(update, 0)
         }
@@ -891,12 +913,12 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         observe(document.querySelector('.hHd-Xa_newSession'))
         const settings = [...(document.querySelectorAll?.('button') || [])].find(button => button.textContent.trim() === '设置')
         observe(settings)
-        observe(document.querySelector('.W-zNGW_toggleCluster'))
-        observe(document.querySelector('.W-zNGW_panel'))
-        let bodyMutationObserver
+        observe(document.querySelector(HOST_RIGHT_TOGGLE_SELECTOR))
+        observe(document.querySelector(HOST_RIGHT_PANEL_SELECTOR))
+        let hostStructureObserver
         if (document.body && typeof MutationObserver === 'function') {
-          bodyMutationObserver = new MutationObserver(update)
-          bodyMutationObserver.observe(document.body, { childList: true, subtree: true })
+          hostStructureObserver = new MutationObserver(update)
+          hostStructureObserver.observe(hostRoot || document.body, { childList: true })
         }
         return () => {
           window.removeEventListener('resize', update)
@@ -904,8 +926,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           observers.forEach(observer => observer.disconnect())
           hostRootObserver?.disconnect()
           hostRightPanelObserver?.disconnect()
-          hostRightPanelContainerObserver?.disconnect()
-          bodyMutationObserver?.disconnect()
+          hostStructureObserver?.disconnect()
         }
       }
 
@@ -1223,8 +1244,23 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         document.head.appendChild(style)
       }
 
+      function fetchWithTimeout(input, options = {}, timeoutMs = 12000) {
+        const parentSignal = options.signal
+        const controller = typeof AbortController === 'function' ? new AbortController() : null
+        let timer
+        const abortParent = () => controller?.abort()
+        if (parentSignal?.aborted) controller?.abort()
+        else parentSignal?.addEventListener?.('abort', abortParent, { once: true })
+        if (controller) timer = setTimeout(() => controller.abort(), timeoutMs)
+        return fetch(input, { ...options, ...(controller ? { signal: controller.signal } : {}) })
+          .finally(() => {
+            if (timer) clearTimeout(timer)
+            parentSignal?.removeEventListener?.('abort', abortParent)
+          })
+      }
+
       function apiRequest(body, signal) {
-        return fetch('/api/dsh-service-manage', {
+        return fetchWithTimeout('/api/dsh-service-manage', {
           method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal,
         }).then(async response => {
           const payload = await response.json().catch(() => ({}))
@@ -1886,19 +1922,23 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         const [busy, setBusy] = useState(false)
         const [updatedAt, setUpdatedAt] = useState(null)
         const inspectInFlight = useRef(false)
+        const inspectController = useRef(null)
         const fetchSnapshot = active => {
           if (inspectInFlight.current) return Promise.resolve()
           inspectInFlight.current = true
+          const controller = typeof AbortController === 'function' ? new AbortController() : null
+          inspectController.current = controller
           setBusy(true)
           setError('')
-          return api({ op: 'exec', id: connection.id, params: { op: 'inspect' } }).then(value => {
+          return api({ op: 'exec', id: connection.id, params: { op: 'inspect' } }, controller?.signal).then(value => {
             if (!active) return
             setSnapshot(value.data || value)
             setUpdatedAt(new Date())
           }).catch(loadError => {
-            if (active) setError(loadError.message)
+            if (active && loadError?.name !== 'AbortError') setError(loadError.message)
           }).finally(() => {
             inspectInFlight.current = false
+            if (inspectController.current === controller) inspectController.current = null
             if (active) setBusy(false)
           })
         }
@@ -1909,7 +1949,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           }
           tick()
           const timer = setInterval(tick, 10_000)
-          return () => { active = false; clearInterval(timer) }
+          return () => { active = false; clearInterval(timer); inspectController.current?.abort() }
         }, [connection.id])
         const cpu = snapshot?.cpu || {}
         const memory = snapshot?.memory || {}
@@ -1984,8 +2024,10 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         const [terminalBusy, setTerminalBusy] = useState(false)
         const terminalOutputRef = useRef(null)
         const terminalIdRef = useRef('')
+        const terminalReadInFlight = useRef(false)
+        const terminalReadController = useRef(null)
         useEffect(() => { terminalIdRef.current = terminalId }, [terminalId])
-        const terminalRequest = (operation, extra = {}) => api({ op: 'exec', id: connection.id, params: { op: operation, terminalId, ...extra } })
+        const terminalRequest = (operation, extra = {}, signal) => api({ op: 'exec', id: connection.id, params: { op: operation, terminalId, ...extra } }, signal)
         const appendTerminal = value => {
           const text = normalizeTerminalText(value?.text)
           if (text) setTerminalText(current => current + text)
@@ -2012,14 +2054,25 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         }
         useEffect(() => {
           if (!terminalId) return undefined
-          const timer = setInterval(() => terminalRequest('terminalRead').then(appendTerminal).catch(() => {}), 500)
-          return () => clearInterval(timer)
+          const readTerminal = () => {
+            if (terminalReadInFlight.current) return
+            terminalReadInFlight.current = true
+            const controller = typeof AbortController === 'function' ? new AbortController() : null
+            terminalReadController.current = controller
+            terminalRequest('terminalRead', {}, controller?.signal).then(appendTerminal).catch(() => {}).finally(() => {
+              terminalReadInFlight.current = false
+              if (terminalReadController.current === controller) terminalReadController.current = null
+            })
+          }
+          const timer = setInterval(readTerminal, 500)
+          return () => { clearInterval(timer); terminalReadController.current?.abort() }
         }, [terminalId])
         useEffect(() => {
           const output = terminalOutputRef.current
           if (output) output.scrollTop = output.scrollHeight
         }, [terminalText])
         useEffect(() => () => {
+          terminalReadController.current?.abort()
           const activeTerminalId = terminalIdRef.current
           if (activeTerminalId) api({ op: 'exec', id: connection.id, params: { op: 'terminalClose', terminalId: activeTerminalId } }).catch(() => {})
         }, [connection.id])
@@ -2273,6 +2326,8 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         const [terminalInput, setTerminalInput] = useState('')
         const [terminalBusy, setTerminalBusy] = useState(false)
         const terminalOutputRef = useRef(null)
+        const terminalReadInFlight = useRef(false)
+        const terminalReadController = useRef(null)
         const set = (key, value) => setFields(current => ({ ...current, [key]: value }))
         const run = () => {
           setBusy(true); setResult(null)
@@ -2283,7 +2338,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           const text = normalizeTerminalText(value?.text)
           if (text) setTerminalText(current => current + text)
         }
-        const terminalRequest = (operation, extra = {}) => api({ op: 'exec', id: connection.id, params: { op: operation, terminalId, ...extra } })
+        const terminalRequest = (operation, extra = {}, signal) => api({ op: 'exec', id: connection.id, params: { op: operation, terminalId, ...extra } }, signal)
         const openTerminal = () => {
           setTerminalBusy(true)
           terminalRequest('terminalOpen', { terminalId: undefined }).then(value => { setTerminalId(value.terminalId || ''); setTerminalText(normalizeTerminalText(value.text)) }).catch(error => setTerminalText(current => current + `\n  [连接失败] ${normalizeTerminalText(error.message)}\n  `)).finally(() => setTerminalBusy(false))
@@ -2301,14 +2356,24 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         }
         useEffect(() => {
           if (!terminalId) return undefined
-          const timer = setInterval(() => terminalRequest('terminalRead').then(appendTerminal).catch(() => {}), 500)
-          return () => clearInterval(timer)
+          const readTerminal = () => {
+            if (terminalReadInFlight.current) return
+            terminalReadInFlight.current = true
+            const controller = typeof AbortController === 'function' ? new AbortController() : null
+            terminalReadController.current = controller
+            terminalRequest('terminalRead', {}, controller?.signal).then(appendTerminal).catch(() => {}).finally(() => {
+              terminalReadInFlight.current = false
+              if (terminalReadController.current === controller) terminalReadController.current = null
+            })
+          }
+          const timer = setInterval(readTerminal, 500)
+          return () => { clearInterval(timer); terminalReadController.current?.abort() }
         }, [terminalId])
         useEffect(() => {
           const output = terminalOutputRef.current
           if (output) output.scrollTop = output.scrollHeight
         }, [terminalText])
-        useEffect(() => () => { if (terminalId) api({ op: 'exec', id: connection.id, params: { op: 'terminalClose', terminalId } }).catch(() => {}) }, [connection.id, terminalId])
+        useEffect(() => () => { terminalReadController.current?.abort(); if (terminalId) api({ op: 'exec', id: connection.id, params: { op: 'terminalClose', terminalId } }).catch(() => {}) }, [connection.id, terminalId])
         const queryLabel = ['mysql', 'mariadb', 'postgresql', 'mssql'].includes(connection.type) ? 'SQL' : connection.type === 'cassandra' ? 'CQL' : connection.type === 'mongodb' ? 'JSON 操作' : connection.type === 'elasticsearch' ? 'JSON Body' : '命令 / 查询'
         const queryKey = ['mysql', 'mariadb', 'postgresql', 'mssql'].includes(connection.type) ? 'sql' : connection.type === 'cassandra' ? 'cql' : connection.type === 'elasticsearch' ? 'body' : 'text'
         const needsQuery = ['query', 'exec'].includes(op)
@@ -2458,7 +2523,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         inject: [],
       apply(ctx, options = {}) {
         installStyle()
-        const api = body => apiRequest(body)
+        const api = (body, signal) => apiRequest(body, signal)
         const sidebar = options.sidebar || ctx.get('resourceCenter') || ctx.get('dshResourceCenter')
         if (!sidebar || typeof sidebar.registerActivity !== 'function') return
         ctx.effect(() => sidebar.registerActivity({
@@ -2597,8 +2662,24 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         document.head.appendChild(style)
       }
 
+      async function fetchWithTimeout(input, options = {}, timeoutMs = 12000) {
+        const controller = typeof AbortController === 'function' ? new AbortController() : null
+        const parentSignal = options.signal
+        let timer
+        const abort = () => controller?.abort()
+        if (parentSignal?.aborted) abort()
+        else parentSignal?.addEventListener?.('abort', abort, { once: true })
+        if (controller) timer = setTimeout(() => controller.abort(), timeoutMs)
+        try {
+          return await fetch(input, { ...options, ...(controller ? { signal: controller.signal } : {}) })
+        } finally {
+          if (timer) clearTimeout(timer)
+          parentSignal?.removeEventListener?.('abort', abort)
+        }
+      }
+
       async function api(path, options) {
-        const response = await fetch('/api/dsh-web-testing/' + path.replace(/^\//, ''), {
+        const response = await fetchWithTimeout('/api/dsh-web-testing/' + path.replace(/^\//, ''), {
           ...options,
           headers: { 'content-type': 'application/json', ...(options && options.headers) },
         })
@@ -2867,7 +2948,6 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         const [key, setKey] = React.useState('')
         const [rejectUnauthorized, setRejectUnauthorized] = React.useState(true)
         const [forceHttps, setForceHttps] = React.useState(false)
-        const [interceptHttps, setInterceptHttps] = React.useState(false)
         const [result, setResult] = React.useState(null)
         const [selectedIndex, setSelectedIndex] = React.useState(null)
         const [selectedFlow, setSelectedFlow] = React.useState(null)
@@ -2908,7 +2988,6 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
             key: String(spec?.key ?? key ?? ''),
             rejectUnauthorized: spec?.rejectUnauthorized ?? rejectUnauthorized,
             forceHttps: spec?.forceHttps ?? forceHttps,
-            interceptHttps: spec?.interceptHttps ?? interceptHttps,
           }
           const historyId = `history_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
           const createdAt = Date.now()
@@ -2928,10 +3007,10 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           } finally { setBusy(false) }
         }, [loadResult, historyInstanceId, historyInstanceLabel, setHistory])
 
-        const run = React.useCallback(() => execute({ raw, payloads, maxCases, concurrency, timeoutMs, proxyUrl, ca, cert, key, rejectUnauthorized, forceHttps, interceptHttps }), [raw, payloads, maxCases, concurrency, timeoutMs, proxyUrl, ca, cert, key, rejectUnauthorized, forceHttps, interceptHttps, execute])
+        const run = React.useCallback(() => execute({ raw, payloads, maxCases, concurrency, timeoutMs, proxyUrl, ca, cert, key, rejectUnauthorized, forceHttps }), [raw, payloads, maxCases, concurrency, timeoutMs, proxyUrl, ca, cert, key, rejectUnauthorized, forceHttps, execute])
 
         const reset = React.useCallback(() => {
-          setRaw(DEFAULT_RAW); setPayloads('{\n  "user": ["admin", "guest"]\n}'); setMaxCases('100'); setConcurrency('4'); setTimeoutMs('30000'); setProxyUrl(''); setCa(''); setCert(''); setKey(''); setRejectUnauthorized(true); setForceHttps(false); setInterceptHttps(false); setResult(null); setSelectedIndex(null); setSelectedFlow(null); setError('')
+          setRaw(DEFAULT_RAW); setPayloads('{\n  "user": ["admin", "guest"]\n}'); setMaxCases('100'); setConcurrency('4'); setTimeoutMs('30000'); setProxyUrl(''); setCa(''); setCert(''); setKey(''); setRejectUnauthorized(true); setForceHttps(false); setResult(null); setSelectedIndex(null); setSelectedFlow(null); setError('')
         }, [])
         const clearResult = React.useCallback(() => { setResult(null); setSelectedIndex(null); setSelectedFlow(null); setError('') }, [])
         const extractHistory = React.useCallback(entry => {
@@ -2946,7 +3025,6 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           setKey(entry?.network?.key || '')
           setRejectUnauthorized(entry?.network?.rejectUnauthorized !== false)
           setForceHttps(entry?.network?.forceHttps === true)
-          setInterceptHttps(entry?.network?.interceptHttps === true)
           setResult(null); setSelectedIndex(null); setSelectedFlow(null); setError(''); setHistoryOpen(false); setHistoryQuery('')
         }, [])
         const replayHistory = React.useCallback(entry => {
@@ -2961,7 +3039,6 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           setKey(entry?.network?.key || '')
           setRejectUnauthorized(entry?.network?.rejectUnauthorized !== false)
           setForceHttps(entry?.network?.forceHttps === true)
-          setInterceptHttps(entry?.network?.interceptHttps === true)
           setHistoryOpen(false); setHistoryQuery('')
           void execute({ ...entry, ...entry.network, replayOf: entry?.id })
         }, [execute])
@@ -2977,17 +3054,16 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           setKey(snapshot?.key || '')
           setRejectUnauthorized(snapshot?.rejectUnauthorized !== false)
           setForceHttps(snapshot?.forceHttps === true)
-          setInterceptHttps(snapshot?.interceptHttps === true)
           setResult(snapshot?.result || null); setSelectedIndex(snapshot?.selectedIndex ?? null); setSelectedFlow(snapshot?.selectedFlow || null); setError('')
         }, [])
-        const snapshot = React.useCallback(() => ({ raw, payloads, maxCases, concurrency, timeoutMs, proxyUrl, ca, cert, key, rejectUnauthorized, forceHttps, interceptHttps, result, selectedIndex, selectedFlow }), [raw, payloads, maxCases, concurrency, timeoutMs, proxyUrl, ca, cert, key, rejectUnauthorized, forceHttps, interceptHttps, result, selectedIndex, selectedFlow])
+        const snapshot = React.useCallback(() => ({ raw, payloads, maxCases, concurrency, timeoutMs, proxyUrl, ca, cert, key, rejectUnauthorized, forceHttps, result, selectedIndex, selectedFlow }), [raw, payloads, maxCases, concurrency, timeoutMs, proxyUrl, ca, cert, key, rejectUnauthorized, forceHttps, result, selectedIndex, selectedFlow])
         const clearHistory = React.useCallback(() => setHistory([]), [])
         const toggleHistory = React.useCallback(() => setHistoryOpen(open => !open), [])
-        return { raw, setRaw, payloads, setPayloads, maxCases, setMaxCases, concurrency, setConcurrency, timeoutMs, setTimeoutMs, proxyUrl, setProxyUrl, ca, setCa, cert, setCert, key, setKey, rejectUnauthorized, setRejectUnauthorized, forceHttps, setForceHttps, interceptHttps, setInterceptHttps, result, selectedIndex, selectedFlow, error, busy, loadingFlow, loadResult, run, reset, clearResult, history, historyQuery, setHistoryQuery, historyOpen, toggleHistory, clearHistory, extractHistory, replayHistory, restore, snapshot }
+        return { raw, setRaw, payloads, setPayloads, maxCases, setMaxCases, concurrency, setConcurrency, timeoutMs, setTimeoutMs, proxyUrl, setProxyUrl, ca, setCa, cert, setCert, key, setKey, rejectUnauthorized, setRejectUnauthorized, forceHttps, setForceHttps, result, selectedIndex, selectedFlow, error, busy, loadingFlow, loadResult, run, reset, clearResult, history, historyQuery, setHistoryQuery, historyOpen, toggleHistory, clearHistory, extractHistory, replayHistory, restore, snapshot }
       }
 
       function FuzzerConfigSidebar({ state }) {
-        const { payloads, setPayloads, maxCases, setMaxCases, concurrency, setConcurrency, timeoutMs, setTimeoutMs, proxyUrl, setProxyUrl, ca, setCa, cert, setCert, key, setKey, rejectUnauthorized, setRejectUnauthorized, forceHttps, setForceHttps, interceptHttps, setInterceptHttps } = state
+        const { payloads, setPayloads, maxCases, setMaxCases, concurrency, setConcurrency, timeoutMs, setTimeoutMs, proxyUrl, setProxyUrl, ca, setCa, cert, setCert, key, setKey, rejectUnauthorized, setRejectUnauthorized, forceHttps, setForceHttps } = state
         const caseCount = estimatePayloadCases(payloads, maxCases)
         return h('div', { className: 'dwt-sidebar-fuzzer-config', 'aria-label': 'Fuzzer 配置' },
           h('div', { className: 'dwt-fuzzer-sidebar-hero' },
@@ -3012,8 +3088,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
               h(Field, { label: '客户端私钥（PEM）' }, h('textarea', { className: 'dwt-textarea dwt-network-pem', value: key, onChange: event => setKey(event.target.value), placeholder: '可选，与客户端证书同时配置' })),
               h('label', { className: 'dwt-checkbox-row' }, h('input', { type: 'checkbox', checked: !rejectUnauthorized, onChange: event => setRejectUnauthorized(!event.target.checked) }), '跳过 TLS 证书校验'),
               h('label', { className: 'dwt-checkbox-row' }, h('input', { type: 'checkbox', checked: forceHttps, onChange: event => setForceHttps(event.target.checked) }), '强制使用 HTTPS'),
-              h('label', { className: 'dwt-checkbox-row' }, h('input', { type: 'checkbox', checked: interceptHttps, onChange: event => setInterceptHttps(event.target.checked) }), '启用 HTTPS 劫持 / MITM'),
-              h('div', { className: 'dwt-config-note' }, 'HTTPS 劫持需要配置支持 CONNECT 和 HTTPS MITM 的 HTTP/HTTPS 代理，并信任该代理签发的 CA；内置 MITM 当前仅做 CONNECT 透传。'),
+              h('div', { className: 'dwt-config-note' }, '内置代理的 HTTPS CONNECT 只做 TCP 透传，不解密 HTTPS。需要解密时，请将请求发送到支持 MITM 的外部代理，并把它签发的 CA 填入上方配置。'),
             ),
           ),
           h('details', { className: 'dwt-config-section', open: true },
@@ -3229,6 +3304,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         const [responseHeadersText, setResponseHeadersText] = React.useState('{}')
         const loadedRef = React.useRef(false)
         const refreshInFlight = React.useRef(false)
+        const refreshController = React.useRef(null)
         const flowActionInFlight = React.useRef(false)
         const [savingConfig, setSavingConfig] = React.useState(false)
 
@@ -3243,13 +3319,29 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         const refresh = React.useCallback(async () => {
           if (refreshInFlight.current) return
           refreshInFlight.current = true
+          const controller = typeof AbortController === 'function' ? new AbortController() : null
+          refreshController.current = controller
           try {
-            const [nextStatus, nextFlows] = await Promise.all([api('status'), api('flows?limit=200')])
+            const requestOptions = controller ? { signal: controller.signal } : undefined
+            const [nextStatus, nextFlows] = await Promise.all([api('status', requestOptions), api('flows?limit=200', requestOptions)])
             setStatus(nextStatus); setFlows(nextFlows.flows || [])
             if (!loadedRef.current && nextStatus.mitm) { applyRemoteConfig(nextStatus.mitm); loadedRef.current = true }
-          } catch (cause) { setError(cause?.message || String(cause)) } finally { refreshInFlight.current = false }
+          } catch (cause) {
+            if (cause?.name !== 'AbortError') setError(cause?.message || String(cause))
+          } finally {
+            if (refreshController.current === controller) refreshController.current = null
+            refreshInFlight.current = false
+          }
         }, [applyRemoteConfig])
-        React.useEffect(() => { refresh(); const timer = window.setInterval(refresh, 1600); return () => window.clearInterval(timer) }, [refresh])
+        React.useEffect(() => {
+          refresh()
+          const timer = window.setInterval(refresh, 1600)
+          return () => {
+            window.clearInterval(timer)
+            refreshController.current?.abort()
+            refreshController.current = null
+          }
+        }, [refresh])
 
         const updateConfig = (key, value) => setConfig(current => ({ ...current, [key]: value }))
         const saveConfig = async () => {
@@ -3530,7 +3622,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
       factory(require) {
         const React = require('react')
         const h = React.createElement
-        const { useEffect, useMemo, useState } = React
+        const { useEffect, useMemo, useRef, useState } = React
 
         const EMPTY_BUCKET = { calls: 0, input: 0, cacheHit: 0, cacheMiss: 0, output: 0, cost: 0 }
         const BAND_LABELS = {
@@ -3580,8 +3672,22 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           return typeof key === 'string' && key.length >= 10 ? key.slice(5) : key
         }
 
-        function requestStats() {
-          return fetch(USAGE_STATS_PATH).then(async response => {
+        function fetchWithTimeout(input, options = {}, timeoutMs = 12000) {
+          const controller = typeof AbortController === 'function' ? new AbortController() : null
+          const parentSignal = options.signal
+          let timer
+          const abort = () => controller?.abort()
+          if (parentSignal?.aborted) abort()
+          else parentSignal?.addEventListener?.('abort', abort, { once: true })
+          if (controller) timer = setTimeout(() => controller.abort(), timeoutMs)
+          return fetch(input, { ...options, ...(controller ? { signal: controller.signal } : {}) }).finally(() => {
+            if (timer) clearTimeout(timer)
+            parentSignal?.removeEventListener?.('abort', abort)
+          })
+        }
+
+        function requestStats(options) {
+          return fetchWithTimeout(USAGE_STATS_PATH, options).then(async response => {
             const body = await response.json().catch(() => ({}))
             if (!response.ok) throw new Error(body.error || '用量统计服务不可用')
             return body
@@ -3688,19 +3794,36 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           const [busy, setBusy] = useState(false)
           const [notice, setNotice] = useState('')
           const [confirmClear, setConfirmClear] = useState(false)
+          const refreshController = useRef(null)
 
-          const load = () => requestStats().then(value => { setData(value); setError('') }).catch(reason => setError(reason?.message || String(reason)))
+          const load = () => {
+            refreshController.current?.abort()
+            const controller = typeof AbortController === 'function' ? new AbortController() : null
+            refreshController.current = controller
+            return requestStats(controller ? { signal: controller.signal } : undefined)
+              .then(value => { setData(value); setError(''); return value })
+              .catch(reason => { if (reason?.name !== 'AbortError') setError(reason?.message || String(reason)); return null })
+              .finally(() => { if (refreshController.current === controller) refreshController.current = null })
+          }
           useEffect(() => {
             let alive = true
-            const refresh = () => requestStats().then(value => { if (alive) { setData(value); setError('') } }).catch(reason => { if (alive) setError(reason?.message || String(reason)) })
+            const refresh = () => {
+              refreshController.current?.abort()
+              const controller = typeof AbortController === 'function' ? new AbortController() : null
+              refreshController.current = controller
+              requestStats(controller ? { signal: controller.signal } : undefined)
+                .then(value => { if (alive) { setData(value); setError('') } })
+                .catch(reason => { if (alive && reason?.name !== 'AbortError') setError(reason?.message || String(reason)) })
+                .finally(() => { if (refreshController.current === controller) refreshController.current = null })
+            }
             refresh()
             const timer = window.setInterval(refresh, 10000)
-            return () => { alive = false; window.clearInterval(timer) }
+            return () => { alive = false; window.clearInterval(timer); refreshController.current?.abort(); refreshController.current = null }
           }, [])
 
           const action = (name, successText) => {
             setBusy(true)
-            fetch(USAGE_STATS_PATH + '?action=' + name, { method: 'POST' }).then(async response => {
+            fetchWithTimeout(USAGE_STATS_PATH + '?action=' + name, { method: 'POST' }).then(async response => {
               const body = await response.json().catch(() => ({}))
               if (!response.ok || body.ok === false) throw new Error(body.error || '操作失败')
               setNotice(successText)
@@ -3712,7 +3835,12 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           const stats = data?.stats && data.stats.total ? data.stats : null
           const total = safeBucket(stats?.total)
           const meta = stats?.meta || {}
-          const backfillText = meta.lastBackfillAt ? '已回填 ' + (meta.lastBackfillFound || 0) + ' 条历史调用' : '首次启用后自动记录'
+          const backfill = data?.backfill || {}
+          const backfillText = backfill.status === 'running'
+            ? '正在回填 ' + (backfill.sessions || 0) + '/' + (backfill.totalSessions || '…') + ' 个会话'
+            : backfill.status === 'failed'
+              ? '回填失败：' + (backfill.error || '请重试')
+              : meta.lastBackfillAt ? '已回填 ' + (meta.lastBackfillFound || 0) + ' 条历史调用' : '首次启用后自动记录'
 
           return h('div', { className: 'dus-panel' },
             h('header', { className: 'dus-head' },
@@ -3722,6 +3850,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
             h('div', { className: 'dus-body' },
               error ? h('div', { className: 'dus-error' }, error === '用量统计服务不可用' ? '资源中心用量统计服务不可用，请检查 Host 模块是否已加载。' : error) : null,
               notice ? h('div', { className: 'dus-notice' }, notice) : null,
+              backfill.status === 'running' ? h('div', { className: 'dus-notice' }, '历史用量正在后台回填，实时调用会暂存并在完成后合并。') : null,
               !stats ? h('div', { className: 'dus-section' }, h('div', { className: 'dus-empty' }, error ? '无法读取统计数据' : '正在读取统计数据…')) : h(React.Fragment, null,
                 h('div', { className: 'dus-card-grid' },
                   h(StatCard, { label: '总费用', value: fmtCost(total.cost), sub: backfillText, cost: true }),
@@ -3799,16 +3928,24 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         const MITM_API_BASE = '/api/dsh-web-testing'
         const MITM_BROWSER_ROUTE = `${MITM_API_BASE}/browser`
         const MITM_CONTROL_ATTR = 'data-dsh-resource-center-mitm-browser'
+        const MITM_PANEL_ATTR = 'data-dsh-resource-center-mitm-panel'
         const MITM_TARGET_ATTR = 'data-dsh-resource-center-mitm-target'
         const MITM_STYLE_ATTR = 'data-dsh-resource-center-mitm-style'
+        const RIGHT_PANEL_SELECTOR = '.W-zNGW_panel, .nArs4W_panel'
+        const RIGHT_TOGGLE_SELECTOR = '.W-zNGW_toggleCluster, .nArs4W_toggleCluster'
+        const RIGHT_PANEL_HIDDEN_CLASSES = ['W-zNGW_panelHidden', 'nArs4W_panelHidden']
+        const RIGHT_BROWSER_SELECTOR = '.W-zNGW_browser, .nArs4W_browser'
+        const RIGHT_BROWSER_BAR_SELECTOR = '.W-zNGW_browserBar, .nArs4W_browserBar'
+        const RIGHT_BROWSER_SANDBOX_SELECTOR = '.W-zNGW_sandboxStatus, .nArs4W_sandboxStatus'
+        const RIGHT_BROWSER_FRAME_SELECTOR = 'iframe.W-zNGW_browserFrame, iframe.nArs4W_browserFrame, iframe[title]'
 
         function rightPanelElement() {
-          return typeof document === 'undefined' ? null : document.querySelector('.W-zNGW_panel')
+          return typeof document === 'undefined' ? null : document.querySelector(RIGHT_PANEL_SELECTOR)
         }
 
         function rightPanelToggle() {
           if (typeof document === 'undefined') return null
-          const cluster = document.querySelector('.W-zNGW_toggleCluster')
+          const cluster = document.querySelector(RIGHT_TOGGLE_SELECTOR)
           if (!cluster) return null
           const buttons = [...cluster.querySelectorAll('button')]
           return buttons[buttons.length - 1] || null
@@ -3818,23 +3955,27 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           const panel = rightPanelElement()
           if (!panel) return false
           const style = typeof getComputedStyle === 'function' ? getComputedStyle(panel) : null
-          return !panel.classList.contains('W-zNGW_panelHidden')
+          return !RIGHT_PANEL_HIDDEN_CLASSES.some(className => panel.classList.contains(className))
             && style?.visibility !== 'hidden'
             && style?.display !== 'none'
             && panel.getBoundingClientRect().width > 0
         }
 
         function browserElement() {
-          return typeof document === 'undefined' ? null : document.querySelector('.W-zNGW_browser')
+          return typeof document === 'undefined' ? null : document.querySelector(RIGHT_BROWSER_SELECTOR)
         }
 
         function browserBarElement() {
-          return browserElement()?.querySelector('.W-zNGW_browserBar') || null
+          return browserElement()?.querySelector(RIGHT_BROWSER_BAR_SELECTOR) || null
+        }
+
+        function browserSandboxElement() {
+          return browserElement()?.querySelector(RIGHT_BROWSER_SANDBOX_SELECTOR) || null
         }
 
         function browserFrameElement() {
           const browser = browserElement()
-          return browser?.querySelector('iframe.W-zNGW_browserFrame, iframe[title]') || null
+          return browser?.querySelector(RIGHT_BROWSER_FRAME_SELECTOR) || null
         }
 
         function browserTarget(raw) {
@@ -3876,6 +4017,20 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
 .dsh-resource-center-mitm-browser-toggle:disabled{cursor:wait}
 .dsh-resource-center-mitm-browser-toggle .dsh-resource-center-mitm-browser-dot{width:6px;height:6px;border-radius:50%;background:#aab4c1;box-shadow:0 0 0 2px rgba(170,180,193,.12)}
 .dsh-resource-center-mitm-browser-toggle.active .dsh-resource-center-mitm-browser-dot{background:#40b96d;box-shadow:0 0 0 2px rgba(64,185,109,.14)}
+.dsh-resource-center-mitm-browser-panel{display:flex;align-items:center;justify-content:space-between;gap:10px;flex:0 0 auto;min-height:56px;padding:8px 12px;border-bottom:1px solid #e6ebf2;background:linear-gradient(180deg,#fbfcfe,#f5f8fc);color:#344054;font:inherit}
+.dsh-resource-center-mitm-browser-panel .dsh-resource-center-mitm-browser-panel-copy{display:flex;align-items:center;gap:8px;min-width:0}
+.dsh-resource-center-mitm-browser-panel .dsh-resource-center-mitm-browser-panel-dot{width:8px;height:8px;flex:0 0 auto;border-radius:50%;background:#aab4c1;box-shadow:0 0 0 3px rgba(170,180,193,.12)}
+.dsh-resource-center-mitm-browser-panel.active .dsh-resource-center-mitm-browser-panel-dot{background:#40b96d;box-shadow:0 0 0 3px rgba(64,185,109,.14)}
+.dsh-resource-center-mitm-browser-panel .dsh-resource-center-mitm-browser-panel-text{display:flex;flex-direction:column;gap:2px;min-width:0}
+.dsh-resource-center-mitm-browser-panel .dsh-resource-center-mitm-browser-panel-title{font-size:12px;font-weight:600;line-height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dsh-resource-center-mitm-browser-panel .dsh-resource-center-mitm-browser-panel-meta{font-size:10px;line-height:14px;color:#8a96a6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dsh-resource-center-mitm-browser-panel .dsh-resource-center-mitm-browser-panel-action{height:28px;flex:0 0 auto;padding:0 10px;border:1px solid #cbd7e6;border-radius:6px;background:#fff;color:#3578e5;font:inherit;font-size:11px;line-height:26px;cursor:pointer;transition:background .15s,border-color .15s,color .15s,box-shadow .15s}
+.dsh-resource-center-mitm-browser-panel .dsh-resource-center-mitm-browser-panel-action:hover{background:#edf4ff;border-color:#8eb4ef}
+.dsh-resource-center-mitm-browser-panel.active .dsh-resource-center-mitm-browser-panel-action{border-color:#f0b6b6;background:#fff7f7;color:#c24141}
+.dsh-resource-center-mitm-browser-panel.active .dsh-resource-center-mitm-browser-panel-action:hover{background:#fff0f0;border-color:#e78b8b}
+.dsh-resource-center-mitm-browser-panel.busy{opacity:.75}
+.dsh-resource-center-mitm-browser-panel.error .dsh-resource-center-mitm-browser-panel-meta{color:#c24141}
+.dsh-resource-center-mitm-browser-panel .dsh-resource-center-mitm-browser-panel-action:disabled{cursor:wait;opacity:.7}
 `
           document.head?.appendChild(style)
         }
@@ -3893,9 +4048,14 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           let browserControlBar
           let browserControlButton
           let browserControlText
+          let browserControlPanel
+          let browserControlPanelButton
+          let browserControlPanelTitle
+          let browserControlPanelMeta
           let browserStyle
           let mitmSnapshot
           let mitmRefreshPromise
+          let mitmRefreshController
           let mitmBusy = false
           let mitmError = ''
 
@@ -3906,9 +4066,25 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
             })
           }
 
+          const fetchWithTimeout = async (input, options = {}, timeoutMs = 10000) => {
+            const controller = typeof AbortController === 'function' ? new AbortController() : null
+            const parentSignal = options.signal
+            let timer
+            const abort = () => controller?.abort()
+            if (parentSignal?.aborted) abort()
+            else parentSignal?.addEventListener?.('abort', abort, { once: true })
+            if (controller) timer = setTimeout(() => controller.abort(), timeoutMs)
+            try {
+              return await fetch(input, { ...options, ...(controller ? { signal: controller.signal } : {}) })
+            } finally {
+              if (timer) clearTimeout(timer)
+              parentSignal?.removeEventListener?.('abort', abort)
+            }
+          }
+
           const requestMitm = async (path, options = {}) => {
             if (typeof fetch !== 'function') throw new Error('浏览器不支持 fetch')
-            const response = await fetch(`${MITM_API_BASE}/${String(path).replace(/^\/+/, '')}`, {
+            const response = await fetchWithTimeout(`${MITM_API_BASE}/${String(path).replace(/^\/+/, '')}`, {
               ...options,
               headers: { 'content-type': 'application/json', ...(options.headers || {}) },
             })
@@ -3944,25 +4120,50 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           }
 
           const updateBrowserControl = () => {
-            if (!browserControlButton) return
+            if (!browserControlButton && !browserControlPanelButton) return
             const active = browserMitmEnabled()
             const endpoint = mitmSnapshot?.proxy
             const endpointLabel = endpoint ? ` · ${endpoint.host}:${endpoint.port}` : ''
-            browserControlButton.classList.toggle('active', active)
-            browserControlButton.classList.toggle('busy', mitmBusy)
-            browserControlButton.disabled = mitmBusy
-            browserControlButton.setAttribute('aria-pressed', String(active))
-            browserControlButton.title = mitmError
+            const title = mitmError
               ? `MITM 监听错误：${mitmError}`
               : active
                 ? `已跟随资源中心 MITM 监听${endpointLabel}；点击停止`
                 : '跟随资源中心左侧 MITM 配置启动监听'
-            if (browserControlText) browserControlText.textContent = mitmBusy ? '连接中…' : active ? 'MITM 已开' : 'MITM 监听'
+            const label = mitmBusy ? '连接中…' : active ? 'MITM 已开' : 'MITM 监听'
+            const panelTitle = mitmError ? 'MITM 监听启动失败' : mitmBusy ? (active ? '正在停止 MITM 监听…' : '正在启动 MITM 监听…') : active ? 'MITM 监听已启动' : '启动共享 MITM 监听'
+            const panelMeta = mitmError || (active ? `跟随左侧配置${endpointLabel}` : '启动后自动使用左侧 MITM 配置')
+            const panelLabel = mitmBusy ? (active ? '停止中…' : '启动中…') : active ? '停止监听' : '启动监听'
+            const updateButton = (button, text, buttonTitle) => {
+              if (!button) return
+              if (button.classList.contains('active') !== active) button.classList.toggle('active', active)
+              if (button.classList.contains('busy') !== mitmBusy) button.classList.toggle('busy', mitmBusy)
+              if (button.disabled !== mitmBusy) button.disabled = mitmBusy
+              if (button.getAttribute('aria-pressed') !== String(active)) button.setAttribute('aria-pressed', String(active))
+              if (button.title !== buttonTitle) button.title = buttonTitle
+              const textNode = button.querySelector('.dsh-resource-center-mitm-browser-text')
+              if (textNode && textNode.textContent !== text) textNode.textContent = text
+            }
+            updateButton(browserControlButton, label, title)
+            if (browserControlPanel) {
+              if (browserControlPanel.classList.contains('active') !== active) browserControlPanel.classList.toggle('active', active)
+              if (browserControlPanel.classList.contains('busy') !== mitmBusy) browserControlPanel.classList.toggle('busy', mitmBusy)
+              if (browserControlPanel.classList.contains('error') !== Boolean(mitmError)) browserControlPanel.classList.toggle('error', Boolean(mitmError))
+            }
+            if (browserControlPanelTitle && browserControlPanelTitle.textContent !== panelTitle) browserControlPanelTitle.textContent = panelTitle
+            if (browserControlPanelMeta && browserControlPanelMeta.textContent !== panelMeta) browserControlPanelMeta.textContent = panelMeta
+            if (browserControlPanelButton) {
+              if (browserControlPanelButton.textContent !== panelLabel) browserControlPanelButton.textContent = panelLabel
+              if (browserControlPanelButton.disabled !== mitmBusy) browserControlPanelButton.disabled = mitmBusy
+              if (browserControlPanelButton.title !== title) browserControlPanelButton.title = title
+              if (browserControlPanelButton.getAttribute('aria-pressed') !== String(active)) browserControlPanelButton.setAttribute('aria-pressed', String(active))
+            }
           }
 
           const refreshMitmStatus = async ({ silent = false } = {}) => {
             if (mitmRefreshPromise) return mitmRefreshPromise
-            mitmRefreshPromise = requestMitm('status').then(result => {
+            const controller = typeof AbortController === 'function' ? new AbortController() : null
+            mitmRefreshController = controller
+            mitmRefreshPromise = requestMitm('status', controller ? { signal: controller.signal } : undefined).then(result => {
               mitmSnapshot = result
               mitmError = ''
               updateBrowserControl()
@@ -3970,11 +4171,15 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
               notify()
               return result
             }).catch(error => {
+              if (error?.name === 'AbortError') return null
               mitmError = error?.message || String(error)
               updateBrowserControl()
               if (!silent) notify()
               return null
-            }).finally(() => { mitmRefreshPromise = undefined })
+            }).finally(() => {
+              if (mitmRefreshController === controller) mitmRefreshController = undefined
+              mitmRefreshPromise = undefined
+            })
             return mitmRefreshPromise
           }
 
@@ -4010,8 +4215,9 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           }
 
           const mountBrowserMitmControl = () => {
+            const browser = browserElement()
             const bar = browserBarElement()
-            if (!bar) return
+            if (!browser || !bar) return
             const changedBar = browserControlBar !== bar
             browserControlBar = bar
             installBrowserMitmStyle()
@@ -4034,6 +4240,38 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
             }
             browserControlButton = button
             browserControlText = button.querySelector('.dsh-resource-center-mitm-browser-text')
+            let panel = browser.querySelector(`[${MITM_PANEL_ATTR}]`)
+            if (!panel) {
+              panel = document.createElement('section')
+              panel.className = 'dsh-resource-center-mitm-browser-panel'
+              panel.setAttribute(MITM_PANEL_ATTR, '')
+              panel.setAttribute('aria-label', 'MITM 监听控制')
+              const copy = document.createElement('div')
+              copy.className = 'dsh-resource-center-mitm-browser-panel-copy'
+              const dot = document.createElement('span')
+              dot.className = 'dsh-resource-center-mitm-browser-panel-dot'
+              dot.setAttribute('aria-hidden', 'true')
+              const text = document.createElement('div')
+              text.className = 'dsh-resource-center-mitm-browser-panel-text'
+              const title = document.createElement('strong')
+              title.className = 'dsh-resource-center-mitm-browser-panel-title'
+              const meta = document.createElement('span')
+              meta.className = 'dsh-resource-center-mitm-browser-panel-meta'
+              text.append(title, meta)
+              copy.append(dot, text)
+              const action = document.createElement('button')
+              action.type = 'button'
+              action.className = 'dsh-resource-center-mitm-browser-panel-action'
+              action.addEventListener('click', () => { void toggleMitm() })
+              panel.append(copy, action)
+              const sandbox = browserSandboxElement()
+              if (sandbox?.parentElement === browser) sandbox.after(panel)
+              else bar.after(panel)
+            }
+            browserControlPanel = panel
+            browserControlPanelButton = panel.querySelector('.dsh-resource-center-mitm-browser-panel-action')
+            browserControlPanelTitle = panel.querySelector('.dsh-resource-center-mitm-browser-panel-title')
+            browserControlPanelMeta = panel.querySelector('.dsh-resource-center-mitm-browser-panel-meta')
             updateBrowserControl()
             rewriteBrowserFrame()
             if (changedBar || !mitmSnapshot) void refreshMitmStatus({ silent: true })
@@ -4050,16 +4288,21 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
             browserObserver = undefined
             browserPollTimer = undefined
             observedBrowser = browser
+            browserControlPanel?.remove()
             browserControlBar = undefined
             browserControlButton = undefined
             browserControlText = undefined
+            browserControlPanel = undefined
+            browserControlPanelButton = undefined
+            browserControlPanelTitle = undefined
+            browserControlPanelMeta = undefined
             if (!browser) return
             if (typeof MutationObserver === 'function') {
               browserObserver = new MutationObserver(() => {
                 mountBrowserMitmControl()
                 rewriteBrowserFrame()
               })
-              browserObserver.observe(browser, { childList: true, subtree: true, attributes: true, attributeFilter: ['src'] })
+              browserObserver.observe(browser, { childList: true, attributes: true, attributeFilter: ['src'] })
             }
             mountBrowserMitmControl()
             browserPollTimer = setInterval(() => { void refreshMitmStatus({ silent: true }); mountBrowserMitmControl() }, 1600)
@@ -4073,7 +4316,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
               observedPanel = panel
               if (panel && typeof MutationObserver === 'function') {
                 panelObserver = new MutationObserver(() => { observeBrowser(); notify() })
-                panelObserver.observe(panel, { attributes: true, attributeFilter: ['class', 'style'], childList: true, subtree: true })
+                panelObserver.observe(panel, { attributes: true, attributeFilter: ['class', 'style'], childList: true })
               }
               if (panel && typeof ResizeObserver === 'function') {
                 resizeObserver = new ResizeObserver(notify)
@@ -4147,12 +4390,15 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
             dispose() {
               disposed = true
               listeners.clear()
+              mitmRefreshController?.abort()
+              mitmRefreshController = undefined
               bodyObserver?.disconnect()
               panelObserver?.disconnect()
               resizeObserver?.disconnect()
               browserObserver?.disconnect()
               if (browserPollTimer) clearInterval(browserPollTimer)
               browserControlButton?.remove()
+              browserControlPanel?.remove()
               browserStyle?.remove()
               bodyObserver = undefined
               panelObserver = undefined
@@ -4164,12 +4410,16 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
               browserControlBar = undefined
               browserControlButton = undefined
               browserControlText = undefined
+              browserControlPanel = undefined
+              browserControlPanelButton = undefined
+              browserControlPanelTitle = undefined
+              browserControlPanelMeta = undefined
             },
           }
 
           if (typeof document !== 'undefined' && document.body && typeof MutationObserver === 'function') {
             bodyObserver = new MutationObserver(() => { observePanel(); notify() })
-            bodyObserver.observe(document.body, { childList: true, subtree: true })
+            bodyObserver.observe(document.querySelector('.hHd-Xa_root') || document.body, { childList: true })
           }
           if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') window.addEventListener('resize', notify)
           const originalDispose = bridge.dispose
