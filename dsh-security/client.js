@@ -203,9 +203,11 @@
 
       function RequestDetail(props) {
         if (!props.flow) return h('div', { className: 'dsec-empty' }, '选择一条记录查看请求包和响应包。')
+        const risk = props.flow.riskAssessment
         return h('div', { className: 'dsec-detail' },
           h('section', { className: 'dsec-card' }, h('div', { className: 'dsec-card-title' }, '请求包'), h('pre', { className: 'dsec-pre' }, props.flow.requestPacket || '')),
           h('section', { className: 'dsec-card' }, h('div', { className: 'dsec-card-title' }, '响应包'), h('pre', { className: 'dsec-pre' }, props.flow.responsePacket || props.flow.error || '无响应包')),
+          risk ? h('section', { className: 'dsec-card' }, h('div', { className: 'dsec-card-title' }, '发送前风险评估'), h('pre', { className: 'dsec-pre' }, JSON.stringify({ ...risk, approvalScope: props.flow.approvalScope || null, requestFingerprint: props.flow.requestFingerprint || null }, null, 2))) : null,
         )
       }
 

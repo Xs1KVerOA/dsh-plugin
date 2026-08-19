@@ -28,12 +28,12 @@ Options:
   --plugin-dir PATH    Bundle directory (default: ./resource-center-plugin)
   --dry-run            Print checks and commands without changing the profile
   --remove             Remove the bundle from the target profile
-  --start              Start `dsh web` after a successful install
+  --start              Start the canonical source-checkout launcher after install
   -h, --help           Show this help
 
 Environment:
   DSH_HOME             DSH home directory (default: ~/.dsh)
-  DSH_CMD              dsh executable path (default: dsh, then npx fallback)
+  DSH_CMD              dsh executable path for profile management (default: dsh, then npx fallback)
   DSH_PROFILE          Default profile name
   DSH_PLUGIN_DIR       Default local bundle directory
 EOF
@@ -111,7 +111,7 @@ if [ "$DRY_RUN" = true ]; then
   else
     say "[dry-run] ${DSH_CLI[*]} plugin --profile $PROFILE add $PLUGIN_DIR"
     say '[dry-run] verify dsh.profile.bundles and dump the composed config'
-    [ "$START" = true ] && say "[dry-run] ${DSH_CLI[*]} web --profile $PROFILE"
+    [ "$START" = true ] && say "[dry-run] $SCRIPT_DIR/start-local.sh --profile $PROFILE"
   fi
   exit 0
 fi
@@ -145,8 +145,8 @@ say 'bundle registered; validating composed config'
 say 'installation complete'
 
 if [ "$START" = true ]; then
-  exec "${DSH_CLI[@]}" web --profile "$PROFILE"
+  exec "$SCRIPT_DIR/start-local.sh" --profile "$PROFILE"
 fi
 
-say "restart with: ${DSH_CLI[*]} web --profile $PROFILE"
+say "restart with: $SCRIPT_DIR/start-local.sh --profile $PROFILE"
 say 'after startup, hard-refresh the Web UI (Cmd/Ctrl+Shift+R)'

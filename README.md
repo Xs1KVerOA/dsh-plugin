@@ -51,6 +51,23 @@ npx @deepseek-ai/dsh --profile web --dump-config
 ./install.sh --plugin-dir "$PWD/dsh-security" --dry-run
 ```
 
+### 本地源码启动（推荐）
+
+开发和安全加固验证统一使用源码 Harness 启动器，不使用
+`npx @deepseek-ai/dsh web`。启动器会在每次启动前重建 Harness Host/Client
+库和资源中心客户端 bundle，确认 `web` profile 的插件仍然链接到当前源码，
+并在发现旧产物、错误链接或端口冲突时拒绝启动：
+
+```sh
+./start-local.sh --check
+./start-local.sh
+```
+
+它实际执行的是 `pnpm dsh --profile web web`，工作目录为同级的
+`deepseek-harness` 源码 checkout。可通过 `DSH_ROOT`、`DSH_PROFILE`、
+`DSH_HOST` 和 `DSH_PORT` 覆盖默认值。`npx` 仅用于 profile 的安装/管理，
+不作为运行时入口，从而避免临时 npx cache 继续加载旧的加固 bundle。
+
 ## 开发与验证
 
 根目录 workspace 安装依赖时使用：

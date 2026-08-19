@@ -131,7 +131,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
 .drc-rail-button.drc-active:before{content:"";position:absolute;left:-5px;top:8px;bottom:8px;width:3px;border-radius:0 2px 2px 0;background:var(--dsw-alias-state-business-primary,#3578e5)}
 .drc-rail-button:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary,#3578e5);outline-offset:1px}
 .drc-rail-button svg{width:21px;height:21px}
-.drc-panel{position:relative;z-index:0;width:auto;min-width:0;flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--dsw-alias-bg-layer-1,#fff);border-left:1px solid var(--dsw-alias-border-l1,#e5e7eb);animation:drc-panel-in .16s ease-out}
+.drc-panel{position:relative;z-index:0;width:auto;min-width:0;flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--dsw-alias-bg-layer-1,#fff);border-left:1px solid var(--dsw-alias-border-l1,#e5e7eb);border-right:1px solid var(--dsw-alias-border-l1,#e5e7eb);animation:drc-panel-in .16s ease-out}
 @keyframes drc-panel-in{from{transform:translateX(-8px);opacity:.55}to{transform:none;opacity:1}}
 .drc-toolbar{display:flex;align-items:center;gap:4px;min-width:0;padding:11px 10px 7px}
 .drc-toolbar-title{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:650;color:var(--dsw-alias-label-secondary,#777e88)}
@@ -145,8 +145,12 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
 .drc-search-input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:inherit;font:inherit;font-size:11.5px}
 .drc-search-status{flex:0 0 auto;max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-tertiary,#9aa0a8);font-size:9.5px}
 .drc-tree-layout{display:flex;flex:1;min-width:0;min-height:0;flex-direction:column}
-.drc-scroll{min-width:0;min-height:0;flex:1;overflow-x:hidden;overflow-y:auto;padding:0 8px 12px;scrollbar-width:thin}
-.drc-bottom{flex:0 0 auto;padding:0 8px 10px;border-top:1px solid var(--dsw-alias-border-l1,#e5e7eb);background:var(--dsw-alias-bg-layer-1,#fff)}
+.drc-scroll{min-width:0;min-height:0;flex:1;overflow-x:hidden;overflow-y:auto;padding:0 8px 8px;scrollbar-width:thin}
+.drc-bottom{flex:0 0 auto;padding:8px 10px 10px;border-top:1px solid var(--dsw-alias-border-l1,#e5e7eb);background:linear-gradient(180deg,var(--dsw-alias-bg-layer-1,#fff),var(--dsw-alias-bg-layer-2,#fafbfd));box-shadow:0 -5px 14px rgba(22,35,55,.04)}
+.drc-create-workspace{display:flex;align-items:center;gap:6px;width:100%;min-height:32px;padding:6px 7px;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--dsw-alias-state-business-primary,#3578e5);font:inherit;font-size:12px;font-weight:520;text-align:left;cursor:pointer;transition:background .15s,border-color .15s,color .15s}
+.drc-create-workspace:hover{border-color:#d6e5ff;background:#f1f6ff;color:#2468d4}
+.drc-create-workspace:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary,#3578e5);outline-offset:1px}
+.drc-create-workspace .drc-create-icon{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;color:inherit;font-size:14px;line-height:1}
 .drc-group{margin:2px 0 4px}
 .drc-group-row,.drc-session-row{position:relative;display:flex;align-items:center;gap:6px;width:100%;min-width:0;border:0;border-radius:7px;background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer;box-sizing:border-box}
 .drc-group-row{padding:7px 6px;color:var(--dsw-alias-label-primary,#353940)}
@@ -172,7 +176,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
 .drc-session-id{max-width:58px;flex:0 0 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:9.5px;color:var(--dsw-alias-label-tertiary,#a2a7af)}
 .drc-rename-input{min-width:0;flex:1;height:24px;padding:2px 6px;border:1px solid var(--dsw-alias-state-business-primary,#3578e5);border-radius:5px;background:var(--dsw-alias-input-fill,#fff);color:inherit;font:inherit;font-size:12px;outline:0}
 .drc-empty{padding:28px 14px;text-align:center;color:var(--dsw-alias-label-tertiary,#9aa0a8);font-size:12px;line-height:1.7}
-.drc-hint{margin:12px 4px 0;padding-top:10px;border-top:1px solid var(--dsw-alias-border-l1,#e5e7eb);color:var(--dsw-alias-label-tertiary,#9aa0a8);font-size:10.5px;line-height:1.55}.drc-action-error{margin:8px 4px 0;padding:8px 9px;border:1px solid rgba(217,75,75,.24);border-radius:6px;background:rgba(217,75,75,.07);color:var(--dsw-alias-state-error-primary,#d94b4b);font-size:11px;line-height:1.45;overflow-wrap:anywhere}
+.drc-hint{margin:8px 4px 0;padding:8px 2px 0;border-top:1px solid var(--dsw-alias-border-l1,#e5e7eb);color:var(--dsw-alias-label-tertiary,#9aa0a8);font-size:10px;line-height:1.5}.drc-action-error{margin:8px 4px 0;padding:8px 9px;border:1px solid rgba(217,75,75,.24);border-radius:6px;background:rgba(217,75,75,.07);color:var(--dsw-alias-state-error-primary,#d94b4b);font-size:11px;line-height:1.45;overflow-wrap:anywhere}
 .drc-menu-backdrop{position:fixed;inset:0;z-index:1190}
 .drc-menu{position:fixed;min-width:148px;padding:4px;border:1px solid var(--dsw-alias-border-l1,#dfe2e7);border-radius:8px;background:var(--dsw-alias-bg-layer-1,#fff);box-shadow:0 8px 24px rgba(25,35,50,.16)}
 .drc-menu-item{display:flex;align-items:center;width:100%;padding:7px 10px;border:0;border-radius:5px;background:transparent;color:var(--dsw-alias-label-primary,#30343a);font:inherit;font-size:12px;text-align:left;cursor:pointer}
@@ -180,7 +184,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
 .drc-menu-item.drc-danger{color:var(--dsw-alias-state-error-primary,#d94b4b)}
 .drc-menu-separator{height:1px;margin:4px 6px;background:var(--dsw-alias-border-l1,#e5e7eb)}
 .FJxK0a_root{position:relative}
-.dsh-resource-center-session-cost{position:absolute;right:4px;top:4px;display:inline-block;margin:0;padding:0 4px 0 10px;border-left:1px solid var(--dsw-alias-separator-primary,#e2e5e9);background:var(--dsw-alias-bg-layer-1,#fff);box-shadow:-8px 0 8px var(--dsw-alias-bg-layer-1,#fff);color:var(--dsw-alias-state-business-primary,#3578e5);font-weight:500;font-variant-numeric:tabular-nums;z-index:1}
+.dsh-resource-center-session-cost{display:inline-flex;align-items:center;margin-left:8px;padding-left:8px;border-left:1px solid var(--dsw-alias-separator-primary,#e2e5e9);color:var(--dsw-alias-state-business-primary,#3578e5);font-size:inherit;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
 @media (prefers-color-scheme:dark){.drc-panel,.drc-rail{background:var(--dsw-specific-sidebar-fill,#1d1f23)}.drc-menu{background:var(--dsw-alias-bg-layer-1,#24272c)}}
 `
 
@@ -205,6 +209,28 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         return `${Math.round(number / 1e5) / 10}M`
       }
 
+      function currentSessionCostRoots() {
+        if (typeof document === 'undefined') return []
+        // The conversation footer uses a hashed class name, but the slot name
+        // is part of the host extension contract and survives host rebuilds.
+        const selectors = [
+          '[data-slot="conversation.composer.dock"] > *',
+          '.FJxK0a_root',
+        ]
+        const roots = []
+        const seen = new Set()
+        for (const selector of selectors) {
+          for (const root of document.querySelectorAll?.(selector) || []) {
+            if (!seen.has(root)) {
+              seen.add(root)
+              roots.push(root)
+            }
+          }
+          if (roots.length) break
+        }
+        return roots
+      }
+
       function installCurrentSessionCost(sessions) {
         if (typeof document === 'undefined' || !document.body) return () => {}
         let disposed = false
@@ -216,13 +242,11 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         let unsubscribe
 
         const removeIndicators = () => {
-          for (const root of document.querySelectorAll?.('.FJxK0a_root') || []) {
-            root.querySelector?.('[data-dsh-resource-center-session-cost]')?.remove?.()
-          }
+          for (const indicator of document.querySelectorAll?.('[data-dsh-resource-center-session-cost]') || []) indicator.remove?.()
         }
         const paint = () => {
           if (disposed) return
-          const roots = [...(document.querySelectorAll?.('.FJxK0a_root') || [])]
+          const roots = currentSessionCostRoots()
           if (!currentSessionId || roots.length === 0) {
             if (!currentSessionId) removeIndicators()
             return
@@ -763,10 +787,10 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
             ),
           ),
           h('div', { className: 'drc-bottom' },
-            h('button', { className: 'drc-group-row', onClick: createWorkspace },
-              h('span', { className: 'drc-chevron' }, '+'),
+            h('button', { className: 'drc-create-workspace', type: 'button', title: '新建工作区', onClick: createWorkspace },
+              h('span', { className: 'drc-create-icon', 'aria-hidden': 'true' }, '+'),
               h('span', { className: 'drc-folder-small' }, h(SmallFolderIcon, { open: false })),
-              h('span', { className: 'drc-group-name', style: { color: 'var(--dsw-alias-state-business-primary,#3578e5)', fontWeight: 500 } }, '新建工作区'),
+              h('span', { className: 'drc-group-name' }, '新建工作区'),
             ),
             actionError ? h('div', { className: 'drc-action-error', role: 'alert' }, actionError) : null,
             h('div', { className: 'drc-hint' }, '右键会话可重命名、分叉或归档；右键工作区可重命名或删除。'),
@@ -828,7 +852,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         const top = newSessionRect ? Math.max(96, Math.round(newSessionRect.bottom + 12)) : 114
         const settings = [...(document.querySelectorAll?.('button') || [])].find(button => button.textContent.trim() === '设置')
         const settingsRect = settings?.getBoundingClientRect?.()
-        const dockBottom = settingsRect && settingsRect.top > top + 120 ? settingsRect.top - 56 : window.innerHeight - 100
+        const dockBottom = settingsRect && settingsRect.top > top + 120 ? settingsRect.top - 8 : window.innerHeight - 100
         const bottom = Math.max(24, Math.round(window.innerHeight - dockBottom))
         const hostToggleCluster = document.querySelector(HOST_RIGHT_TOGGLE_SELECTOR)
         const hostToggleRect = hostToggleCluster?.getBoundingClientRect?.()
@@ -2642,7 +2666,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
 .dwt-mitm-toolbar{min-height:62px;padding:0 18px;gap:11px;background:rgba(255,255,255,.96);box-shadow:0 1px 0 rgba(148,163,184,.12)}
 .dwt-mitm-toolbar-brand{display:flex;align-items:center;gap:9px;min-width:0}.dwt-mitm-toolbar-mark{display:inline-flex;width:30px;height:30px;align-items:center;justify-content:center;border-radius:9px;background:linear-gradient(145deg,#eaf2ff,#d7e7ff);color:#3578e5;font-size:18px;font-weight:700;box-shadow:inset 0 0 0 1px rgba(53,120,229,.08)}.dwt-mitm-toolbar-copy{display:flex;min-width:0;flex-direction:column;gap:2px}.dwt-mitm-toolbar-kicker{color:#7c8aa0;font-size:9px;font-weight:650;letter-spacing:.08em}.dwt-mitm-toolbar-title{font-size:14px;line-height:1.1}.dwt-mitm-toolbar-meta{color:#8b98aa;font-size:10px}.dwt-mitm-toolbar-state{display:inline-flex;align-items:center;gap:5px;padding:5px 8px;border:1px solid #e0e6ee;border-radius:999px;background:#f7f9fc;color:#8b98aa;font-size:10px}.dwt-mitm-toolbar-state.live{border-color:#dbe8df;background:#f2fbf5;color:#388650}.dwt-mitm-toolbar-state-dot{width:6px;height:6px;border-radius:50%;background:#aab4c1}.dwt-mitm-toolbar-state.live .dwt-mitm-toolbar-state-dot{background:#43bb73}.dwt-mitm-pending-toggle{white-space:nowrap}
 .dwt-mitm-config{gap:10px;padding:11px 10px 14px;background:linear-gradient(180deg,#fbfdff,#f5f8fc)}.dwt-mitm-status-card{display:flex;flex-direction:column;gap:9px;padding:12px;border:1px solid #dce7f5;border-radius:10px;background:linear-gradient(145deg,#f4f8ff,#ffffff 72%);box-shadow:0 5px 16px rgba(51,91,145,.06)}.dwt-mitm-status-main{display:flex;align-items:center;gap:8px;min-width:0}.dwt-mitm-status-icon{display:inline-flex;width:28px;height:28px;align-items:center;justify-content:center;border-radius:8px;background:#edf4ff;color:#3578e5;font-size:17px;font-weight:700}.dwt-mitm-status-copy{display:flex;min-width:0;flex-direction:column;gap:2px}.dwt-mitm-status-kicker,.dwt-mitm-section-kicker{color:#7b8ba2;font-size:9px;font-weight:700;letter-spacing:.08em}.dwt-mitm-status-title{font-size:12px}.dwt-mitm-status-badge{align-self:flex-start;padding:3px 7px;border-radius:999px;background:#f0f2f5;color:#8b95a3;font-size:9px;font-weight:700;letter-spacing:.05em}.dwt-mitm-status-badge.live{background:#eaf8ef;color:#388650}.dwt-mitm-endpoint{padding-top:8px;border-top:1px solid #e8eef6;color:#64748b;font:9px ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dwt-mitm-actions{padding:0 1px}.dwt-mitm-note{padding:8px 9px;border:1px solid #e7edf5;border-radius:7px;background:rgba(255,255,255,.72)}.dwt-mitm-listen-card{display:flex;flex-direction:column;gap:8px;padding:10px;border:1px solid #e1e7ef;border-radius:9px;background:rgba(255,255,255,.76);box-shadow:0 2px 8px rgba(30,55,90,.025)}.dwt-mitm-listen-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(76px,.75fr);gap:7px}.dwt-mitm-listen-grid .dwt-label{display:flex;flex-direction:column;gap:5px}.dwt-mitm-listen-hint{color:#8b98aa;font-size:9px;line-height:1.45}.dwt-mitm-config .dwt-input:disabled{background:#f3f6fa;color:#8b95a3;cursor:not-allowed}
-.dwt-mitm-table-wrap{padding:12px 14px}.dwt-mitm-table{border-color:#dbe3ee;border-radius:10px;box-shadow:0 8px 24px rgba(30,55,90,.045)}.dwt-mitm-table-head{padding:9px 12px;background:#f7f9fc;border-bottom-color:#e1e8f1}.dwt-mitm-table-row{padding:10px 12px}.dwt-mitm-table-row:hover,.dwt-mitm-table-row.active{background:#f3f7fd}.dwt-mitm-table-row.active{box-shadow:inset 3px 0 0 #3578e5}.dwt-mitm-empty-card{min-height:260px;margin:12px 14px;border:1px dashed #d7e1ec;border-radius:10px;background:rgba(255,255,255,.72);box-shadow:0 8px 24px rgba(30,55,90,.035);flex-direction:column;gap:7px}.dwt-mitm-empty-icon{display:inline-flex;width:42px;height:42px;align-items:center;justify-content:center;border:1px solid #d8e5f6;border-radius:13px;background:#eef5ff;color:#5b8fe4;font-size:20px;font-weight:700}.dwt-mitm-empty-card strong{font-size:13px;color:#536277}.dwt-mitm-empty-card>span{max-width:330px;color:#9aa5b4;font-size:10px;line-height:1.5;text-align:center}.dwt-mitm-empty-hints{display:flex;gap:6px;margin-top:4px}.dwt-mitm-empty-hints span{padding:4px 7px;border-radius:999px;background:#f0f5fc;color:#7c8aa0;font-size:9px}
+.dwt-mitm-table-wrap{padding:12px 14px}.dwt-mitm-table{min-width:1040px;border-color:#dbe3ee;border-radius:10px;box-shadow:0 8px 24px rgba(30,55,90,.045)}.dwt-mitm-table-head,.dwt-mitm-table-row{grid-template-columns:122px minmax(170px,1.1fr) 74px 58px 62px minmax(260px,2fr) 52px 86px 76px}.dwt-mitm-table-head{padding:9px 12px;background:#f7f9fc;border-bottom-color:#e1e8f1}.dwt-mitm-sort{display:inline-flex;align-items:center;gap:3px;padding:2px 0;border:0;background:transparent;color:inherit;font:inherit;font-size:10px;cursor:pointer;text-align:left}.dwt-mitm-sort:hover{color:var(--dsw-alias-state-business-primary,#3578e5)}.dwt-mitm-sort-indicator{color:var(--dsw-alias-state-business-primary,#3578e5);font-size:9px}.dwt-mitm-table-row{padding:10px 12px}.dwt-mitm-table-row:hover,.dwt-mitm-table-row.active{background:#f3f7fd}.dwt-mitm-table-row.active{box-shadow:inset 3px 0 0 #3578e5}.dwt-mitm-cell.request-id{font:9px ui-monospace,SFMono-Regular,Menlo,monospace;color:#64748b}.dwt-mitm-cell.request-time{font-size:9px;color:#64748b}.dwt-mitm-empty-card{min-height:260px;margin:12px 14px;border:1px dashed #d7e1ec;border-radius:10px;background:rgba(255,255,255,.72);box-shadow:0 8px 24px rgba(30,55,90,.035);flex-direction:column;gap:7px}.dwt-mitm-empty-icon{display:inline-flex;width:42px;height:42px;align-items:center;justify-content:center;border:1px solid #d8e5f6;border-radius:13px;background:#eef5ff;color:#5b8fe4;font-size:20px;font-weight:700}.dwt-mitm-empty-card strong{font-size:13px;color:#536277}.dwt-mitm-empty-card>span{max-width:330px;color:#9aa5b4;font-size:10px;line-height:1.5;text-align:center}.dwt-mitm-empty-hints{display:flex;gap:6px;margin-top:4px}.dwt-mitm-empty-hints span{padding:4px 7px;border-radius:999px;background:#f0f5fc;color:#7c8aa0;font-size:9px}
 @media (max-width:1100px){.dwt-fuzzer-workbench{grid-template-columns:210px minmax(300px,1fr)}.dwt-fuzzer-response{grid-column:1/-1;min-height:300px;max-height:420px;border-top:1px solid var(--dsw-alias-border-l1,#e5e7eb)}}
 @media (max-width:720px){.dwt-fuzzer-workbench{display:flex;flex-direction:column}.dwt-fuzzer-config{max-height:none;border-right:0;border-bottom:1px solid var(--dsw-alias-border-l1,#e5e7eb)}.dwt-fuzzer-request{min-height:420px;border-right:0}.dwt-fuzzer-response{max-height:none}.dwt-fuzzer-toolbar{flex-wrap:wrap;padding:8px 10px}}
 @container (max-width:1100px){.dwt-fuzzer-workbench{grid-template-columns:210px minmax(0,1fr)}.dwt-fuzzer-response{grid-column:1/-1;min-height:300px;max-height:420px;border-top:1px solid var(--dsw-alias-border-l1,#e5e7eb)}}
@@ -2660,6 +2684,13 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         style.dataset.plugin = 'dsh-web-testing'
         style.textContent = CSS
         document.head.appendChild(style)
+      }
+
+      function isAbortError(error) {
+        const name = String(error?.name || '').toLowerCase()
+        const code = String(error?.code || '').toLowerCase()
+        const message = String(error?.message || '').toLowerCase()
+        return name === 'aborterror' || code === 'abort_err' || code === 'aborted' || message.includes('abort')
       }
 
       async function fetchWithTimeout(input, options = {}, timeoutMs = 12000) {
@@ -3327,7 +3358,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
             setStatus(nextStatus); setFlows(nextFlows.flows || [])
             if (!loadedRef.current && nextStatus.mitm) { applyRemoteConfig(nextStatus.mitm); loadedRef.current = true }
           } catch (cause) {
-            if (cause?.name !== 'AbortError') setError(cause?.message || String(cause))
+            if (!isAbortError(cause)) setError(cause?.message || String(cause))
           } finally {
             if (refreshController.current === controller) refreshController.current = null
             refreshInFlight.current = false
@@ -3472,12 +3503,54 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         )
       }
 
+      function formatFlowTime(value) {
+        const date = new Date(Number(value))
+        if (!Number.isFinite(date.getTime())) return '-'
+        return date.toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+      }
+
+      function formatResponseSize(value) {
+        const bytes = Number(value)
+        if (!Number.isFinite(bytes) || bytes < 0) return '-'
+        if (bytes < 1024) return `${bytes} B`
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(bytes < 10 * 1024 ? 1 : 0)} KB`
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+      }
+
+      function mitmSortValue(flow, key) {
+        if (key === 'requestTime') return Number(flow.requestTime ?? flow.startedAt ?? 0)
+        if (key === 'requestId') return String(flow.requestId ?? flow.id ?? '')
+        if (key === 'method') return String(flow.requestMethod ?? flow.method ?? '').toUpperCase()
+        if (key === 'status') return Number.isFinite(Number(flow.status)) ? Number(flow.status) : -1
+        if (key === 'responseSizeBytes') return Number.isFinite(Number(flow.responseSizeBytes)) ? Number(flow.responseSizeBytes) : -1
+        if (key === 'durationMs') return Number.isFinite(Number(flow.durationMs)) ? Number(flow.durationMs) : -1
+        return ''
+      }
+
+      function compareMitmFlows(left, right, key, direction) {
+        const leftValue = mitmSortValue(left, key)
+        const rightValue = mitmSortValue(right, key)
+        let result
+        if (typeof leftValue === 'number' && typeof rightValue === 'number') result = leftValue - rightValue
+        else result = String(leftValue).localeCompare(String(rightValue), 'zh-CN', { numeric: true, sensitivity: 'base' })
+        return (direction === 'asc' ? 1 : -1) * (result || String(left.id).localeCompare(String(right.id)))
+      }
+
+      function MitmSortHeader({ label, sortKey, activeKey, direction, onSort }) {
+        const active = activeKey === sortKey
+        return h('button', { className: 'dwt-mitm-sort', type: 'button', 'aria-label': `按${label}排序`, 'aria-sort': active ? (direction === 'asc' ? 'ascending' : 'descending') : 'none', onClick: () => onSort(sortKey), title: `按${label}${active && direction === 'asc' ? '降序' : '升序'}` }, label, active ? h('span', { className: 'dwt-mitm-sort-indicator', 'aria-hidden': 'true' }, direction === 'asc' ? '↑' : '↓') : h('span', { className: 'dwt-mitm-sort-indicator', 'aria-hidden': 'true' }, '↕'))
+      }
+
       function MitmPanel({ state, onSendToFuzzer, onConfirm }) {
         const { status, flows, selected, error, clear, refresh, select, flowAction, responseOverride, setResponseOverride, responseStatus, setResponseStatus, responseHeadersText, setResponseHeadersText } = state
         const [query, setQuery] = React.useState('')
         const [pendingOnly, setPendingOnly] = React.useState(false)
+        const [sortState, setSortState] = React.useState({ key: 'requestTime', direction: 'desc' })
         const needle = query.trim().toLowerCase()
-        const visibleFlows = flows.filter(flow => (!pendingOnly || flow.metadata?.pendingStage) && (!needle || `${flow.method} ${flow.url} ${flow.status} ${flow.metadata?.haeCount || ''}`.toLowerCase().includes(needle)))
+        const visibleFlows = flows
+          .filter(flow => (!pendingOnly || flow.metadata?.pendingStage) && (!needle || `${flow.requestId || flow.id || ''} ${flow.requestMethod || flow.method || ''} ${flow.url || ''} ${flow.status || ''} ${flow.metadata?.haeCount || ''}`.toLowerCase().includes(needle)))
+          .sort((left, right) => compareMitmFlows(left, right, sortState.key, sortState.direction))
+        const onSort = key => setSortState(current => current.key === key ? { key, direction: current.direction === 'asc' ? 'desc' : 'asc' } : { key, direction: key === 'requestTime' ? 'desc' : 'asc' })
         const action = (name, payload) => name === 'error' ? state.setError?.(payload.message) : flowAction(name, payload)
         return h('section', { className: 'dwt-panel dwt-panel-central' },
           h('div', { className: 'dwt-mitm-page' },
@@ -3492,12 +3565,12 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
               ),
               h('span', { className: 'dwt-mitm-toolbar-state' + (status?.proxy ? ' live' : '') }, h('span', { className: 'dwt-mitm-toolbar-state-dot' }), status?.proxy ? '监听中' : '等待启动'),
               h('span', { className: 'dwt-mitm-toolbar-spacer' }),
-              h('input', { className: 'dwt-input dwt-mitm-filter', type: 'search', placeholder: '搜索 URL、方法、状态…', value: query, onChange: event => setQuery(event.target.value) }),
+              h('input', { className: 'dwt-input dwt-mitm-filter', type: 'search', placeholder: '搜索请求 ID、URL、方法、状态…', value: query, onChange: event => setQuery(event.target.value) }),
               h('label', { className: 'dwt-checkbox-row dwt-mitm-pending-toggle' }, h('input', { type: 'checkbox', checked: pendingOnly, onChange: event => setPendingOnly(event.target.checked) }), '仅待处理'),
               h('button', { className: 'dwt-btn', onClick: refresh }, '刷新'), h('button', { className: 'dwt-btn', onClick: () => onConfirm({ title: '清空全部 MITM 流量？', message: '当前捕获流量、待处理请求和响应详情都会被删除，且无法恢复。', confirmLabel: '确认清空' }, clear) }, '清空'),
             ),
             error ? h('div', { className: 'dwt-error', style: { margin: '8px 12px 0' } }, error) : null,
-            h('div', { className: 'dwt-mitm-table-wrap' }, visibleFlows.length ? h('div', { className: 'dwt-mitm-table' }, h('div', { className: 'dwt-mitm-table-head' }, h('span', null, '阶段'), h('span', null, '方法'), h('span', null, '状态'), h('span', null, 'URL'), h('span', null, 'HaE'), h('span', null, '耗时')), visibleFlows.map(flow => h('button', { key: flow.id, className: 'dwt-mitm-table-row' + (selected?.id === flow.id ? ' active' : ''), onClick: () => select(flow) }, h('span', { className: 'dwt-mitm-cell dwt-mitm-stage' + (flow.metadata?.pendingStage ? ' pending' : '') }, flow.metadata?.pendingStage === 'request' ? '待放行请求' : flow.metadata?.pendingStage === 'response' ? '待放行响应' : '已完成'), h('span', { className: 'dwt-mitm-cell' }, flow.method || '-'), h('span', { className: 'dwt-mitm-cell ' + (flow.status >= 400 ? 'dwt-fail' : 'dwt-pass') }, flow.status || '-'), h('span', { className: 'dwt-mitm-cell url', title: flow.url }, flow.url), h('span', { className: 'dwt-mitm-cell' }, flow.metadata?.haeCount || 0), h('span', { className: 'dwt-mitm-cell' }, flow.durationMs == null ? '-' : `${flow.durationMs}ms`)))) : h('div', { className: 'dwt-mitm-empty dwt-mitm-empty-card' }, h('div', { className: 'dwt-mitm-empty-icon', 'aria-hidden': 'true' }, '⌁'), h('strong', null, '等待流量进入'), h('span', null, '启动左侧代理，并将客户端 HTTP 代理指向当前端点。'), h('div', { className: 'dwt-mitm-empty-hints' }, h('span', null, 'HTTP 记录'), h('span', null, '手动劫持'), h('span', null, 'HaE 提取')))),
+            h('div', { className: 'dwt-mitm-table-wrap' }, visibleFlows.length ? h('div', { className: 'dwt-mitm-table' }, h('div', { className: 'dwt-mitm-table-head' }, h(MitmSortHeader, { label: '请求时间', sortKey: 'requestTime', activeKey: sortState.key, direction: sortState.direction, onSort }), h(MitmSortHeader, { label: '请求 ID', sortKey: 'requestId', activeKey: sortState.key, direction: sortState.direction, onSort }), h('span', null, '阶段'), h(MitmSortHeader, { label: '方法', sortKey: 'method', activeKey: sortState.key, direction: sortState.direction, onSort }), h(MitmSortHeader, { label: '状态', sortKey: 'status', activeKey: sortState.key, direction: sortState.direction, onSort }), h('span', null, 'URL'), h('span', null, 'HaE'), h(MitmSortHeader, { label: '响应包大小', sortKey: 'responseSizeBytes', activeKey: sortState.key, direction: sortState.direction, onSort }), h(MitmSortHeader, { label: '耗时', sortKey: 'durationMs', activeKey: sortState.key, direction: sortState.direction, onSort })), visibleFlows.map(flow => h('button', { key: flow.id, className: 'dwt-mitm-table-row' + (selected?.id === flow.id ? ' active' : ''), onClick: () => select(flow), title: `${flow.requestId || flow.id || '-'} · 点击查看请求和响应包` }, h('span', { className: 'dwt-mitm-cell request-time', title: formatFlowTime(flow.requestTime ?? flow.startedAt) }, formatFlowTime(flow.requestTime ?? flow.startedAt)), h('span', { className: 'dwt-mitm-cell request-id', title: flow.requestId || flow.id }, flow.requestId || flow.id || '-'), h('span', { className: 'dwt-mitm-cell dwt-mitm-stage' + (flow.metadata?.pendingStage ? ' pending' : '') }, flow.metadata?.pendingStage === 'request' ? '待放行请求' : flow.metadata?.pendingStage === 'response' ? '待放行响应' : '已完成'), h('span', { className: 'dwt-mitm-cell' }, flow.requestMethod || flow.method || '-'), h('span', { className: 'dwt-mitm-cell ' + (flow.status >= 400 ? 'dwt-fail' : 'dwt-pass') }, flow.status || '-'), h('span', { className: 'dwt-mitm-cell url', title: flow.url }, flow.url), h('span', { className: 'dwt-mitm-cell' }, flow.metadata?.haeCount || 0), h('span', { className: 'dwt-mitm-cell' }, flow.status == null ? '-' : formatResponseSize(flow.responseSizeBytes)), h('span', { className: 'dwt-mitm-cell' }, flow.durationMs == null ? '-' : `${flow.durationMs}ms`)))) : h('div', { className: 'dwt-mitm-empty dwt-mitm-empty-card' }, h('div', { className: 'dwt-mitm-empty-icon', 'aria-hidden': 'true' }, '⌁'), h('strong', null, '等待流量进入'), h('span', null, '启动左侧代理，并将客户端 HTTP 代理指向当前端点。'), h('div', { className: 'dwt-mitm-empty-hints' }, h('span', null, 'HTTP 记录'), h('span', null, '手动劫持'), h('span', null, 'HaE 提取')))),
             h(FlowDetail, { flow: selected, responseOverride, setResponseOverride, responseStatus, setResponseStatus, responseHeadersText, setResponseHeadersText, onAction: action, onSendToFuzzer }),
           ),
         )
@@ -5489,8 +5562,8 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
 			settingsBrowserHttpsDesc: "开启后，点击聊天或界面中的 HTTPS 外链时在侧边栏打开。默认关闭：多数 HTTPS 站点拒绝被嵌入，走系统浏览器更顺畅",
 			browserOpenExternal: "在浏览器中打开",
 			browserEmbedBlocked: "{host} 拒绝了嵌入请求",
-			browserEmbedBlockedDesc: "该站点通过 X-Frame-Options / frame-ancestors 禁止在其它页面中显示，无法在侧边栏内加载。可在浏览器中直接打开",
-			browserEmbedAnyway: "仍然加载",
+			browserEmbedBlockedDesc: "该站点通过 X-Frame-Options / frame-ancestors 禁止在其它页面中显示。可直接打开，或使用资源中心兼容模式加载。",
+			browserEmbedAnyway: "兼容模式加载",
 			subagent: "任务管理",
 			openSubagent: "任务管理",
 			subagentMainAgent: "主代理",
@@ -5715,8 +5788,8 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
 			settingsBrowserHttpsDesc: "When on, clicking an HTTPS external link in the chat or GUI opens the sidebar. Off by default: most HTTPS sites refuse to be embedded, so the system browser is the smoother default",
 			browserOpenExternal: "Open in browser",
 			browserEmbedBlocked: "{host} refused to be embedded",
-			browserEmbedBlockedDesc: "The site forbids being displayed inside other pages (X-Frame-Options / frame-ancestors), so it cannot load in the sidebar. Open it directly in your browser instead.",
-			browserEmbedAnyway: "Load anyway",
+			browserEmbedBlockedDesc: "The site forbids iframe embedding (X-Frame-Options / frame-ancestors). Open it directly or load it through Resource Center compatibility mode.",
+			browserEmbedAnyway: "Load in compatibility mode",
 			subagent: "Tasks",
 			openSubagent: "Tasks",
 			subagentMainAgent: "Main agent",
@@ -9391,6 +9464,22 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
 			if (probe.frameAncestors !== void 0 && !probe.frameAncestors.some((source) => source === "*")) return "blocked";
 			return "embeddable";
 		}
+		/**
+		 * The resource-center bridge provides this hook for sites that explicitly
+		 * refuse iframe embedding. Compatibility mode goes through the host route,
+		 * which removes frame-blocking response headers and rewrites subresources;
+		 * it does not start or change MITM listening.
+		 */
+		function browserCompatibilityUrl(url) {
+			try {
+				const builder = typeof window !== "undefined" ? window.__DSH_RESOURCE_CENTER_BROWSER_COMPATIBILITY_URL : void 0;
+				if (typeof builder !== "function") return url;
+				const next = builder(url);
+				return typeof next === "string" && next ? next : url;
+			} catch {
+				return url;
+			}
+		}
 		/** A loopback hostname (localhost, IPv6 ::1, 127.0.0.0/8, 0.0.0.0). */
 		function isLoopbackHostname(hostname) {
 			const host = hostname.replace(/^\[|\]$/g, "").toLowerCase();
@@ -9572,8 +9661,8 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
 			/** A site that refuses to be embedded (X-Frame-Options / frame-ancestors):
 			*  the probe verdict shown instead of the blank iframe. */
 			const [embedBlocked, setEmbedBlocked] = (0, react.useState)(null);
-			/** The user asked to load the refused site anyway (keeps the plain iframe). */
-			const [forceEmbed, setForceEmbed] = (0, react.useState)(false);
+		/** The user asked to load the refused site through the compatibility route. */
+		const [forceEmbed, setForceEmbed] = (0, react.useState)(false);
 			(0, react.useEffect)(() => {
 				if (url === void 0) return;
 				let cancelled = false;
@@ -9627,6 +9716,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
 				setInput(next);
 				setReloadKey((key) => key + 1);
 			};
+			const iframeUrl = forceEmbed ? browserCompatibilityUrl(url) : url;
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 				className: sidebar_module_css_default.browser,
 				children: [
@@ -9724,7 +9814,8 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
 						}
 					}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("iframe", {
 						className: sidebar_module_css_default.browserFrame,
-						src: url,
+						src: iframeUrl,
+						"data-dsh-resource-center-browser-compat": forceEmbed ? "true" : void 0,
 						sandbox: noSandbox ? void 0 : BROWSER_IFRAME_SANDBOX,
 						referrerPolicy: "no-referrer",
 						allow: "",
@@ -9737,7 +9828,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
 		* The embed-refusal panel: shown when the probed site forbids being
 		* displayed inside other pages (X-Frame-Options / frame-ancestors) — the
 		* iframe would only show the browser's "refused to connect" blank. Explains
-		* the reason and offers the real-browser open plus a load-anyway escape.
+		* the reason and offers the real-browser open plus a compatibility escape.
 		* Exported so the copy and the actions are testable without a DOM.
 		*/
 		function BrowserEmbedBlocked(props) {
@@ -12978,6 +13069,8 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         const MITM_CONTROL_ATTR = 'data-dsh-resource-center-mitm-browser'
         const MITM_PANEL_ATTR = 'data-dsh-resource-center-mitm-panel'
         const MITM_TARGET_ATTR = 'data-dsh-resource-center-mitm-target'
+        const BROWSER_COMPAT_ATTR = 'data-dsh-resource-center-browser-compat'
+        const BROWSER_COMPATIBILITY_HOOK = '__DSH_RESOURCE_CENTER_BROWSER_COMPATIBILITY_URL'
         const MITM_STYLE_ATTR = 'data-dsh-resource-center-mitm-style'
         const RIGHT_PANEL_SELECTOR = '.W-zNGW_panel, .nArs4W_panel'
         const RIGHT_TOGGLE_SELECTOR = '.W-zNGW_toggleCluster, .nArs4W_toggleCluster'
@@ -13051,6 +13144,29 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
 
         function browserProxyUrl(target) {
           return `${MITM_BROWSER_ROUTE}?url=${encodeURIComponent(target)}`
+        }
+
+        let previousBrowserCompatibilityHook
+        let installedBrowserCompatibilityHook
+
+        function installBrowserCompatibilityHook() {
+          if (typeof window === 'undefined') return
+          if (installedBrowserCompatibilityHook && window[BROWSER_COMPATIBILITY_HOOK] === installedBrowserCompatibilityHook) return
+          previousBrowserCompatibilityHook = window[BROWSER_COMPATIBILITY_HOOK]
+          installedBrowserCompatibilityHook = target => {
+            const normalized = browserTarget(target)
+            return normalized ? browserProxyUrl(normalized) : target
+          }
+          window[BROWSER_COMPATIBILITY_HOOK] = installedBrowserCompatibilityHook
+        }
+
+        function uninstallBrowserCompatibilityHook() {
+          if (typeof window === 'undefined' || !installedBrowserCompatibilityHook) return
+          if (window[BROWSER_COMPATIBILITY_HOOK] === installedBrowserCompatibilityHook) {
+            window[BROWSER_COMPATIBILITY_HOOK] = previousBrowserCompatibilityHook
+          }
+          previousBrowserCompatibilityHook = undefined
+          installedBrowserCompatibilityHook = undefined
         }
 
         function installBrowserMitmStyle() {
@@ -13156,7 +13272,8 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
             if (!frame) return
             const target = targetFromFrame(frame)
             if (!target) return
-            if (browserMitmEnabled()) {
+            const compatibilityMode = frame.getAttribute(BROWSER_COMPAT_ATTR) === 'true'
+            if (browserMitmEnabled() || compatibilityMode) {
               frame.setAttribute(MITM_TARGET_ATTR, target)
               const expected = browserProxyUrl(target)
               if (frame.getAttribute('src') !== expected) frame.setAttribute('src', expected)
@@ -13350,7 +13467,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
                 mountBrowserMitmControl()
                 rewriteBrowserFrame()
               })
-              browserObserver.observe(browser, { childList: true, attributes: true, attributeFilter: ['src'] })
+              browserObserver.observe(browser, { childList: true, attributes: true, attributeFilter: ['src', BROWSER_COMPAT_ATTR] })
             }
             mountBrowserMitmControl()
             browserPollTimer = setInterval(() => { void refreshMitmStatus({ silent: true }); mountBrowserMitmControl() }, 1600)
@@ -13462,6 +13579,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
               browserControlPanelButton = undefined
               browserControlPanelTitle = undefined
               browserControlPanelMeta = undefined
+              uninstallBrowserCompatibilityHook()
             },
           }
 
@@ -13479,12 +13597,47 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           return bridge
         }
 
+        // The migrated workbench was originally a standalone Cordis client
+        // plugin. Its apply() function therefore reads injected services from
+        // context properties (ctx.locale, ctx.sessions, ...), while the
+        // resource-center module invokes it from inside its own apply() and
+        // only exposes the services through ctx.get(). Passing the raw context
+        // makes Cordis throw "cannot get property locale without inject" and
+        // leaves the right workbench absent even though the bundle loaded.
+        function createRightSidebarCoreContext(ctx) {
+          // Keep this a plain object. Cordis contexts expose injected services
+          // through prototype accessors; inheriting from one would route
+          // assignments through its fiber setter and fail with "cannot set
+          // property ... in multiple fibers".
+          const coreContext = {}
+          const injectedServices = ['slots', 'sessions', 'connection', 'workspaces', 'locale']
+          for (const name of injectedServices) {
+            try {
+              coreContext[name] = typeof ctx?.get === 'function' ? ctx.get(name) : undefined
+            } catch {
+              coreContext[name] = undefined
+            }
+          }
+          if (typeof ctx?.get === 'function') coreContext.get = ctx.get.bind(ctx)
+          if (typeof ctx?.effect === 'function') coreContext.effect = ctx.effect.bind(ctx)
+          if (typeof ctx?.provide === 'function') {
+            coreContext.provide = (name, value) => {
+              coreContext[name] = value
+              return ctx.provide(name, value)
+            }
+          }
+          return coreContext
+        }
+
         function apply(ctx, options = {}) {
           const sidebar = options.sidebar || ctx?.get?.('resourceCenter')
+          installBrowserCompatibilityHook()
           if (typeof document !== 'undefined' && document.body) {
             try {
               coreModule = require('dsh-resource-center-right-sidebar-core')
-              if (coreModule && typeof coreModule.apply === 'function') coreModule.apply(ctx)
+              if (coreModule && typeof coreModule.apply === 'function') {
+                coreModule.apply(createRightSidebarCoreContext(ctx))
+              }
             } catch (error) {
               console.error('[dsh-resource-center] right sidebar core failed to load:', error)
             }

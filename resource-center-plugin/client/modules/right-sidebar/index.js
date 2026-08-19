@@ -18,6 +18,8 @@
         const MITM_CONTROL_ATTR = 'data-dsh-resource-center-mitm-browser'
         const MITM_PANEL_ATTR = 'data-dsh-resource-center-mitm-panel'
         const MITM_TARGET_ATTR = 'data-dsh-resource-center-mitm-target'
+        const BROWSER_COMPAT_ATTR = 'data-dsh-resource-center-browser-compat'
+        const BROWSER_COMPATIBILITY_HOOK = '__DSH_RESOURCE_CENTER_BROWSER_COMPATIBILITY_URL'
         const MITM_STYLE_ATTR = 'data-dsh-resource-center-mitm-style'
         const RIGHT_PANEL_SELECTOR = '.W-zNGW_panel, .nArs4W_panel'
         const RIGHT_TOGGLE_SELECTOR = '.W-zNGW_toggleCluster, .nArs4W_toggleCluster'
@@ -91,6 +93,29 @@
 
         function browserProxyUrl(target) {
           return `${MITM_BROWSER_ROUTE}?url=${encodeURIComponent(target)}`
+        }
+
+        let previousBrowserCompatibilityHook
+        let installedBrowserCompatibilityHook
+
+        function installBrowserCompatibilityHook() {
+          if (typeof window === 'undefined') return
+          if (installedBrowserCompatibilityHook && window[BROWSER_COMPATIBILITY_HOOK] === installedBrowserCompatibilityHook) return
+          previousBrowserCompatibilityHook = window[BROWSER_COMPATIBILITY_HOOK]
+          installedBrowserCompatibilityHook = target => {
+            const normalized = browserTarget(target)
+            return normalized ? browserProxyUrl(normalized) : target
+          }
+          window[BROWSER_COMPATIBILITY_HOOK] = installedBrowserCompatibilityHook
+        }
+
+        function uninstallBrowserCompatibilityHook() {
+          if (typeof window === 'undefined' || !installedBrowserCompatibilityHook) return
+          if (window[BROWSER_COMPATIBILITY_HOOK] === installedBrowserCompatibilityHook) {
+            window[BROWSER_COMPATIBILITY_HOOK] = previousBrowserCompatibilityHook
+          }
+          previousBrowserCompatibilityHook = undefined
+          installedBrowserCompatibilityHook = undefined
         }
 
         function installBrowserMitmStyle() {
@@ -196,7 +221,8 @@
             if (!frame) return
             const target = targetFromFrame(frame)
             if (!target) return
-            if (browserMitmEnabled()) {
+            const compatibilityMode = frame.getAttribute(BROWSER_COMPAT_ATTR) === 'true'
+            if (browserMitmEnabled() || compatibilityMode) {
               frame.setAttribute(MITM_TARGET_ATTR, target)
               const expected = browserProxyUrl(target)
               if (frame.getAttribute('src') !== expected) frame.setAttribute('src', expected)
@@ -390,7 +416,7 @@
                 mountBrowserMitmControl()
                 rewriteBrowserFrame()
               })
-              browserObserver.observe(browser, { childList: true, attributes: true, attributeFilter: ['src'] })
+              browserObserver.observe(browser, { childList: true, attributes: true, attributeFilter: ['src', BROWSER_COMPAT_ATTR] })
             }
             mountBrowserMitmControl()
             browserPollTimer = setInterval(() => { void refreshMitmStatus({ silent: true }); mountBrowserMitmControl() }, 1600)
@@ -502,6 +528,7 @@
               browserControlPanelButton = undefined
               browserControlPanelTitle = undefined
               browserControlPanelMeta = undefined
+              uninstallBrowserCompatibilityHook()
             },
           }
 
@@ -519,12 +546,47 @@
           return bridge
         }
 
+        // The migrated workbench was originally a standalone Cordis client
+        // plugin. Its apply() function therefore reads injected services from
+        // context properties (ctx.locale, ctx.sessions, ...), while the
+        // resource-center module invokes it from inside its own apply() and
+        // only exposes the services through ctx.get(). Passing the raw context
+        // makes Cordis throw "cannot get property locale without inject" and
+        // leaves the right workbench absent even though the bundle loaded.
+        function createRightSidebarCoreContext(ctx) {
+          // Keep this a plain object. Cordis contexts expose injected services
+          // through prototype accessors; inheriting from one would route
+          // assignments through its fiber setter and fail with "cannot set
+          // property ... in multiple fibers".
+          const coreContext = {}
+          const injectedServices = ['slots', 'sessions', 'connection', 'workspaces', 'locale']
+          for (const name of injectedServices) {
+            try {
+              coreContext[name] = typeof ctx?.get === 'function' ? ctx.get(name) : undefined
+            } catch {
+              coreContext[name] = undefined
+            }
+          }
+          if (typeof ctx?.get === 'function') coreContext.get = ctx.get.bind(ctx)
+          if (typeof ctx?.effect === 'function') coreContext.effect = ctx.effect.bind(ctx)
+          if (typeof ctx?.provide === 'function') {
+            coreContext.provide = (name, value) => {
+              coreContext[name] = value
+              return ctx.provide(name, value)
+            }
+          }
+          return coreContext
+        }
+
         function apply(ctx, options = {}) {
           const sidebar = options.sidebar || ctx?.get?.('resourceCenter')
+          installBrowserCompatibilityHook()
           if (typeof document !== 'undefined' && document.body) {
             try {
               coreModule = require('dsh-resource-center-right-sidebar-core')
-              if (coreModule && typeof coreModule.apply === 'function') coreModule.apply(ctx)
+              if (coreModule && typeof coreModule.apply === 'function') {
+                coreModule.apply(createRightSidebarCoreContext(ctx))
+              }
             } catch (error) {
               console.error('[dsh-resource-center] right sidebar core failed to load:', error)
             }

@@ -15,7 +15,6 @@ export const TestConfig = Schema.object({
   listenPort: Schema.number().default(0),
   maxFlows: Schema.number().default(1000),
   maxBodyBytes: Schema.number().default(1024 * 1024),
-  allowPrivateTargets: Schema.boolean().default(false),
   dnsLookupTimeoutMs: Schema.number().default(2000),
   autoStart: Schema.boolean().default(false),
 })
@@ -55,7 +54,6 @@ function normalizeConfig(config = {}) {
     listenPort: clampInt(config.listenPort, 0, 0, 65535),
     maxFlows: clampInt(config.maxFlows, 1000, 1, 10_000),
     maxBodyBytes: clampInt(config.maxBodyBytes, 1024 * 1024, 1024, 16 * 1024 * 1024),
-    allowPrivateTargets: config.allowPrivateTargets === true,
     dnsLookupTimeoutMs: clampInt(config.dnsLookupTimeoutMs, DEFAULT_DNS_LOOKUP_TIMEOUT_MS, 100, 10_000),
     autoStart: config.autoStart === true,
   }
@@ -780,16 +778,20 @@ function publicFlow(flow, detail = false) {
   response.packet = packetText(maskedHeaders(flow.responseHeaders), flow.responseBody)
   const result = {
     id: flow.id,
+    requestId: flow.id,
     source: flow.source,
     method: flow.method,
+    requestMethod: String(flow.method || '').toUpperCase(),
     url: flow.url,
     requestHeaders: maskedHeaders(flow.requestHeaders),
     responseHeaders: maskedHeaders(flow.responseHeaders),
     request,
     response,
     startedAt: flow.startedAt,
+    requestTime: flow.startedAt,
     durationMs: flow.durationMs,
     status: flow.status,
+    responseSizeBytes: Buffer.isBuffer(flow.responseBody) ? flow.responseBody.length : Buffer.byteLength(String(flow.responseBody || '')),
     error: flow.error,
     metadata: flow.metadata,
     highlights: flow.highlights || { request: [], response: [] },
@@ -844,7 +846,6 @@ async function requestWithFetch(state, input) {
     if (target.port === '80') target.port = ''
   }
   const resolvedAddresses = await resolveTargetAddresses(target, state.config.dnsLookupTimeoutMs)
-  if (!state.config.allowPrivateTargets && (isPrivateTarget(target) || resolvedAddresses.some(isPrivateAddress))) throw new Error(`已阻止私有目标或 DNS 私网解析: ${target.hostname}`)
   const ruled = applyRules(state, { ...input, url: target.href })
   if (ruled.kind === 'block') {
     const flow = makeFlow(state, {
@@ -864,7 +865,6 @@ async function requestWithFetch(state, input) {
     if (ruledTarget.port === '80') ruledTarget.port = ''
   }
   const ruledAddresses = await resolveTargetAddresses(ruledTarget, state.config.dnsLookupTimeoutMs)
-  if (!state.config.allowPrivateTargets && (isPrivateTarget(ruledTarget) || ruledAddresses.some(isPrivateAddress))) throw new Error(`已阻止私有目标或 DNS 私网解析: ${ruledTarget.hostname}`)
   input = { ...ruled.input, url: ruledTarget.href, network }
   const timer = timeoutSignal(input.signal, input.timeoutMs || DEFAULT_TIMEOUT_MS)
   const flow = makeFlow(state, {
@@ -888,7 +888,6 @@ async function requestWithFetch(state, input) {
       const nextTarget = new URL(response.headers.location, redirectTarget)
       if (!['http:', 'https:'].includes(nextTarget.protocol)) throw new Error('重定向目标协议不受支持')
       const nextAddresses = await resolveTargetAddresses(nextTarget, state.config.dnsLookupTimeoutMs)
-      if (!state.config.allowPrivateTargets && (isPrivateTarget(nextTarget) || nextAddresses.some(isPrivateAddress))) throw new Error(`已阻止重定向到私有目标或 DNS 私网解析: ${nextTarget.hostname}`)
       const nextMethod = response.status === 303 || ((response.status === 301 || response.status === 302) && input.method === 'POST') ? 'GET' : input.method
       redirectInput = { ...redirectInput, url: nextTarget.href, method: nextMethod, body: nextMethod === 'GET' ? undefined : redirectInput.body }
       response = await requestWithNodeTransport(nextTarget, redirectInput, network, timer.signal, nextAddresses)
@@ -949,11 +948,6 @@ async function connectTunnel(state, req, clientSocket, head) {
   let addresses
   try { addresses = await resolveTargetAddresses(target, state.config.dnsLookupTimeoutMs) } catch {
     clientSocket.write('HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n')
-    clientSocket.destroy()
-    return
-  }
-  if (!state.config.allowPrivateTargets && (isPrivateTarget(target) || addresses.some(isPrivateAddress))) {
-    clientSocket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n')
     clientSocket.destroy()
     return
   }

@@ -47,7 +47,8 @@
 git clone git@github.com:Xs1KVerOA/dsh-plugin.git
 npx @deepseek-ai/dsh plugin --profile web add --allow-build=ssh2 --allow-build=cpu-features --allow-build=protobufjs "$PWD/dsh-plugin/resource-center-plugin"
 npx @deepseek-ai/dsh --profile web --dump-config
-npx @deepseek-ai/dsh web
+cd "$PWD/dsh-plugin"
+./start-local.sh
 ```
 
 当前 DSH/pnpm profile 安装器可能要求显式批准 `ssh2`、`cpu-features` 和 `protobufjs` 的安装脚本。没有 C/C++ 编译环境时，SSH 仍可使用纯 JavaScript fallback；可选 native binding 不影响基本连接能力。
@@ -59,10 +60,13 @@ git clone https://github.com/Xs1KVerOA/dsh-plugin.git
 cd dsh-plugin/resource-center-plugin
 npm install
 npx @deepseek-ai/dsh plugin --profile web add --allow-build=ssh2 --allow-build=cpu-features --allow-build=protobufjs "$PWD"
-npx @deepseek-ai/dsh web
+cd ..
+./start-local.sh
 ```
 
-安装或更新后重启 Harness；浏览器端如仍显示旧侧栏，请执行 Cmd/Ctrl+Shift+R 硬刷新。
+安装或更新后使用仓库根目录的 `./start-local.sh` 重启 Harness；浏览器端如仍显示旧侧栏，请执行 Cmd/Ctrl+Shift+R 硬刷新。
+
+不要使用 `npx @deepseek-ai/dsh web` 作为本地开发或加固验证入口。它可能从临时 npx cache 读取旧的 DSH Host/Client bundle；`start-local.sh` 会先构建当前源码、校验 profile 的 `link:` 依赖，再启动同级 Harness checkout。
 
 ### 安装 Release 包
 
@@ -205,7 +209,7 @@ client/
 
 右侧工作台已经独立迁入资源中心：`right-sidebar/vendor/core.js` 固化 explorer、editor、terminal、git、browser、tab 和 bottom panel 等能力，Host 侧的 `right-sidebar-host.js` 独立提供文件、Git、终端、懒加载 chunk 和 WebSocket 路由，并使用 `/dsh-resource-center/sidebar/*` 命名空间。`right-sidebar/index.js` 只负责把浏览器页与资源中心 MITM 联动。其他模块仍可通过 `resourceCenter` 的 `openRightSidebar`、`closeRightSidebar` 和 `toggleRightSidebar` 控制右侧工作台。
 
-`Test` 模块将原 `dsh-web-testing` 的 MITM 和 Web Fuzzer 合并到一个侧栏 Activity 中，通过面板内的标签切换。Host 侧运行时位于 `test-host.js`，提供 `/api/dsh-web-testing/*` API、`dsh_web_fuzzer` 和 `dsh_mitm_capture` 工具；默认只绑定本机、代理不自动启动、私有目标保持阻止。
+`Test` 模块将原 `dsh-web-testing` 的 MITM 和 Web Fuzzer 合并到一个侧栏 Activity 中，通过面板内的标签切换。Host 侧运行时位于 `test-host.js`，提供 `/api/dsh-web-testing/*` API、`dsh_web_fuzzer` 和 `dsh_mitm_capture` 工具；默认只绑定本机、代理不自动启动，不对测试目标地址段做 SSRF 拦截。请仅在已授权的测试环境中使用。
 
 Web Fuzzer 的“网络配置”位于 Test 侧栏，可对一次 Fuzz 的全部请求生效：
 
@@ -228,14 +232,13 @@ MITM 的代理开关和拦截配置位于 Test 侧栏，右侧流量区按 Yakit
 
 Bundle 通过 `cordis.patch.yml` 注册，客户端依赖在 `package.json` 的 `dsh.client.inject` 中声明。
 
-resource-center 的 Test 模块复用 web-testing 的安全配置。默认配置下代理不自动启动且拒绝私有目标；只在授权测试环境中按需显式打开：
+resource-center 的 Test 模块只限制 MITM 监听端点绑定到 loopback，不限制 Fuzzer、MITM 或浏览器路由的目标地址。代理默认不自动启动，请仅在授权测试环境中按需打开：
 
 ```yaml
 - insert:
     - id: dsh-resource-center
       name: 'dsh-resource-center'
       config:
-        allowPrivateTargets: true
         listenHost: '127.0.0.1'
         listenPort: 0
         autoStart: false

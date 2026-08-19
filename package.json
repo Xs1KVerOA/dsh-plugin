@@ -18,6 +18,7 @@
   "scripts": {
     "check": "npm run check --workspace=dsh-resource-center && npm run check --workspace=dsh-security",
     "test": "npm test --workspace=dsh-resource-center && npm test --workspace=dsh-security",
-    "pack": "npm pack --workspace=dsh-resource-center && npm pack --workspace=dsh-security"
+    "pack": "npm pack --workspace=dsh-resource-center && npm pack --workspace=dsh-security",
+    "start:local": "bash ./start-local.sh"
   }
 }

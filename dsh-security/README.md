@@ -5,6 +5,8 @@
 It provides:
 
 - Pentest preset: `dsh_security_request` records bounded HTTP/HTTPS/WebSocket exchanges, while `dsh_security_report` groups Markdown by `domain:port`.
+- Before a request is sent, the runtime asks the session LLM to classify authorization scope, method/path/body semantics, SQL/GraphQL/JSON meaning, prior responses, and impact. Only a high-confidence, no-impact `read` may run directly; mutating, administrative, unknown, low-confidence, failed-analysis, and protected-target requests require human approval.
+- Approval scopes are explicit: `allowed-once` applies only to the current request fingerprint; `allowed-session` covers the current target, method, path pattern, and risk class; `allowed-always` uses that same narrow scope and never means all destructive requests.
 - Code-audit preset: `dsh_code_audit_start`, `dsh_code_audit_update_understanding`, `dsh_code_audit_add_api`, `dsh_code_audit_add_candidate`, `dsh_code_audit_review_candidate`, and `dsh_code_audit_report` store product understanding, the entrypoint/API inventory, evidence-backed candidates, review dispositions, and a structured report.
 - The pentest History view becomes an API Inventory view in code-audit sessions. Code-audit reports show product understanding/tech stack first, then CVSS 3.1 severity counts, score-descending findings, remediation priorities, and Markdown.
 

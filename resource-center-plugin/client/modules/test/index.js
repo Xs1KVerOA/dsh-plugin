@@ -96,7 +96,7 @@
 .dwt-mitm-toolbar{min-height:62px;padding:0 18px;gap:11px;background:rgba(255,255,255,.96);box-shadow:0 1px 0 rgba(148,163,184,.12)}
 .dwt-mitm-toolbar-brand{display:flex;align-items:center;gap:9px;min-width:0}.dwt-mitm-toolbar-mark{display:inline-flex;width:30px;height:30px;align-items:center;justify-content:center;border-radius:9px;background:linear-gradient(145deg,#eaf2ff,#d7e7ff);color:#3578e5;font-size:18px;font-weight:700;box-shadow:inset 0 0 0 1px rgba(53,120,229,.08)}.dwt-mitm-toolbar-copy{display:flex;min-width:0;flex-direction:column;gap:2px}.dwt-mitm-toolbar-kicker{color:#7c8aa0;font-size:9px;font-weight:650;letter-spacing:.08em}.dwt-mitm-toolbar-title{font-size:14px;line-height:1.1}.dwt-mitm-toolbar-meta{color:#8b98aa;font-size:10px}.dwt-mitm-toolbar-state{display:inline-flex;align-items:center;gap:5px;padding:5px 8px;border:1px solid #e0e6ee;border-radius:999px;background:#f7f9fc;color:#8b98aa;font-size:10px}.dwt-mitm-toolbar-state.live{border-color:#dbe8df;background:#f2fbf5;color:#388650}.dwt-mitm-toolbar-state-dot{width:6px;height:6px;border-radius:50%;background:#aab4c1}.dwt-mitm-toolbar-state.live .dwt-mitm-toolbar-state-dot{background:#43bb73}.dwt-mitm-pending-toggle{white-space:nowrap}
 .dwt-mitm-config{gap:10px;padding:11px 10px 14px;background:linear-gradient(180deg,#fbfdff,#f5f8fc)}.dwt-mitm-status-card{display:flex;flex-direction:column;gap:9px;padding:12px;border:1px solid #dce7f5;border-radius:10px;background:linear-gradient(145deg,#f4f8ff,#ffffff 72%);box-shadow:0 5px 16px rgba(51,91,145,.06)}.dwt-mitm-status-main{display:flex;align-items:center;gap:8px;min-width:0}.dwt-mitm-status-icon{display:inline-flex;width:28px;height:28px;align-items:center;justify-content:center;border-radius:8px;background:#edf4ff;color:#3578e5;font-size:17px;font-weight:700}.dwt-mitm-status-copy{display:flex;min-width:0;flex-direction:column;gap:2px}.dwt-mitm-status-kicker,.dwt-mitm-section-kicker{color:#7b8ba2;font-size:9px;font-weight:700;letter-spacing:.08em}.dwt-mitm-status-title{font-size:12px}.dwt-mitm-status-badge{align-self:flex-start;padding:3px 7px;border-radius:999px;background:#f0f2f5;color:#8b95a3;font-size:9px;font-weight:700;letter-spacing:.05em}.dwt-mitm-status-badge.live{background:#eaf8ef;color:#388650}.dwt-mitm-endpoint{padding-top:8px;border-top:1px solid #e8eef6;color:#64748b;font:9px ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dwt-mitm-actions{padding:0 1px}.dwt-mitm-note{padding:8px 9px;border:1px solid #e7edf5;border-radius:7px;background:rgba(255,255,255,.72)}.dwt-mitm-listen-card{display:flex;flex-direction:column;gap:8px;padding:10px;border:1px solid #e1e7ef;border-radius:9px;background:rgba(255,255,255,.76);box-shadow:0 2px 8px rgba(30,55,90,.025)}.dwt-mitm-listen-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(76px,.75fr);gap:7px}.dwt-mitm-listen-grid .dwt-label{display:flex;flex-direction:column;gap:5px}.dwt-mitm-listen-hint{color:#8b98aa;font-size:9px;line-height:1.45}.dwt-mitm-config .dwt-input:disabled{background:#f3f6fa;color:#8b95a3;cursor:not-allowed}
-.dwt-mitm-table-wrap{padding:12px 14px}.dwt-mitm-table{border-color:#dbe3ee;border-radius:10px;box-shadow:0 8px 24px rgba(30,55,90,.045)}.dwt-mitm-table-head{padding:9px 12px;background:#f7f9fc;border-bottom-color:#e1e8f1}.dwt-mitm-table-row{padding:10px 12px}.dwt-mitm-table-row:hover,.dwt-mitm-table-row.active{background:#f3f7fd}.dwt-mitm-table-row.active{box-shadow:inset 3px 0 0 #3578e5}.dwt-mitm-empty-card{min-height:260px;margin:12px 14px;border:1px dashed #d7e1ec;border-radius:10px;background:rgba(255,255,255,.72);box-shadow:0 8px 24px rgba(30,55,90,.035);flex-direction:column;gap:7px}.dwt-mitm-empty-icon{display:inline-flex;width:42px;height:42px;align-items:center;justify-content:center;border:1px solid #d8e5f6;border-radius:13px;background:#eef5ff;color:#5b8fe4;font-size:20px;font-weight:700}.dwt-mitm-empty-card strong{font-size:13px;color:#536277}.dwt-mitm-empty-card>span{max-width:330px;color:#9aa5b4;font-size:10px;line-height:1.5;text-align:center}.dwt-mitm-empty-hints{display:flex;gap:6px;margin-top:4px}.dwt-mitm-empty-hints span{padding:4px 7px;border-radius:999px;background:#f0f5fc;color:#7c8aa0;font-size:9px}
+.dwt-mitm-table-wrap{padding:12px 14px}.dwt-mitm-table{min-width:1040px;border-color:#dbe3ee;border-radius:10px;box-shadow:0 8px 24px rgba(30,55,90,.045)}.dwt-mitm-table-head,.dwt-mitm-table-row{grid-template-columns:122px minmax(170px,1.1fr) 74px 58px 62px minmax(260px,2fr) 52px 86px 76px}.dwt-mitm-table-head{padding:9px 12px;background:#f7f9fc;border-bottom-color:#e1e8f1}.dwt-mitm-sort{display:inline-flex;align-items:center;gap:3px;padding:2px 0;border:0;background:transparent;color:inherit;font:inherit;font-size:10px;cursor:pointer;text-align:left}.dwt-mitm-sort:hover{color:var(--dsw-alias-state-business-primary,#3578e5)}.dwt-mitm-sort-indicator{color:var(--dsw-alias-state-business-primary,#3578e5);font-size:9px}.dwt-mitm-table-row{padding:10px 12px}.dwt-mitm-table-row:hover,.dwt-mitm-table-row.active{background:#f3f7fd}.dwt-mitm-table-row.active{box-shadow:inset 3px 0 0 #3578e5}.dwt-mitm-cell.request-id{font:9px ui-monospace,SFMono-Regular,Menlo,monospace;color:#64748b}.dwt-mitm-cell.request-time{font-size:9px;color:#64748b}.dwt-mitm-empty-card{min-height:260px;margin:12px 14px;border:1px dashed #d7e1ec;border-radius:10px;background:rgba(255,255,255,.72);box-shadow:0 8px 24px rgba(30,55,90,.035);flex-direction:column;gap:7px}.dwt-mitm-empty-icon{display:inline-flex;width:42px;height:42px;align-items:center;justify-content:center;border:1px solid #d8e5f6;border-radius:13px;background:#eef5ff;color:#5b8fe4;font-size:20px;font-weight:700}.dwt-mitm-empty-card strong{font-size:13px;color:#536277}.dwt-mitm-empty-card>span{max-width:330px;color:#9aa5b4;font-size:10px;line-height:1.5;text-align:center}.dwt-mitm-empty-hints{display:flex;gap:6px;margin-top:4px}.dwt-mitm-empty-hints span{padding:4px 7px;border-radius:999px;background:#f0f5fc;color:#7c8aa0;font-size:9px}
 @media (max-width:1100px){.dwt-fuzzer-workbench{grid-template-columns:210px minmax(300px,1fr)}.dwt-fuzzer-response{grid-column:1/-1;min-height:300px;max-height:420px;border-top:1px solid var(--dsw-alias-border-l1,#e5e7eb)}}
 @media (max-width:720px){.dwt-fuzzer-workbench{display:flex;flex-direction:column}.dwt-fuzzer-config{max-height:none;border-right:0;border-bottom:1px solid var(--dsw-alias-border-l1,#e5e7eb)}.dwt-fuzzer-request{min-height:420px;border-right:0}.dwt-fuzzer-response{max-height:none}.dwt-fuzzer-toolbar{flex-wrap:wrap;padding:8px 10px}}
 @container (max-width:1100px){.dwt-fuzzer-workbench{grid-template-columns:210px minmax(0,1fr)}.dwt-fuzzer-response{grid-column:1/-1;min-height:300px;max-height:420px;border-top:1px solid var(--dsw-alias-border-l1,#e5e7eb)}}
@@ -114,6 +114,13 @@
         style.dataset.plugin = 'dsh-web-testing'
         style.textContent = CSS
         document.head.appendChild(style)
+      }
+
+      function isAbortError(error) {
+        const name = String(error?.name || '').toLowerCase()
+        const code = String(error?.code || '').toLowerCase()
+        const message = String(error?.message || '').toLowerCase()
+        return name === 'aborterror' || code === 'abort_err' || code === 'aborted' || message.includes('abort')
       }
 
       async function fetchWithTimeout(input, options = {}, timeoutMs = 12000) {
@@ -781,7 +788,7 @@
             setStatus(nextStatus); setFlows(nextFlows.flows || [])
             if (!loadedRef.current && nextStatus.mitm) { applyRemoteConfig(nextStatus.mitm); loadedRef.current = true }
           } catch (cause) {
-            if (cause?.name !== 'AbortError') setError(cause?.message || String(cause))
+            if (!isAbortError(cause)) setError(cause?.message || String(cause))
           } finally {
             if (refreshController.current === controller) refreshController.current = null
             refreshInFlight.current = false
@@ -926,12 +933,54 @@
         )
       }
 
+      function formatFlowTime(value) {
+        const date = new Date(Number(value))
+        if (!Number.isFinite(date.getTime())) return '-'
+        return date.toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+      }
+
+      function formatResponseSize(value) {
+        const bytes = Number(value)
+        if (!Number.isFinite(bytes) || bytes < 0) return '-'
+        if (bytes < 1024) return `${bytes} B`
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(bytes < 10 * 1024 ? 1 : 0)} KB`
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+      }
+
+      function mitmSortValue(flow, key) {
+        if (key === 'requestTime') return Number(flow.requestTime ?? flow.startedAt ?? 0)
+        if (key === 'requestId') return String(flow.requestId ?? flow.id ?? '')
+        if (key === 'method') return String(flow.requestMethod ?? flow.method ?? '').toUpperCase()
+        if (key === 'status') return Number.isFinite(Number(flow.status)) ? Number(flow.status) : -1
+        if (key === 'responseSizeBytes') return Number.isFinite(Number(flow.responseSizeBytes)) ? Number(flow.responseSizeBytes) : -1
+        if (key === 'durationMs') return Number.isFinite(Number(flow.durationMs)) ? Number(flow.durationMs) : -1
+        return ''
+      }
+
+      function compareMitmFlows(left, right, key, direction) {
+        const leftValue = mitmSortValue(left, key)
+        const rightValue = mitmSortValue(right, key)
+        let result
+        if (typeof leftValue === 'number' && typeof rightValue === 'number') result = leftValue - rightValue
+        else result = String(leftValue).localeCompare(String(rightValue), 'zh-CN', { numeric: true, sensitivity: 'base' })
+        return (direction === 'asc' ? 1 : -1) * (result || String(left.id).localeCompare(String(right.id)))
+      }
+
+      function MitmSortHeader({ label, sortKey, activeKey, direction, onSort }) {
+        const active = activeKey === sortKey
+        return h('button', { className: 'dwt-mitm-sort', type: 'button', 'aria-label': `按${label}排序`, 'aria-sort': active ? (direction === 'asc' ? 'ascending' : 'descending') : 'none', onClick: () => onSort(sortKey), title: `按${label}${active && direction === 'asc' ? '降序' : '升序'}` }, label, active ? h('span', { className: 'dwt-mitm-sort-indicator', 'aria-hidden': 'true' }, direction === 'asc' ? '↑' : '↓') : h('span', { className: 'dwt-mitm-sort-indicator', 'aria-hidden': 'true' }, '↕'))
+      }
+
       function MitmPanel({ state, onSendToFuzzer, onConfirm }) {
         const { status, flows, selected, error, clear, refresh, select, flowAction, responseOverride, setResponseOverride, responseStatus, setResponseStatus, responseHeadersText, setResponseHeadersText } = state
         const [query, setQuery] = React.useState('')
         const [pendingOnly, setPendingOnly] = React.useState(false)
+        const [sortState, setSortState] = React.useState({ key: 'requestTime', direction: 'desc' })
         const needle = query.trim().toLowerCase()
-        const visibleFlows = flows.filter(flow => (!pendingOnly || flow.metadata?.pendingStage) && (!needle || `${flow.method} ${flow.url} ${flow.status} ${flow.metadata?.haeCount || ''}`.toLowerCase().includes(needle)))
+        const visibleFlows = flows
+          .filter(flow => (!pendingOnly || flow.metadata?.pendingStage) && (!needle || `${flow.requestId || flow.id || ''} ${flow.requestMethod || flow.method || ''} ${flow.url || ''} ${flow.status || ''} ${flow.metadata?.haeCount || ''}`.toLowerCase().includes(needle)))
+          .sort((left, right) => compareMitmFlows(left, right, sortState.key, sortState.direction))
+        const onSort = key => setSortState(current => current.key === key ? { key, direction: current.direction === 'asc' ? 'desc' : 'asc' } : { key, direction: key === 'requestTime' ? 'desc' : 'asc' })
         const action = (name, payload) => name === 'error' ? state.setError?.(payload.message) : flowAction(name, payload)
         return h('section', { className: 'dwt-panel dwt-panel-central' },
           h('div', { className: 'dwt-mitm-page' },
@@ -946,12 +995,12 @@
               ),
               h('span', { className: 'dwt-mitm-toolbar-state' + (status?.proxy ? ' live' : '') }, h('span', { className: 'dwt-mitm-toolbar-state-dot' }), status?.proxy ? '监听中' : '等待启动'),
               h('span', { className: 'dwt-mitm-toolbar-spacer' }),
-              h('input', { className: 'dwt-input dwt-mitm-filter', type: 'search', placeholder: '搜索 URL、方法、状态…', value: query, onChange: event => setQuery(event.target.value) }),
+              h('input', { className: 'dwt-input dwt-mitm-filter', type: 'search', placeholder: '搜索请求 ID、URL、方法、状态…', value: query, onChange: event => setQuery(event.target.value) }),
               h('label', { className: 'dwt-checkbox-row dwt-mitm-pending-toggle' }, h('input', { type: 'checkbox', checked: pendingOnly, onChange: event => setPendingOnly(event.target.checked) }), '仅待处理'),
               h('button', { className: 'dwt-btn', onClick: refresh }, '刷新'), h('button', { className: 'dwt-btn', onClick: () => onConfirm({ title: '清空全部 MITM 流量？', message: '当前捕获流量、待处理请求和响应详情都会被删除，且无法恢复。', confirmLabel: '确认清空' }, clear) }, '清空'),
             ),
             error ? h('div', { className: 'dwt-error', style: { margin: '8px 12px 0' } }, error) : null,
-            h('div', { className: 'dwt-mitm-table-wrap' }, visibleFlows.length ? h('div', { className: 'dwt-mitm-table' }, h('div', { className: 'dwt-mitm-table-head' }, h('span', null, '阶段'), h('span', null, '方法'), h('span', null, '状态'), h('span', null, 'URL'), h('span', null, 'HaE'), h('span', null, '耗时')), visibleFlows.map(flow => h('button', { key: flow.id, className: 'dwt-mitm-table-row' + (selected?.id === flow.id ? ' active' : ''), onClick: () => select(flow) }, h('span', { className: 'dwt-mitm-cell dwt-mitm-stage' + (flow.metadata?.pendingStage ? ' pending' : '') }, flow.metadata?.pendingStage === 'request' ? '待放行请求' : flow.metadata?.pendingStage === 'response' ? '待放行响应' : '已完成'), h('span', { className: 'dwt-mitm-cell' }, flow.method || '-'), h('span', { className: 'dwt-mitm-cell ' + (flow.status >= 400 ? 'dwt-fail' : 'dwt-pass') }, flow.status || '-'), h('span', { className: 'dwt-mitm-cell url', title: flow.url }, flow.url), h('span', { className: 'dwt-mitm-cell' }, flow.metadata?.haeCount || 0), h('span', { className: 'dwt-mitm-cell' }, flow.durationMs == null ? '-' : `${flow.durationMs}ms`)))) : h('div', { className: 'dwt-mitm-empty dwt-mitm-empty-card' }, h('div', { className: 'dwt-mitm-empty-icon', 'aria-hidden': 'true' }, '⌁'), h('strong', null, '等待流量进入'), h('span', null, '启动左侧代理，并将客户端 HTTP 代理指向当前端点。'), h('div', { className: 'dwt-mitm-empty-hints' }, h('span', null, 'HTTP 记录'), h('span', null, '手动劫持'), h('span', null, 'HaE 提取')))),
+            h('div', { className: 'dwt-mitm-table-wrap' }, visibleFlows.length ? h('div', { className: 'dwt-mitm-table' }, h('div', { className: 'dwt-mitm-table-head' }, h(MitmSortHeader, { label: '请求时间', sortKey: 'requestTime', activeKey: sortState.key, direction: sortState.direction, onSort }), h(MitmSortHeader, { label: '请求 ID', sortKey: 'requestId', activeKey: sortState.key, direction: sortState.direction, onSort }), h('span', null, '阶段'), h(MitmSortHeader, { label: '方法', sortKey: 'method', activeKey: sortState.key, direction: sortState.direction, onSort }), h(MitmSortHeader, { label: '状态', sortKey: 'status', activeKey: sortState.key, direction: sortState.direction, onSort }), h('span', null, 'URL'), h('span', null, 'HaE'), h(MitmSortHeader, { label: '响应包大小', sortKey: 'responseSizeBytes', activeKey: sortState.key, direction: sortState.direction, onSort }), h(MitmSortHeader, { label: '耗时', sortKey: 'durationMs', activeKey: sortState.key, direction: sortState.direction, onSort })), visibleFlows.map(flow => h('button', { key: flow.id, className: 'dwt-mitm-table-row' + (selected?.id === flow.id ? ' active' : ''), onClick: () => select(flow), title: `${flow.requestId || flow.id || '-'} · 点击查看请求和响应包` }, h('span', { className: 'dwt-mitm-cell request-time', title: formatFlowTime(flow.requestTime ?? flow.startedAt) }, formatFlowTime(flow.requestTime ?? flow.startedAt)), h('span', { className: 'dwt-mitm-cell request-id', title: flow.requestId || flow.id }, flow.requestId || flow.id || '-'), h('span', { className: 'dwt-mitm-cell dwt-mitm-stage' + (flow.metadata?.pendingStage ? ' pending' : '') }, flow.metadata?.pendingStage === 'request' ? '待放行请求' : flow.metadata?.pendingStage === 'response' ? '待放行响应' : '已完成'), h('span', { className: 'dwt-mitm-cell' }, flow.requestMethod || flow.method || '-'), h('span', { className: 'dwt-mitm-cell ' + (flow.status >= 400 ? 'dwt-fail' : 'dwt-pass') }, flow.status || '-'), h('span', { className: 'dwt-mitm-cell url', title: flow.url }, flow.url), h('span', { className: 'dwt-mitm-cell' }, flow.metadata?.haeCount || 0), h('span', { className: 'dwt-mitm-cell' }, flow.status == null ? '-' : formatResponseSize(flow.responseSizeBytes)), h('span', { className: 'dwt-mitm-cell' }, flow.durationMs == null ? '-' : `${flow.durationMs}ms`)))) : h('div', { className: 'dwt-mitm-empty dwt-mitm-empty-card' }, h('div', { className: 'dwt-mitm-empty-icon', 'aria-hidden': 'true' }, '⌁'), h('strong', null, '等待流量进入'), h('span', null, '启动左侧代理，并将客户端 HTTP 代理指向当前端点。'), h('div', { className: 'dwt-mitm-empty-hints' }, h('span', null, 'HTTP 记录'), h('span', null, '手动劫持'), h('span', null, 'HaE 提取')))),
             h(FlowDetail, { flow: selected, responseOverride, setResponseOverride, responseStatus, setResponseStatus, responseHeadersText, setResponseHeadersText, onAction: action, onSendToFuzzer }),
           ),
         )

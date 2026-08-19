@@ -130,7 +130,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
 .drc-rail-button.drc-active:before{content:"";position:absolute;left:-5px;top:8px;bottom:8px;width:3px;border-radius:0 2px 2px 0;background:var(--dsw-alias-state-business-primary,#3578e5)}
 .drc-rail-button:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary,#3578e5);outline-offset:1px}
 .drc-rail-button svg{width:21px;height:21px}
-.drc-panel{position:relative;z-index:0;width:auto;min-width:0;flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--dsw-alias-bg-layer-1,#fff);border-left:1px solid var(--dsw-alias-border-l1,#e5e7eb);animation:drc-panel-in .16s ease-out}
+.drc-panel{position:relative;z-index:0;width:auto;min-width:0;flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--dsw-alias-bg-layer-1,#fff);border-left:1px solid var(--dsw-alias-border-l1,#e5e7eb);border-right:1px solid var(--dsw-alias-border-l1,#e5e7eb);animation:drc-panel-in .16s ease-out}
 @keyframes drc-panel-in{from{transform:translateX(-8px);opacity:.55}to{transform:none;opacity:1}}
 .drc-toolbar{display:flex;align-items:center;gap:4px;min-width:0;padding:11px 10px 7px}
 .drc-toolbar-title{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:650;color:var(--dsw-alias-label-secondary,#777e88)}
@@ -144,8 +144,12 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
 .drc-search-input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:inherit;font:inherit;font-size:11.5px}
 .drc-search-status{flex:0 0 auto;max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-tertiary,#9aa0a8);font-size:9.5px}
 .drc-tree-layout{display:flex;flex:1;min-width:0;min-height:0;flex-direction:column}
-.drc-scroll{min-width:0;min-height:0;flex:1;overflow-x:hidden;overflow-y:auto;padding:0 8px 12px;scrollbar-width:thin}
-.drc-bottom{flex:0 0 auto;padding:0 8px 10px;border-top:1px solid var(--dsw-alias-border-l1,#e5e7eb);background:var(--dsw-alias-bg-layer-1,#fff)}
+.drc-scroll{min-width:0;min-height:0;flex:1;overflow-x:hidden;overflow-y:auto;padding:0 8px 8px;scrollbar-width:thin}
+.drc-bottom{flex:0 0 auto;padding:8px 10px 10px;border-top:1px solid var(--dsw-alias-border-l1,#e5e7eb);background:linear-gradient(180deg,var(--dsw-alias-bg-layer-1,#fff),var(--dsw-alias-bg-layer-2,#fafbfd));box-shadow:0 -5px 14px rgba(22,35,55,.04)}
+.drc-create-workspace{display:flex;align-items:center;gap:6px;width:100%;min-height:32px;padding:6px 7px;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--dsw-alias-state-business-primary,#3578e5);font:inherit;font-size:12px;font-weight:520;text-align:left;cursor:pointer;transition:background .15s,border-color .15s,color .15s}
+.drc-create-workspace:hover{border-color:#d6e5ff;background:#f1f6ff;color:#2468d4}
+.drc-create-workspace:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary,#3578e5);outline-offset:1px}
+.drc-create-workspace .drc-create-icon{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;color:inherit;font-size:14px;line-height:1}
 .drc-group{margin:2px 0 4px}
 .drc-group-row,.drc-session-row{position:relative;display:flex;align-items:center;gap:6px;width:100%;min-width:0;border:0;border-radius:7px;background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer;box-sizing:border-box}
 .drc-group-row{padding:7px 6px;color:var(--dsw-alias-label-primary,#353940)}
@@ -171,7 +175,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
 .drc-session-id{max-width:58px;flex:0 0 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:9.5px;color:var(--dsw-alias-label-tertiary,#a2a7af)}
 .drc-rename-input{min-width:0;flex:1;height:24px;padding:2px 6px;border:1px solid var(--dsw-alias-state-business-primary,#3578e5);border-radius:5px;background:var(--dsw-alias-input-fill,#fff);color:inherit;font:inherit;font-size:12px;outline:0}
 .drc-empty{padding:28px 14px;text-align:center;color:var(--dsw-alias-label-tertiary,#9aa0a8);font-size:12px;line-height:1.7}
-.drc-hint{margin:12px 4px 0;padding-top:10px;border-top:1px solid var(--dsw-alias-border-l1,#e5e7eb);color:var(--dsw-alias-label-tertiary,#9aa0a8);font-size:10.5px;line-height:1.55}.drc-action-error{margin:8px 4px 0;padding:8px 9px;border:1px solid rgba(217,75,75,.24);border-radius:6px;background:rgba(217,75,75,.07);color:var(--dsw-alias-state-error-primary,#d94b4b);font-size:11px;line-height:1.45;overflow-wrap:anywhere}
+.drc-hint{margin:8px 4px 0;padding:8px 2px 0;border-top:1px solid var(--dsw-alias-border-l1,#e5e7eb);color:var(--dsw-alias-label-tertiary,#9aa0a8);font-size:10px;line-height:1.5}.drc-action-error{margin:8px 4px 0;padding:8px 9px;border:1px solid rgba(217,75,75,.24);border-radius:6px;background:rgba(217,75,75,.07);color:var(--dsw-alias-state-error-primary,#d94b4b);font-size:11px;line-height:1.45;overflow-wrap:anywhere}
 .drc-menu-backdrop{position:fixed;inset:0;z-index:1190}
 .drc-menu{position:fixed;min-width:148px;padding:4px;border:1px solid var(--dsw-alias-border-l1,#dfe2e7);border-radius:8px;background:var(--dsw-alias-bg-layer-1,#fff);box-shadow:0 8px 24px rgba(25,35,50,.16)}
 .drc-menu-item{display:flex;align-items:center;width:100%;padding:7px 10px;border:0;border-radius:5px;background:transparent;color:var(--dsw-alias-label-primary,#30343a);font:inherit;font-size:12px;text-align:left;cursor:pointer}
@@ -179,7 +183,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
 .drc-menu-item.drc-danger{color:var(--dsw-alias-state-error-primary,#d94b4b)}
 .drc-menu-separator{height:1px;margin:4px 6px;background:var(--dsw-alias-border-l1,#e5e7eb)}
 .FJxK0a_root{position:relative}
-.dsh-resource-center-session-cost{position:absolute;right:4px;top:4px;display:inline-block;margin:0;padding:0 4px 0 10px;border-left:1px solid var(--dsw-alias-separator-primary,#e2e5e9);background:var(--dsw-alias-bg-layer-1,#fff);box-shadow:-8px 0 8px var(--dsw-alias-bg-layer-1,#fff);color:var(--dsw-alias-state-business-primary,#3578e5);font-weight:500;font-variant-numeric:tabular-nums;z-index:1}
+.dsh-resource-center-session-cost{display:inline-flex;align-items:center;margin-left:8px;padding-left:8px;border-left:1px solid var(--dsw-alias-separator-primary,#e2e5e9);color:var(--dsw-alias-state-business-primary,#3578e5);font-size:inherit;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
 @media (prefers-color-scheme:dark){.drc-panel,.drc-rail{background:var(--dsw-specific-sidebar-fill,#1d1f23)}.drc-menu{background:var(--dsw-alias-bg-layer-1,#24272c)}}
 `
 
@@ -204,6 +208,28 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         return `${Math.round(number / 1e5) / 10}M`
       }
 
+      function currentSessionCostRoots() {
+        if (typeof document === 'undefined') return []
+        // The conversation footer uses a hashed class name, but the slot name
+        // is part of the host extension contract and survives host rebuilds.
+        const selectors = [
+          '[data-slot="conversation.composer.dock"] > *',
+          '.FJxK0a_root',
+        ]
+        const roots = []
+        const seen = new Set()
+        for (const selector of selectors) {
+          for (const root of document.querySelectorAll?.(selector) || []) {
+            if (!seen.has(root)) {
+              seen.add(root)
+              roots.push(root)
+            }
+          }
+          if (roots.length) break
+        }
+        return roots
+      }
+
       function installCurrentSessionCost(sessions) {
         if (typeof document === 'undefined' || !document.body) return () => {}
         let disposed = false
@@ -215,13 +241,11 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         let unsubscribe
 
         const removeIndicators = () => {
-          for (const root of document.querySelectorAll?.('.FJxK0a_root') || []) {
-            root.querySelector?.('[data-dsh-resource-center-session-cost]')?.remove?.()
-          }
+          for (const indicator of document.querySelectorAll?.('[data-dsh-resource-center-session-cost]') || []) indicator.remove?.()
         }
         const paint = () => {
           if (disposed) return
-          const roots = [...(document.querySelectorAll?.('.FJxK0a_root') || [])]
+          const roots = currentSessionCostRoots()
           if (!currentSessionId || roots.length === 0) {
             if (!currentSessionId) removeIndicators()
             return
@@ -762,10 +786,10 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
             ),
           ),
           h('div', { className: 'drc-bottom' },
-            h('button', { className: 'drc-group-row', onClick: createWorkspace },
-              h('span', { className: 'drc-chevron' }, '+'),
+            h('button', { className: 'drc-create-workspace', type: 'button', title: '新建工作区', onClick: createWorkspace },
+              h('span', { className: 'drc-create-icon', 'aria-hidden': 'true' }, '+'),
               h('span', { className: 'drc-folder-small' }, h(SmallFolderIcon, { open: false })),
-              h('span', { className: 'drc-group-name', style: { color: 'var(--dsw-alias-state-business-primary,#3578e5)', fontWeight: 500 } }, '新建工作区'),
+              h('span', { className: 'drc-group-name' }, '新建工作区'),
             ),
             actionError ? h('div', { className: 'drc-action-error', role: 'alert' }, actionError) : null,
             h('div', { className: 'drc-hint' }, '右键会话可重命名、分叉或归档；右键工作区可重命名或删除。'),
@@ -827,7 +851,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         const top = newSessionRect ? Math.max(96, Math.round(newSessionRect.bottom + 12)) : 114
         const settings = [...(document.querySelectorAll?.('button') || [])].find(button => button.textContent.trim() === '设置')
         const settingsRect = settings?.getBoundingClientRect?.()
-        const dockBottom = settingsRect && settingsRect.top > top + 120 ? settingsRect.top - 56 : window.innerHeight - 100
+        const dockBottom = settingsRect && settingsRect.top > top + 120 ? settingsRect.top - 8 : window.innerHeight - 100
         const bottom = Math.max(24, Math.round(window.innerHeight - dockBottom))
         const hostToggleCluster = document.querySelector(HOST_RIGHT_TOGGLE_SELECTOR)
         const hostToggleRect = hostToggleCluster?.getBoundingClientRect?.()

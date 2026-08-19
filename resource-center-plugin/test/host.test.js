@@ -38,7 +38,7 @@ async function waitFor(check, timeoutMs = 3000) {
   throw new Error('等待测试状态超时')
 }
 
-test('MITM only binds to loopback and blocks private IPv4/IPv6 forms', () => {
+test('MITM only binds to loopback and recognizes private IPv4/IPv6 forms', () => {
   assert.equal(normalizeConfig().listenHost, '127.0.0.1')
   assert.throws(() => normalizeConfig({ listenHost: '0.0.0.0' }), /只允许 loopback/)
   assert.throws(() => normalizeConfig({ listenHost: '192.168.1.10' }), /只允许 loopback/)
@@ -403,7 +403,11 @@ test('resource center carries the Web Testing status API', async () => {
 
 test('browser route shares MITM config and records browser traffic', async () => {
   const upstream = createServer((_req, res) => {
-    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
+    res.writeHead(200, {
+      'content-type': 'text/html; charset=utf-8',
+      'content-security-policy': "frame-ancestors 'none'",
+      'x-frame-options': 'DENY',
+    })
     res.end('<html><body>browser-route-ok</body></html>')
   })
   await new Promise((resolve, reject) => {
@@ -412,11 +416,12 @@ test('browser route shares MITM config and records browser traffic', async () =>
   })
   const address = upstream.address()
   const port = typeof address === 'object' && address ? address.port : 0
-  const runtime = makeRuntime(normalizeConfig({ allowPrivateTargets: true }))
+  const runtime = makeRuntime(normalizeConfig())
   runtime.state.mitm.mode = 'manual'
   runtime.state.mitm.holdResponse = false
   let status
   let raw
+  let responseHeaders
   try {
     const browserRequest = runtime.apiHandler({
       method: 'GET',
@@ -424,7 +429,7 @@ test('browser route shares MITM config and records browser traffic', async () =>
       headers: { host: '127.0.0.1' },
       async *[Symbol.asyncIterator]() {},
     }, {
-      writeHead(code) { status = code },
+      writeHead(code, headers) { status = code; responseHeaders = headers },
       end(value) { raw = Buffer.isBuffer(value) ? value.toString('utf8') : String(value || '') },
     })
     await waitFor(() => runtime.state.flows[0]?.metadata.pendingStage === 'request')
@@ -432,10 +437,61 @@ test('browser route shares MITM config and records browser traffic', async () =>
     await browserRequest
     assert.equal(status, 200)
     assert.match(raw, /browser-route-ok/)
+    const headerNames = Object.keys(responseHeaders || {}).map(name => name.toLowerCase())
+    assert.equal(headerNames.includes('x-frame-options'), false)
+    assert.equal(headerNames.includes('content-security-policy'), false)
     assert.equal(runtime.state.flows.length, 1)
     assert.equal(runtime.state.flows[0].source, 'browser')
     assert.equal(runtime.state.flows[0].metadata.pendingStage, undefined)
   } finally {
+    await new Promise(resolve => upstream.close(resolve))
+  }
+})
+
+test('MITM proxy and active Fuzzer both allow authorized private destinations', async () => {
+  const upstream = createServer((_req, res) => {
+    res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' })
+    res.end('private-mitm-ok')
+  })
+  await new Promise((resolve, reject) => {
+    upstream.once('error', reject)
+    upstream.listen({ host: '127.0.0.1', port: 0 }, resolve)
+  })
+  const address = upstream.address()
+  const port = typeof address === 'object' && address ? address.port : 0
+  const runtime = makeRuntime(normalizeConfig())
+  runtime.state.mitm.mode = 'observe'
+  runtime.state.mitm.holdResponse = false
+  let proxy
+  try {
+    proxy = await runtime.startProxy({ host: '127.0.0.1', port: 0 })
+    const response = await new Promise((resolve, reject) => {
+      const request = httpRequest({
+        host: proxy.host,
+        port: proxy.port,
+        method: 'GET',
+        path: `http://127.0.0.1:${port}/private`,
+      }, result => {
+        const chunks = []
+        result.on('data', chunk => chunks.push(Buffer.from(chunk)))
+        result.on('end', () => resolve({ status: result.statusCode, body: Buffer.concat(chunks).toString('utf8') }))
+      })
+      request.once('error', reject)
+      request.end()
+    })
+    assert.equal(response.status, 200)
+    assert.equal(response.body, 'private-mitm-ok')
+    assert.equal(runtime.state.flows[0].source, 'proxy')
+
+    const fuzz = await runtime.runFuzzer({
+      request: { raw: `GET http://127.0.0.1:${port}/private HTTP/1.1\nHost: 127.0.0.1:${port}\n\n` },
+      payloads: {},
+    })
+    assert.equal(fuzz.total, 1)
+    assert.equal(fuzz.matched, 1)
+    assert.equal(fuzz.results[0].status, 200)
+  } finally {
+    await runtime.stopProxy()
     await new Promise(resolve => upstream.close(resolve))
   }
 })
@@ -451,7 +507,7 @@ test('Fuzzer flow details expose concrete request and response packets', async (
   })
   const address = server.address()
   const port = typeof address === 'object' && address ? address.port : 0
-  const runtime = makeRuntime(normalizeConfig({ allowPrivateTargets: true }))
+  const runtime = makeRuntime(normalizeConfig())
   try {
     const result = await runtime.runFuzzer({
       request: { raw: `POST http://127.0.0.1:${port}/echo HTTP/1.1\nHost: 127.0.0.1:${port}\nContent-Type: text/plain\n\nrequest-body` },
@@ -475,13 +531,17 @@ test('Fuzzer flow details expose concrete request and response packets', async (
     assert.equal(body.flow.response.full.text, 'response-body')
     assert.equal(body.flow.status, 201)
     assert.equal(body.flow.responseHeaders['x-test'], 'ok')
+    assert.equal(body.flow.requestId, result.results[0].flowId)
+    assert.equal(body.flow.requestMethod, 'POST')
+    assert.equal(body.flow.requestTime, body.flow.startedAt)
+    assert.equal(body.flow.responseSizeBytes, Buffer.byteLength('response-body'))
   } finally {
     await new Promise(resolve => server.close(resolve))
   }
 })
 
 test('Fuzzer records malformed request templates as failed cases', async () => {
-  const runtime = makeRuntime(normalizeConfig({ allowPrivateTargets: true }))
+  const runtime = makeRuntime(normalizeConfig())
   const result = await runtime.runFuzzer({
     request: { raw: 'GET /missing-host HTTP/1.1\n\n' },
     payloads: { user: ['admin', 'guest'] },
@@ -508,7 +568,7 @@ test('Fuzzer network settings support an HTTP proxy and validate TLS options', a
   })
   const address = proxy.address()
   const port = typeof address === 'object' && address ? address.port : 0
-  const runtime = makeRuntime(normalizeConfig({ allowPrivateTargets: true }))
+  const runtime = makeRuntime(normalizeConfig())
   try {
     const result = await runtime.runFuzzer({
       request: { raw: 'GET http://localhost/proxied HTTP/1.1\nHost: localhost\n\n' },
@@ -545,7 +605,7 @@ test('Fuzzer network settings support a custom CA and forced HTTPS', async () =>
   })
   const address = server.address()
   const port = typeof address === 'object' && address ? address.port : 0
-  const runtime = makeRuntime(normalizeConfig({ allowPrivateTargets: true }))
+  const runtime = makeRuntime(normalizeConfig())
   try {
     const result = await runtime.runFuzzer({
       request: { raw: `GET http://localhost:${port}/tls HTTP/1.1\nHost: localhost:${port}\n\n` },
@@ -561,7 +621,7 @@ test('Fuzzer network settings support a custom CA and forced HTTPS', async () =>
 })
 
 test('MITM config supports route/suffix rules and HaE defaults', async () => {
-  const runtime = makeRuntime(normalizeConfig({ allowPrivateTargets: true }))
+  const runtime = makeRuntime(normalizeConfig())
   const result = await callRuntimeApi(runtime, 'POST', '/api/dsh-web-testing/config', {
     listenHost: '127.0.0.1',
     listenPort: 0,
@@ -585,7 +645,7 @@ test('MITM config supports route/suffix rules and HaE defaults', async () => {
 })
 
 test('MITM partial config updates preserve existing settings', async () => {
-  const runtime = makeRuntime(normalizeConfig({ allowPrivateTargets: true }))
+  const runtime = makeRuntime(normalizeConfig())
   const initial = await callRuntimeApi(runtime, 'POST', '/api/dsh-web-testing/config', {
     listenHost: '127.0.0.1',
     listenPort: 4321,
@@ -610,7 +670,7 @@ test('MITM partial config updates preserve existing settings', async () => {
 })
 
 test('MITM keeps the configured auto-port separate from the active endpoint port', async () => {
-  const runtime = makeRuntime(normalizeConfig({ allowPrivateTargets: true }))
+  const runtime = makeRuntime(normalizeConfig())
   try {
     assert.equal(runtime.state.mitm.listenPort, 0)
     const endpoint = await runtime.startProxy({ host: '127.0.0.1', port: 0 })
@@ -625,7 +685,7 @@ test('MITM keeps the configured auto-port separate from the active endpoint port
 })
 
 test('MITM start and stop are serialized across concurrent callers', async () => {
-  const runtime = makeRuntime(normalizeConfig({ allowPrivateTargets: true }))
+  const runtime = makeRuntime(normalizeConfig())
   try {
     const endpoints = await Promise.all([
       runtime.startProxy({ host: '127.0.0.1', port: 0 }),
@@ -652,7 +712,7 @@ test('MITM manually holds a request, then holds and replaces its response', asyn
   })
   const targetAddress = target.address()
   const targetPort = typeof targetAddress === 'object' && targetAddress ? targetAddress.port : 0
-  const runtime = makeRuntime(normalizeConfig({ allowPrivateTargets: true }))
+  const runtime = makeRuntime(normalizeConfig())
   let proxy
   try {
     await callRuntimeApi(runtime, 'POST', '/api/dsh-web-testing/config', {

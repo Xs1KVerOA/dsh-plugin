@@ -13,7 +13,7 @@ export function apply(ctx) {
   const output = { schema: { type: 'object', additionalProperties: true }, render: (_args, value) => render(value) }
   ctx.tools.register(defineTool({
     name: 'dsh_security_request',
-    description: '在授权范围内发起一次 HTTP/HTTPS/WebSocket 请求，并自动记录请求包与响应包；命中私网、内部地址或解析到受保护地址时，会先请求用户一次性审批。',
+    description: '在授权范围内发起一次 HTTP/HTTPS/WebSocket 请求，并自动记录请求包与响应包。发包前会由 LLM 综合分析授权范围、方法、路径、参数、请求体、SQL/GraphQL/JSON 语义、历史响应和潜在影响；LLM 只提供风险判断，更新/创建/删除/管理、未知或低置信度请求，以及私网/内部目标，必须由用户审批，审批失败则禁止发包。',
     parameters: {
       url: { type: 'string', required: true }, method: { type: 'string' }, headers: { type: 'object', additionalProperties: true }, body: { type: 'string' },
       messages: { type: 'array', items: { type: 'json' } }, timeoutMs: { type: 'number' }, waitMs: { type: 'number' },
@@ -64,6 +64,6 @@ export function apply(ctx) {
   }))
   ctx.inject(['systemPrompt'], scope => scope.systemPrompt.section({
     name: 'dsh-security:protocol', order: 50,
-    text: () => '你是授权渗透测试助手。先用 dsh_security_start 记录目标、目的和授权说明；网络动作必须使用 dsh_security_request；访问私网、内部地址或 DNS 解析到受保护地址时，工具会在真正发起网络请求前请求用户一次性审批，未获批不得重试绕过；将发现分别记录为 asset、fact 或 finding，漏洞必须有可复现步骤；结束时用 dsh_security_report 生成 Markdown 报告。不得扩大目标范围、猜测漏洞或执行破坏性操作。',
+    text: () => '你是授权渗透测试助手。先用 dsh_security_start 记录目标、目的和授权说明；网络动作必须使用 dsh_security_request。每次发包前运行时会让 LLM 分析授权范围、请求语义、历史上下文和风险，LLM 不能代替用户审批；read-only 且高置信度的请求才可能直接执行，update/create/delete/admin、unknown、低置信度、分析失败或私网/内部目标会在真正发包前请求用户审批，拒绝或审批不可用不得重试绕过。将发现分别记录为 asset、fact 或 finding，漏洞必须有可复现步骤；结束时用 dsh_security_report 生成 Markdown 报告。不得扩大目标范围或执行未经用户批准的破坏性操作。',
   }))
 }

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import http from 'node:http'
 import test from 'node:test'
 import { WebSocketServer } from 'ws'
-import { assertSecuritySession, assertTargetAllowed, createRuntime, normalizeTarget, scoreCvss31, securityDomain, targetKey } from '../index.js'
+import { assertSecuritySession, assertTargetAllowed, assessRequestRisk, createRuntime, normalizeTarget, requestApprovalScope, requestFingerprint, scoreCvss31, securityDomain, targetKey } from '../index.js'
 
 function securityExec(sessionId = 'session-1', overrides = {}) {
   return { sessionId, callId: 'call-1', agent: { session: { id: sessionId, header: { agentPreset: 'security' } } }, approval: { request: async () => 'allowed-once' }, ...overrides }
@@ -10,6 +10,16 @@ function securityExec(sessionId = 'session-1', overrides = {}) {
 
 function auditExec(sessionId = 'audit-session') {
   return { sessionId, callId: 'call-audit', agent: { session: { id: sessionId, header: { agentPreset: 'code-audit' } } } }
+}
+
+function fakeRiskLlm(value, calls = []) {
+  return {
+    async *stream(options) {
+      calls.push(options)
+      yield { type: 'block-end', index: 0, block: { type: 'text', text: JSON.stringify(value) } }
+      yield { type: 'finish', reason: { kind: 'stop' } }
+    },
+  }
 }
 
 test('normalizes supported targets and groups by hostname:port', () => {
@@ -37,7 +47,8 @@ test('asks for approval before a private target can be reached', async () => {
   const exec = securityExec('approval-rejected', { approval: { request: async value => { request = value; return 'rejected' } } })
   await assert.rejects(() => runtime.request({ url: 'http://100.127.0.4/' }, exec), /用户拒绝访问私网\/内部地址/)
   assert.equal(request.toolName, 'dsh_security_request')
-  assert.equal(request.grantKey, 'dsh-security:protected-target')
+  assert.match(request.grantKey, /^dsh-security:request-scope:/)
+  assert.match(request.reason, /请求指纹：sha256:/)
   assert.match(request.reason, /100\.127\.0\.4/)
 })
 
@@ -48,6 +59,58 @@ test('asks for approval when hostname resolution returns a local address', async
   await assert.rejects(() => runtime.request({ url: 'http://localhost/' }, exec), /用户拒绝访问私网\/内部地址/)
   assert.equal(request.toolName, 'dsh_security_request')
   assert.match(request.reason, /127\.0\.0\.1|::1/)
+})
+
+test('uses the LLM semantic result and forces approval for mutating requests', async () => {
+  let networkRequests = 0
+  const server = http.createServer((req, res) => { networkRequests += 1; res.writeHead(200); res.end('should-not-be-reached') })
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  const port = server.address().port
+  let approvalRequest
+  const llm = fakeRiskLlm({ action: 'update', impact: 'high', confidence: 0.99, approvalRequired: false, reason: 'UPDATE body may change a user role.' })
+  const runtime = createRuntime({}, undefined, undefined, { llm })
+  const exec = securityExec('semantic-rejected', { approval: { request: async value => { approvalRequest = value; return 'rejected' } }, agent: { options: { provider: 'test', model: 'risk' }, session: { id: 'semantic-rejected', header: { agentPreset: 'security' } } } })
+  await assert.rejects(() => runtime.request({ url: `http://127.0.0.1:${port}/users/1`, method: 'PATCH', headers: { 'content-type': 'application/json' }, body: '{"role":"admin"}' }, exec), /已禁止发包|拒绝访问私网/)
+  assert.match(approvalRequest.reason, /action=update/)
+  assert.match(approvalRequest.reason, /允许本会话仅允许/)
+  assert.equal(networkRequests, 0)
+  await new Promise(resolve => server.close(resolve))
+})
+
+test('LLM cannot bypass low-confidence approval and read-only policy', async () => {
+  const target = normalizeTarget('https://example.com/api/users?id=1')
+  const request = { method: 'GET', headers: { accept: 'application/json' }, body: '', messages: [] }
+  const calls = []
+  const result = await assessRequestRisk({
+    llm: fakeRiskLlm({ action: 'read', impact: 'none', confidence: 0.84, approvalRequired: false, reason: 'The route appears read-only.' }, calls),
+    exec: { agent: { options: { provider: 'test', model: 'risk' }, session: { id: 'risk-session' } } },
+    request,
+    target,
+    context: 'engagement declared for https://example.com',
+  })
+  assert.equal(result.action, 'read')
+  assert.equal(result.approvalRequired, true)
+  assert.equal(calls.length, 1)
+  assert.match(calls[0].messages[0].content[0].text, /当前会话授权与历史上下文/)
+})
+
+test('LLM failure falls back to unknown/high-risk approval instead of sending', async () => {
+  const result = await assessRequestRisk({
+    llm: { stream() { throw new Error('provider unavailable') } },
+    exec: { agent: { options: { provider: 'test', model: 'risk' }, session: { id: 'risk-failure' } } },
+    request: { method: 'GET', headers: {}, body: '', messages: [] },
+    target: normalizeTarget('https://example.com/health'),
+    context: 'no prior context',
+  })
+  assert.deepEqual(result, { action: 'unknown', impact: 'high', confidence: 0, approvalRequired: true, reason: 'LLM 风险评估失败（provider unavailable），默认要求用户审批后才可发送请求。' })
+})
+
+test('approval scopes distinguish exact fingerprints from session risk families', () => {
+  const first = normalizeTarget('https://example.com/users?id=1')
+  const second = normalizeTarget('https://example.com/users?id=2')
+  assert.notEqual(requestFingerprint({ url: first, method: 'GET', headers: {}, body: '' }), requestFingerprint({ url: second, method: 'GET', headers: {}, body: '' }))
+  assert.equal(requestApprovalScope({ url: first, method: 'GET', action: 'read', impact: 'none' }), requestApprovalScope({ url: second, method: 'GET', action: 'read', impact: 'none' }))
+  assert.notEqual(requestApprovalScope({ url: first, method: 'GET', action: 'read', impact: 'none' }), requestApprovalScope({ url: first, method: 'PATCH', action: 'update', impact: 'high' }))
 })
 
 test('fails closed when a private-target approval channel is unavailable', async () => {

@@ -1574,8 +1574,8 @@
 			settingsBrowserHttpsDesc: "开启后，点击聊天或界面中的 HTTPS 外链时在侧边栏打开。默认关闭：多数 HTTPS 站点拒绝被嵌入，走系统浏览器更顺畅",
 			browserOpenExternal: "在浏览器中打开",
 			browserEmbedBlocked: "{host} 拒绝了嵌入请求",
-			browserEmbedBlockedDesc: "该站点通过 X-Frame-Options / frame-ancestors 禁止在其它页面中显示，无法在侧边栏内加载。可在浏览器中直接打开",
-			browserEmbedAnyway: "仍然加载",
+			browserEmbedBlockedDesc: "该站点通过 X-Frame-Options / frame-ancestors 禁止在其它页面中显示。可直接打开，或使用资源中心兼容模式加载。",
+			browserEmbedAnyway: "兼容模式加载",
 			subagent: "任务管理",
 			openSubagent: "任务管理",
 			subagentMainAgent: "主代理",
@@ -1800,8 +1800,8 @@
 			settingsBrowserHttpsDesc: "When on, clicking an HTTPS external link in the chat or GUI opens the sidebar. Off by default: most HTTPS sites refuse to be embedded, so the system browser is the smoother default",
 			browserOpenExternal: "Open in browser",
 			browserEmbedBlocked: "{host} refused to be embedded",
-			browserEmbedBlockedDesc: "The site forbids being displayed inside other pages (X-Frame-Options / frame-ancestors), so it cannot load in the sidebar. Open it directly in your browser instead.",
-			browserEmbedAnyway: "Load anyway",
+			browserEmbedBlockedDesc: "The site forbids iframe embedding (X-Frame-Options / frame-ancestors). Open it directly or load it through Resource Center compatibility mode.",
+			browserEmbedAnyway: "Load in compatibility mode",
 			subagent: "Tasks",
 			openSubagent: "Tasks",
 			subagentMainAgent: "Main agent",
@@ -5476,6 +5476,22 @@
 			if (probe.frameAncestors !== void 0 && !probe.frameAncestors.some((source) => source === "*")) return "blocked";
 			return "embeddable";
 		}
+		/**
+		 * The resource-center bridge provides this hook for sites that explicitly
+		 * refuse iframe embedding. Compatibility mode goes through the host route,
+		 * which removes frame-blocking response headers and rewrites subresources;
+		 * it does not start or change MITM listening.
+		 */
+		function browserCompatibilityUrl(url) {
+			try {
+				const builder = typeof window !== "undefined" ? window.__DSH_RESOURCE_CENTER_BROWSER_COMPATIBILITY_URL : void 0;
+				if (typeof builder !== "function") return url;
+				const next = builder(url);
+				return typeof next === "string" && next ? next : url;
+			} catch {
+				return url;
+			}
+		}
 		/** A loopback hostname (localhost, IPv6 ::1, 127.0.0.0/8, 0.0.0.0). */
 		function isLoopbackHostname(hostname) {
 			const host = hostname.replace(/^\[|\]$/g, "").toLowerCase();
@@ -5657,8 +5673,8 @@
 			/** A site that refuses to be embedded (X-Frame-Options / frame-ancestors):
 			*  the probe verdict shown instead of the blank iframe. */
 			const [embedBlocked, setEmbedBlocked] = (0, react.useState)(null);
-			/** The user asked to load the refused site anyway (keeps the plain iframe). */
-			const [forceEmbed, setForceEmbed] = (0, react.useState)(false);
+		/** The user asked to load the refused site through the compatibility route. */
+		const [forceEmbed, setForceEmbed] = (0, react.useState)(false);
 			(0, react.useEffect)(() => {
 				if (url === void 0) return;
 				let cancelled = false;
@@ -5712,6 +5728,7 @@
 				setInput(next);
 				setReloadKey((key) => key + 1);
 			};
+			const iframeUrl = forceEmbed ? browserCompatibilityUrl(url) : url;
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 				className: sidebar_module_css_default.browser,
 				children: [
@@ -5809,7 +5826,8 @@
 						}
 					}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("iframe", {
 						className: sidebar_module_css_default.browserFrame,
-						src: url,
+						src: iframeUrl,
+						"data-dsh-resource-center-browser-compat": forceEmbed ? "true" : void 0,
 						sandbox: noSandbox ? void 0 : BROWSER_IFRAME_SANDBOX,
 						referrerPolicy: "no-referrer",
 						allow: "",
@@ -5822,7 +5840,7 @@
 		* The embed-refusal panel: shown when the probed site forbids being
 		* displayed inside other pages (X-Frame-Options / frame-ancestors) — the
 		* iframe would only show the browser's "refused to connect" blank. Explains
-		* the reason and offers the real-browser open plus a load-anyway escape.
+		* the reason and offers the real-browser open plus a compatibility escape.
 		* Exported so the copy and the actions are testable without a DOM.
 		*/
 		function BrowserEmbedBlocked(props) {

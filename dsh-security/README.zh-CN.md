@@ -5,6 +5,8 @@
 功能包括：
 
 - 渗透模式：`dsh_security_request` 发起受限的 HTTP/HTTPS/WebSocket 请求并记录请求包、响应包；`dsh_security_report` 按 `域名:端口` 合并报告。
+- 每次请求发出前，运行时会让当前会话的 LLM 综合判断授权范围、HTTP 方法/路径/参数/请求体/Content-Type、SQL/GraphQL/JSON 语义、历史响应和潜在影响。只有高置信度、无影响的 `read` 请求可以直接执行；创建、更新、删除、管理、未知、低置信度、分析失败和受保护目标必须由用户审批。
+- 审批范围不会只按域名缓存：`允许一次` 只作用于当前请求指纹；`允许本会话` 绑定目标、方法、路径模式和风险类型；`完全允许` 也只覆盖该明确范围，不会默认放行所有破坏性请求。LLM 只能提出风险判断，不能代替用户批准；审批拒绝或通道不可用时禁止发包。
 - 代码审计模式：`dsh_code_audit_start` 建立审计运行，`dsh_code_audit_update_understanding` 记录产品用途、核心能力、功能边界、运行假设和技术栈，`dsh_code_audit_add_api` 记录代码提取的入口/API，`dsh_code_audit_add_candidate` 要求关联已有 API 并记录入口、Source、Sink、影响和证据位置，`dsh_code_audit_review_candidate` 复核候选状态，`dsh_code_audit_report` 提交结构化报告。最终报告只统计 confirmed，needs-review 和 false-positive 分区展示，并包含 API 覆盖率与未覆盖入口。
 - 渗透模式支持输入 `@` 引用代码审计模式的会话或审计报告。候选只展示代码审计来源；发送时按来源会话和报告 ID 重新校验，并以有界的只读审计资料注入当前提示词，普通模式和代码审计模式不能使用该引用。
 - 渗透模式的“历史记录”在代码审计模式中变为“API 清单”；报告页先展示产品理解和技术栈，再按 CVSS 3.1 分数降序展示漏洞、严重性统计、修复优先级和 Markdown 正文。
