@@ -448,6 +448,82 @@ test('browser route shares MITM config and records browser traffic', async () =>
   }
 })
 
+test('MITM flow list serializes pending interceptions as lossless JSON', async () => {
+  const runtime = makeRuntime(normalizeConfig())
+  runtime.state.mitm.mode = 'manual'
+  runtime.state.mitm.holdResponse = false
+  const upstream = createServer((_req, res) => res.end('pending-json'))
+  await new Promise((resolve, reject) => {
+    upstream.once('error', reject)
+    upstream.listen({ host: '127.0.0.1', port: 0 }, resolve)
+  })
+  const address = upstream.address()
+  const port = typeof address === 'object' && address ? address.port : 0
+  let browserRequest
+  try {
+    browserRequest = runtime.apiHandler({
+      method: 'GET',
+      url: `/api/dsh-web-testing/browser?url=${encodeURIComponent(`http://127.0.0.1:${port}/pending`)}`,
+      headers: { host: '127.0.0.1' },
+      async *[Symbol.asyncIterator]() {},
+    }, { writeHead() {}, end() {} })
+    const flow = await waitFor(() => runtime.state.flows[0]?.metadata.pendingStage === 'request' && runtime.state.flows[0])
+    const list = await callRuntimeApi(runtime, 'GET', '/api/dsh-web-testing/flows')
+    assert.equal(list.status, 200)
+    assert.equal(list.body.flows[0].id, flow.id)
+    assert.equal(list.body.flows[0].status, null)
+    assert.equal(list.body.flows[0].durationMs, null)
+    assert.equal(list.body.flows[0].error, null)
+    await callRuntimeApi(runtime, 'POST', `/api/dsh-web-testing/flow/${encodeURIComponent(flow.id)}/action`, { action: 'release-request' })
+    await browserRequest
+  } finally {
+    await new Promise(resolve => upstream.close(resolve))
+  }
+})
+
+test('MITM configuration changes release already-pending requests in real time', async () => {
+  const upstream = createServer((_req, res) => {
+    res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' })
+    res.end('live-config-ok')
+  })
+  await new Promise((resolve, reject) => {
+    upstream.once('error', reject)
+    upstream.listen({ host: '127.0.0.1', port: 0 }, resolve)
+  })
+  const address = upstream.address()
+  const port = typeof address === 'object' && address ? address.port : 0
+  const runtime = makeRuntime(normalizeConfig())
+  runtime.state.mitm.mode = 'manual'
+  runtime.state.mitm.holdResponse = false
+  let status
+  let raw
+  try {
+    const browserRequest = runtime.apiHandler({
+      method: 'GET',
+      url: `/api/dsh-web-testing/browser?url=${encodeURIComponent(`http://127.0.0.1:${port}/live-config`)}`,
+      headers: { host: '127.0.0.1' },
+      async *[Symbol.asyncIterator]() {},
+    }, {
+      writeHead(code) { status = code },
+      end(value) { raw = Buffer.isBuffer(value) ? value.toString('utf8') : String(value || '') },
+    })
+
+    await waitFor(() => runtime.state.flows[0]?.metadata.pendingStage === 'request')
+    const update = await callRuntimeApi(runtime, 'POST', '/api/dsh-web-testing/config', { mode: 'observe' })
+    assert.equal(update.status, 200)
+    assert.deepEqual(update.body.released, { releasedRequests: 1, releasedResponses: 0 })
+    await browserRequest
+
+    assert.equal(status, 200)
+    assert.equal(raw, 'live-config-ok')
+    assert.equal(runtime.state.pending.size, 0)
+    assert.equal(runtime.state.flows[0].metadata.pendingStage, undefined)
+    assert.equal(runtime.state.flows[0].metadata.configAutoReleased, true)
+  } finally {
+    await new Promise(resolve => upstream.close(resolve))
+  }
+})
+
 test('MITM proxy and active Fuzzer both allow authorized private destinations', async () => {
   const upstream = createServer((_req, res) => {
     res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' })

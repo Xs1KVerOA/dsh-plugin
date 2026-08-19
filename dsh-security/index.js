@@ -10,7 +10,7 @@ import { z } from 'zod'
 import WebSocket from 'ws'
 
 export const name = 'dsh-security'
-export const inject = ['webServer', 'storageDomain', 'sessions', 'llm']
+export const inject = ['webServer', 'storageDomain', 'sessions', 'llm', 'approval']
 
 export const Config = Schema.object({
   allowedHosts: Schema.array(Schema.string()).default([]),
@@ -51,13 +51,15 @@ const exchangeSchema = z.object({ id: recordId, sessionId, time: z.string(), pro
 const reportSchema = z.object({ id: recordId, sessionId, key: z.string(), host: z.string(), port: z.number(), title: z.string(), markdown: z.string(), updatedAt: z.string() })
 const stringList = z.array(z.string())
 const AUDIT_CANDIDATE_STATUSES = ['needs-review', 'confirmed', 'false-positive', 'accepted-risk']
-const policySchema = z.object({ id: recordId, sessionId, requireAllowlist: z.boolean(), allowedHosts: stringList, allowPrivateTargets: z.boolean(), updatedAt: z.string() })
+const AUDIT_COVERAGE_STATUSES = ['extracted', 'in-progress', 'reviewed', 'verified']
+const PRIVATE_TARGET_ACCESS = ['prompt', 'denied', 'once', 'session']
+const policySchema = z.object({ id: recordId, sessionId, requireAllowlist: z.boolean(), allowedHosts: stringList, allowPrivateTargets: z.boolean(), privateTargetAccess: z.enum(PRIVATE_TARGET_ACCESS), updatedAt: z.string() })
 const understandingSchema = z.object({ productSummary: z.string(), productPurpose: z.string(), coreCapabilities: stringList, boundaries: stringList, assumptions: stringList, techStack: z.array(z.record(z.string(), z.any())), status: z.string(), updatedAt: z.string() })
 const auditRunSchema = z.object({ id: recordId, sessionId, targetPath: z.string(), auditMode: z.string(), language: z.string(), scope: z.string(), authorization: z.string(), graphRequired: z.boolean(), graphStatus: z.string(), status: z.string(), productUnderstanding: understandingSchema.optional(), createdAt: z.string(), updatedAt: z.string() })
 const evidenceLocationSchema = z.object({ file: z.string(), lineStart: z.number().int().nullable().optional(), lineEnd: z.number().int().nullable().optional(), symbol: z.string().optional(), role: z.string().optional(), snippet: z.string().optional() })
 const selfCheckSchema = z.object({ reachable: z.string(), authorization: z.string(), inputValidation: z.string(), productionCode: z.string(), sufficientEvidence: z.string() })
-const apiSchema = z.object({ id: recordId, sessionId, runId: recordId, entryId: z.string(), entryType: z.string(), method: z.string(), path: z.string(), handler: z.string(), auth: z.string(), module: z.string(), active: z.string(), featureSummary: z.string(), sourceCandidates: stringList, sinkCandidates: stringList, riskTags: stringList, targetPaths: stringList, graphHints: stringList, contextFiles: stringList.optional(), relatedSymbols: stringList.optional(), authGuards: stringList.optional(), configRefs: stringList.optional(), dataModels: stringList.optional(), errorHandlers: stringList.optional(), middleware: stringList.optional(), priority: z.string(), confidence: z.string(), language: z.string().optional(), sourceConfidence: z.string().optional(), aiAuthConclusion: z.string().optional(), auditCoverage: z.string().optional(), auditDomains: stringList.optional(), createdAt: z.string(), updatedAt: z.string() })
-const auditCandidateSchema = z.object({ id: recordId, sessionId, runId: recordId, candidateId: z.string(), domain: z.string(), status: z.enum([...AUDIT_CANDIDATE_STATUSES, 'candidate']), severity: z.string(), title: z.string(), entryId: z.string(), entryType: z.string(), entry: z.string(), auth: z.string(), active: z.string(), source: stringList, sink: stringList, chain: stringList, guards: stringList, evidence: stringList.optional(), evidenceLocations: z.array(evidenceLocationSchema).optional(), impact: z.string(), confidence: z.string(), queueItem: z.string(), description: z.string(), remediation: z.string(), cvss: z.string(), cvssVector: z.string().optional(), cvssScore: z.number().nullable().optional(), cvssSeverity: z.string().optional(), selfCheck: selfCheckSchema.optional(), reviewNotes: z.string().optional(), reviewedAt: z.string().optional(), createdAt: z.string(), updatedAt: z.string() })
+const apiSchema = z.object({ id: recordId, sessionId, runId: recordId, entryId: z.string(), entryType: z.string(), method: z.string(), path: z.string(), handler: z.string(), auth: z.string(), module: z.string(), active: z.string(), featureSummary: z.string(), sourceCandidates: stringList, sinkCandidates: stringList, riskTags: stringList, targetPaths: stringList, graphHints: stringList, contextFiles: stringList.optional(), relatedSymbols: stringList.optional(), authGuards: stringList.optional(), configRefs: stringList.optional(), dataModels: stringList.optional(), errorHandlers: stringList.optional(), middleware: stringList.optional(), priority: z.string(), confidence: z.string(), language: z.string().optional(), sourceConfidence: z.string().optional(), aiAuthConclusion: z.string().optional(), auditCoverage: z.string().optional(), auditSummary: z.string().optional(), auditDomains: stringList.optional(), hasVulnerability: z.boolean().optional(), vulnerabilityIds: stringList.optional(), reportId: recordId.optional(), createdAt: z.string(), updatedAt: z.string() })
+const auditCandidateSchema = z.object({ id: recordId, sessionId, runId: recordId, candidateId: z.string(), domain: z.string(), status: z.enum([...AUDIT_CANDIDATE_STATUSES, 'candidate']), severity: z.string(), title: z.string(), apiId: recordId.optional(), entryId: z.string(), handler: z.string().optional(), entryType: z.string(), entry: z.string(), auth: z.string(), active: z.string(), source: stringList, sink: stringList, chain: stringList, guards: stringList, evidence: stringList.optional(), evidenceLocations: z.array(evidenceLocationSchema).optional(), impact: z.string(), confidence: z.string(), queueItem: z.string(), description: z.string(), remediation: z.string(), requestPoc: z.string().optional(), cvss: z.string(), cvssVector: z.string().optional(), cvssScore: z.number().nullable().optional(), cvssSeverity: z.string().optional(), selfCheck: selfCheckSchema.optional(), reviewNotes: z.string().optional(), reviewedAt: z.string().optional(), createdAt: z.string(), updatedAt: z.string() })
 const auditReportSchema = z.object({ id: recordId, sessionId, runId: recordId, title: z.string(), status: z.string(), summary: z.string(), markdown: z.string(), counts: z.record(z.string(), z.number()), findings: z.array(z.record(z.string(), z.any())), reviewItems: z.array(z.record(z.string(), z.any())).optional(), excludedItems: z.array(z.record(z.string(), z.any())).optional(), acceptedRiskItems: z.array(z.record(z.string(), z.any())).optional(), coverage: z.record(z.string(), z.any()).optional(), topPriorities: stringList, observations: stringList, productUnderstanding: understandingSchema.optional(), updatedAt: z.string() })
 
 export const securityDomain = defineDomain({
@@ -223,7 +225,9 @@ async function approveRequest({ url, addresses, request, riskAssessment, request
   const shownAddresses = addresses.slice(0, 16).join(', ')
   const protectedTarget = addresses.some(isPrivateAddress) || isPrivateHost(url.hostname)
   const scopeKey = requestApprovalScope({ url, method: request.method, action: riskAssessment.action, impact: riskAssessment.impact })
+  const alwaysScopeKey = requestApprovalAlwaysScope({ url, method: request.method, action: riskAssessment.action })
   const scopeDescription = `目标 ${targetKey(url)} · ${request.method} ${requestPathPattern(url)} · 风险 ${riskAssessment.action}/${riskAssessment.impact}`
+  const alwaysScopeDescription = `目标 ${targetKey(url)} · HTTP 方法 ${request.method} · 风险动作 ${riskAssessment.action}（覆盖该动作下的路径，不包含其他方法或风险动作）`
   const targetReason = protectedTarget
     ? `目标解析到受保护的私网/内部地址（${shownAddresses}），继续访问可能触达企业内网或本机资源。`
     : '请求的语义可能修改数据、权限、配置或服务状态。'
@@ -238,10 +242,11 @@ async function approveRequest({ url, addresses, request, riskAssessment, request
       `风险判断：action=${riskAssessment.action}，impact=${riskAssessment.impact}，confidence=${riskAssessment.confidence.toFixed(2)}。${riskAssessment.reason}`,
       targetReason,
       `请求指纹：${requestFingerprintValue}`,
-      `授权范围：允许一次仅允许当前请求指纹；允许本会话仅允许“${scopeDescription}”；完全允许也仅允许该目标、方法、路径模式和风险类型，不会放行所有破坏性请求。`,
+      `授权范围：允许一次仅允许当前请求指纹；允许本会话仅允许“${scopeDescription}”；完全允许为“${alwaysScopeDescription}”，不会放行其他方法或风险动作。`,
       'LLM 不能代替用户批准；请确认本次访问已获授权。',
     ].join('\n'),
     ...(exec.signal ? { signal: exec.signal } : {}),
+    grantKeys: { session: scopeKey, always: alwaysScopeKey },
   })
   switch (outcome) {
     case 'allowed-once':
@@ -252,6 +257,37 @@ async function approveRequest({ url, addresses, request, riskAssessment, request
     case 'unavailable': throw new Error(protectedTarget ? '访问私网/内部地址需要用户审批，但当前没有可用的审批通道' : '当前没有可用的请求审批通道，已禁止发包')
     default: throw new Error('请求审批结果无效，已禁止发包')
   }
+}
+
+function privateTargetGrantKey(session) {
+  return `dsh-security:private-target-access:${stableKey(session)}`
+}
+
+async function askPrivateTargetAccess({ session, target, addresses = [], exec }) {
+  const approval = exec?.approval
+  if (!approval || typeof approval.request !== 'function') throw new Error('渗透会话需要先审批内网、回环和云元数据访问，但审批服务不可用，已禁止访问')
+  if (!exec?.agent) throw new Error('渗透会话需要先审批内网、回环和云元数据访问，但当前调用没有可路由的 agent，已禁止访问')
+  const grantKey = privateTargetGrantKey(session)
+  return approval.request({
+    agent: exec.agent,
+    toolName: 'dsh_security_private_target_access',
+    grantKey,
+    // The capability is deliberately scoped to this security session. Even
+    // when the UI returns "allowed-always", a later session must show its own
+    // explicit approval instead of inheriting an unrestricted internal probe.
+    grantKeys: { session: grantKey, always: grantKey },
+    ...(exec.callId !== undefined ? { callId: exec.callId } : {}),
+    reason: [
+      '渗透模式会话级授权',
+      `目标声明：${redactUrl(target).toString()}`,
+      addresses.length ? `本次解析地址：${addresses.slice(0, 16).join(', ')}` : '',
+      '是否允许本会话中的 LLM 探测任意内网、回环和云元数据地址？',
+      '范围包括 RFC1918（10/172.16-31/192.168）、IPv6 私网/回环、100.64.0.0/10 共享地址，以及 DNS 解析到这些地址的公网域名。',
+      '允许后仍会记录全部请求；HTTP 请求的写入、删除、管理等高影响语义仍需单独审批。拒绝、取消或审批不可用时，受保护目标禁止发包。',
+      `授权键：${grantKey}`,
+    ].join('\n'),
+    ...(exec.signal ? { signal: exec.signal } : {}),
+  })
 }
 
 function presetFromSession(session) {
@@ -392,6 +428,12 @@ export function requestApprovalScope({ url, method, action, impact }) {
   const target = url instanceof URL ? url : normalizeTarget(url)
   const scope = `${target.protocol}//${targetKey(target)}|${String(method || 'GET').toUpperCase()}|${requestPathPattern(target)}|${action}|${impact}`
   return `dsh-security:request-scope:${stableKey(scope)}`
+}
+
+export function requestApprovalAlwaysScope({ url, method, action }) {
+  const target = url instanceof URL ? url : normalizeTarget(url)
+  const scope = `${target.protocol}//${targetKey(target)}|${String(method || 'GET').toUpperCase()}|${action}`
+  return `dsh-security:request-target-scope:${stableKey(scope)}`
 }
 
 function headerValue(input = {}, name) {
@@ -570,6 +612,7 @@ function policyFromConfig(config) {
     requireAllowlist: false,
     allowedHosts: [],
     allowPrivateTargets: config.allowPrivateTargets === true,
+    privateTargetAccess: 'prompt',
   }
 }
 
@@ -578,6 +621,7 @@ function normalizePolicy(input = {}, current) {
     requireAllowlist: false,
     allowedHosts: [],
     allowPrivateTargets: current.allowPrivateTargets,
+    privateTargetAccess: PRIVATE_TARGET_ACCESS.includes(current.privateTargetAccess) ? current.privateTargetAccess : 'prompt',
   }
   return next
 }
@@ -704,6 +748,12 @@ function normalizeAuditCandidateStatus(value) {
   return raw
 }
 
+function normalizeAuditCoverage(value, fallback = 'extracted') {
+  const raw = String(value || fallback).trim().toLowerCase()
+  if (!AUDIT_COVERAGE_STATUSES.includes(raw)) throw new Error(`API 审计覆盖状态无效：${raw}，仅支持 ${AUDIT_COVERAGE_STATUSES.join(', ')}`)
+  return raw
+}
+
 function candidateStatus(item) {
   try { return normalizeAuditCandidateStatus(item?.status) } catch { return 'needs-review' }
 }
@@ -744,9 +794,14 @@ function selfCheckComplete(check) {
   return Object.values(check || {}).every(value => !unresolved.has(String(value).trim().toLowerCase()))
 }
 
-function auditCoverageFor(apis = [], candidates = []) {
-  const covered = new Set(candidates.map(item => String(item.entryId || '').trim()).filter(Boolean))
-  for (const api of apis) if (['reviewed', 'verified'].includes(String(api.auditCoverage || '').toLowerCase())) covered.add(String(api.entryId || '').trim())
+function requestPocComplete(value) {
+  const text = String(value || '').trim()
+  if (!text) return false
+  return /^(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|CONNECT|TRACE)\s+\S+\s+HTTP\/\d(?:\.\d)?(?:\s|$)/m.test(text) || /^(?:curl|grpcurl|rpc)\s+\S+/mi.test(text)
+}
+
+function auditCoverageFor(apis = []) {
+  const covered = new Set(apis.filter(api => ['reviewed', 'verified'].includes(String(api.auditCoverage || '').toLowerCase())).map(api => String(api.entryId || '').trim()).filter(Boolean))
   const uncoveredEntries = apis.filter(api => !covered.has(String(api.entryId || '').trim())).map(api => ({ entryId: api.entryId, method: api.method, path: api.path, handler: api.handler }))
   const total = apis.length
   return { total, covered: total - uncoveredEntries.length, uncovered: uncoveredEntries.length, percentage: total ? Math.round(((total - uncoveredEntries.length) / total) * 1000) / 10 : 0, uncoveredEntries }
@@ -780,17 +835,14 @@ function auditMarkdown(findings = [], run, sections = {}) {
   if (!findings.length) lines.push('当前没有已确认漏洞。', '')
   for (const item of findings) {
     const severity = severityForFinding(item)
-    lines.push(`### ${severity.toUpperCase()} · ${item.candidateId || item.title || '未命名发现'}`, '', `- CVSS：${item.cvssScore == null ? '未评分' : item.cvssScore}${item.cvssVector ? `（${item.cvssVector}）` : ''}`, `- 状态：${item.status || 'confirmed'}`, `- 入口：${item.entry || item.entryId || '未记录'}`, `- 影响：${item.impact || '未记录'}`)
-    if (item.chain?.length) lines.push(`- 链路：${item.chain.join(' → ')}`)
-    if (item.remediation) lines.push(`- 修复：${item.remediation}`)
+    const affectedFiles = Array.isArray(item.affectedFiles) && item.affectedFiles.length ? item.affectedFiles : [...new Set((item.evidenceLocations || []).map(location => location.file).filter(Boolean))]
+    lines.push(`### ${severity.toUpperCase()} · ${item.candidateId || item.title || '未命名发现'}`, '', `- CVSS：${item.cvssScore == null ? '未评分' : item.cvssScore}${item.cvssVector ? `（${item.cvssVector}）` : ''}`, `- 置信度：${item.confidence || 'unknown'}`, `- 状态：${item.status || 'confirmed'}`, `- API：${item.entry || item.entryId || '未记录'}${item.handler ? ` · Handler：${item.handler}` : ''}`, `- 影响：${item.impact || '未记录'}`)
+    if (item.chain?.length) lines.push(`- 调用链路：${item.chain.join(' → ')}`)
+    if (affectedFiles.length) lines.push(`- 受影响文件：${affectedFiles.join('、')}`)
+    if (item.requestPoc) lines.push('', '#### Request PoC（未执行，仅供复核）', '', '```http', String(item.requestPoc).replaceAll('```', '` ` `'), '```')
+    if (item.remediation) lines.push(`- 修复建议：${item.remediation}`)
     lines.push('')
   }
-  const reviewItems = Array.isArray(sections.reviewItems) ? sections.reviewItems : []
-  lines.push('## 待复核项', '', ...(reviewItems.length ? reviewItems.map(item => `- ${item.title || item.candidateId || item.id}：${item.entry || item.entryId || '未记录'}`) : ['无']), '')
-  const excludedItems = Array.isArray(sections.excludedItems) ? sections.excludedItems : []
-  lines.push('## 已排除项', '', ...(excludedItems.length ? excludedItems.map(item => `- ${item.title || item.candidateId || item.id}：误报或不适用`) : ['无']), '')
-  const acceptedRiskItems = Array.isArray(sections.acceptedRiskItems) ? sections.acceptedRiskItems : []
-  lines.push('## 接受风险', '', ...(acceptedRiskItems.length ? acceptedRiskItems.map(item => `- ${item.title || item.candidateId || item.id}：${item.impact || '已记录为接受风险'}`) : ['无']), '')
   if (coverage?.uncoveredEntries?.length) lines.push('## 未覆盖入口', '', ...coverage.uncoveredEntries.map(item => `- ${item.method || ''} ${item.path || item.entryId || '未记录'}${item.handler ? `（${item.handler}）` : ''}`), '')
   return lines.join('\n')
 }
@@ -902,6 +954,25 @@ function fetchWebSocket(url, request, config, signal, addresses) {
 
 export function createRuntime(rawConfig = {}, suppliedStore, sessions, services = {}) {
   const config = asConfig(rawConfig); const store = suppliedStore || createMemoryStore(); const llm = services?.llm || (typeof services?.stream === 'function' ? services : undefined)
+  // Preset tools may execute in a child context that does not inherit
+  // host-only providers. Keep the host approval seam on the security runtime
+  // so private-target and request approvals cannot silently lose it.
+  const approval = services?.approval
+  const approvalExec = exec => {
+    if (exec?.approval || !approval) return exec
+    return { ...exec, approval }
+  }
+  // A failed dsh_security_start must not leave a half-open engagement that
+  // can still emit network traffic or accumulate structured findings. The
+  // production Sessions service exposes list(); lightweight unit-test
+  // runtimes intentionally omit it so they can exercise the lower-level
+  // request seam without bootstrapping a Harness session.
+  const enforceEngagement = sessions && typeof sessions.list === 'function'
+  async function requireEngagement(sid) {
+    if (!enforceEngagement) return
+    const goals = await store.list('goals', String(sid))
+    if (!goals.length) throw new Error('请先成功调用 dsh_security_start 建立安全测试 engagement；未建立 engagement 时禁止探测或写入测试结果')
+  }
   const locks = new Map()
   async function policyFor(sid) {
     const stored = await store.get('policies', `${String(sid)}:policy`)
@@ -909,6 +980,7 @@ export function createRuntime(rawConfig = {}, suppliedStore, sessions, services 
       requireAllowlist: false,
       allowedHosts: [],
       allowPrivateTargets: stored.allowPrivateTargets === true,
+      privateTargetAccess: PRIVATE_TARGET_ACCESS.includes(stored.privateTargetAccess) ? stored.privateTargetAccess : 'prompt',
     } : policyFromConfig(config)
   }
   async function updatePolicy(sid, input = {}) {
@@ -943,6 +1015,46 @@ export function createRuntime(rawConfig = {}, suppliedStore, sessions, services 
     }, null, 2), config.maxRiskContextBytes)
   }
 
+  async function setPrivateTargetAccess(sid, access) {
+    if (!PRIVATE_TARGET_ACCESS.includes(access)) throw new Error(`私网访问授权状态无效：${access}`)
+    return withLock(locks, `session:${String(sid)}`, async () => {
+      const current = await policyFor(sid)
+      const next = { ...current, privateTargetAccess: access }
+      await store.put('policies', `${String(sid)}:policy`, {
+        id: `${String(sid)}:policy`, sessionId: String(sid), ...next, updatedAt: new Date().toISOString(),
+      })
+      return next
+    })
+  }
+
+  async function authorizePrivateTarget(sid, url, target, exec) {
+    for (;;) {
+      const policy = await policyFor(sid)
+      if (!target.requiresApproval || policy.privateTargetAccess === 'session') return
+      if (policy.privateTargetAccess === 'denied') throw new Error('当前渗透会话未授权探测内网、回环或云元数据地址，已禁止发包')
+      if (policy.privateTargetAccess === 'once') {
+        const consumed = await withLock(locks, `session:${String(sid)}`, async () => {
+          const current = await policyFor(sid)
+          if (current.privateTargetAccess !== 'once') return false
+          await store.put('policies', `${String(sid)}:policy`, {
+            id: `${String(sid)}:policy`, sessionId: String(sid), ...current, privateTargetAccess: 'denied', updatedAt: new Date().toISOString(),
+          })
+          return true
+        })
+        if (consumed) return
+        continue
+      }
+      const outcome = await askPrivateTargetAccess({ session: sid, target: url, addresses: target.addresses, exec })
+      const next = outcome === 'allowed-once' ? 'once' : outcome === 'allowed-session' || outcome === 'allowed-always' ? 'session' : 'denied'
+      await setPrivateTargetAccess(sid, next)
+      if (next === 'once' || next === 'session') {
+        if (next === 'once') continue
+        return
+      }
+      throw new Error(outcome === 'unavailable' || outcome === 'cancelled' ? '私网/内部地址访问审批未完成，已禁止发包' : '用户拒绝访问私网/内部地址（包括内网、回环和云元数据），已禁止发包')
+    }
+  }
+
   async function request(input, exec = {}) {
     assertSecuritySession(exec, sessions)
     const started = Date.now()
@@ -955,6 +1067,8 @@ export function createRuntime(rawConfig = {}, suppliedStore, sessions, services 
     if ((protocol === 'ws' || protocol === 'wss') && body) throw new Error('WebSocket 请求不支持 body，请使用 messages')
     const sid = getSessionId(exec)
     if (!sid) throw new Error('无法确定当前会话')
+    await requireEngagement(sid)
+    const guardedExec = approvalExec(exec)
     const timeoutMs = input.timeoutMs == null ? config.timeoutMs : Number(input.timeoutMs)
     const waitMs = input.waitMs == null ? config.websocketWaitMs : Number(input.waitMs)
     if (!Number.isFinite(timeoutMs) || timeoutMs < 1 || timeoutMs > 120000) throw new Error('timeoutMs 必须在 1 到 120000 之间')
@@ -965,9 +1079,10 @@ export function createRuntime(rawConfig = {}, suppliedStore, sessions, services 
     const policy = await policyFor(sid)
     const target = await inspectTarget(url, policy)
     const riskAssessment = await assessRequestRisk({ llm, exec, request, target: url, context: await riskContextFor(sid), threshold: config.riskConfidenceThreshold })
+    await authorizePrivateTarget(sid, url, target, guardedExec)
     const fingerprint = requestFingerprint({ url, method, headers: rawHeaders, body, messages: request.messages })
     const approvalScope = requestApprovalScope({ url, method, action: riskAssessment.action, impact: riskAssessment.impact })
-    if (target.requiresApproval || riskAssessment.approvalRequired) await approveRequest({ url, addresses: target.addresses, request, riskAssessment, requestFingerprintValue: fingerprint, exec })
+    if (riskAssessment.approvalRequired) await approveRequest({ url, addresses: target.addresses, request, riskAssessment, requestFingerprintValue: fingerprint, exec: guardedExec })
     const addresses = target.addresses
     const exchange = { id: `${started}-${Math.random().toString(36).slice(2, 8)}`, sessionId: sid, time: new Date(started).toISOString(), protocol, target: redactUrl(url).toString(), key: targetKey(url), requestPacket: requestPacket(request, config.maxPacketBytes), responsePacket: '', request, response: { status: null, statusText: '', headers: {}, body: '', messages: [] }, riskAssessment, approvalScope, requestFingerprint: fingerprint, durationMs: 0, callId: getCallId(exec) }
     try { exchange.response = protocol === 'http' || protocol === 'https' ? await fetchHttp(url, request, config, exec.signal, addresses) : await fetchWebSocket(url, request, config, exec.signal, addresses); exchange.responsePacket = responsePacket(exchange.response, config.maxPacketBytes) } catch (cause) { exchange.error = cause?.message || String(cause) }
@@ -981,9 +1096,33 @@ export function createRuntime(rawConfig = {}, suppliedStore, sessions, services 
   // Starting an engagement only records the declared scope. It must remain
   // usable when the target is temporarily unresolved or intentionally offline;
   // DNS/private-address enforcement belongs to request(), the network seam.
-  async function start(input, exec = {}) { assertSecuritySession(exec, sessions); const sid = getSessionId(exec); if (!sid) throw new Error('无法确定当前会话'); const target = normalizeReportTarget(input.target); return withLock(locks, `session:${sid}`, async () => { await store.clearStructured(sid); const goal = { id: scopedId(sid, 'goal', 1), sessionId: sid, target: redactUrl(target).toString(), objective: String(input.objective || ''), authorization: String(input.authorization || ''), createdAt: new Date().toISOString() }; await store.put('goals', goal.id, goal); return goal }) }
+  async function start(input, exec = {}) {
+    assertSecuritySession(exec, sessions)
+    const sid = getSessionId(exec)
+    if (!sid) throw new Error('无法确定当前会话')
+    const target = normalizeReportTarget(input.target)
+    return withLock(locks, `session:${sid}`, async () => {
+      await store.clearStructured(sid)
+      // Ask before the engagement starts, so the user can make one explicit
+      // decision for the whole protected-target capability. Public targets do
+      // not need this capability and remain usable after a rejection.
+      const currentPolicy = await policyFor(sid)
+      let privateTargetAccess = currentPolicy.privateTargetAccess
+      if (privateTargetAccess === 'prompt') {
+        const outcome = await askPrivateTargetAccess({ session: sid, target, exec: approvalExec(exec) })
+        privateTargetAccess = outcome === 'allowed-once' ? 'once' : outcome === 'allowed-session' || outcome === 'allowed-always' ? 'session' : 'denied'
+        await store.put('policies', `${sid}:policy`, {
+          id: `${sid}:policy`, sessionId: sid, ...currentPolicy, privateTargetAccess, updatedAt: new Date().toISOString(),
+        })
+      }
+      const goal = { id: scopedId(sid, 'goal', 1), sessionId: sid, target: redactUrl(target).toString(), objective: String(input.objective || ''), authorization: String(input.authorization || ''), createdAt: new Date().toISOString() }
+      await store.put('goals', goal.id, goal)
+      return { ...goal, privateTargetAccess }
+    })
+  }
   async function addStructured(table, input, exec, kind) {
     assertSecuritySession(exec, sessions); const sid = getSessionId(exec); if (!sid) throw new Error('无法确定当前会话')
+    await requireEngagement(sid)
     return withLock(locks, `session:${sid}`, async () => {
       const existing = await store.list(table, sid); const id = scopedId(sid, kind, existing.length + 1); const now = new Date().toISOString()
       const confidence = Number(input.confidence ?? 1)
@@ -996,7 +1135,7 @@ export function createRuntime(rawConfig = {}, suppliedStore, sessions, services 
   // while persisting one: an unresolved target can still have a valid report
   // (for example, a DNS outage/NXDOMAIN finding). Network checks stay in
   // request(), so this does not weaken SSRF/private-address protections.
-  async function report(input, exec = {}) { assertSecuritySession(exec, sessions); const sid = getSessionId(exec); if (!sid) throw new Error('无法确定当前会话'); const url = normalizeReportTarget(input.target); const key = targetKey(url); const id = scopedId(sid, 'report', key); return withLock(locks, `session:${sid}`, async () => { const old = await store.get('reports', id); const title = limitedText(String(input.title || '渗透测试结果'), config.maxPacketBytes); const markdown = limitedText(String(input.markdown || ''), config.maxReportBytes); const context = old ? '' : structuredReportMarkdown(await state(sid, { includeHistory: false, includeReports: false })); const combined = `${old?.markdown || `# ${title}\n\n**Target:** \`${key}\`\n\n`}\n## ${title}\n\n${markdown}\n${context ? `\n${context}\n` : ''}`; const row = { id, sessionId: sid, key, host: url.hostname, port: Number(url.port || (url.protocol === 'http:' || url.protocol === 'ws:' ? 80 : 443)), title: old?.title || title, markdown: limitedText(combined, config.maxReportBytes), updatedAt: new Date().toISOString() }; await store.put('reports', id, row); return row }) }
+  async function report(input, exec = {}) { assertSecuritySession(exec, sessions); const sid = getSessionId(exec); if (!sid) throw new Error('无法确定当前会话'); await requireEngagement(sid); const url = normalizeReportTarget(input.target); const key = targetKey(url); const id = scopedId(sid, 'report', key); return withLock(locks, `session:${sid}`, async () => { const old = await store.get('reports', id); const title = limitedText(String(input.title || '渗透测试结果'), config.maxPacketBytes); const markdown = limitedText(String(input.markdown || ''), config.maxReportBytes); const context = old ? '' : structuredReportMarkdown(await state(sid, { includeHistory: false, includeReports: false })); const combined = `${old?.markdown || `# ${title}\n\n**Target:** \`${key}\`\n\n`}\n## ${title}\n\n${markdown}\n${context ? `\n${context}\n` : ''}`; const row = { id, sessionId: sid, key, host: url.hostname, port: Number(url.port || (url.protocol === 'http:' || url.protocol === 'ws:' ? 80 : 443)), title: old?.title || title, markdown: limitedText(combined, config.maxReportBytes), updatedAt: new Date().toISOString() }; await store.put('reports', id, row); return row }) }
   async function clearAuditStructured(sid) { for (const table of ['audit_runs', 'apis', 'audit_candidates', 'audit_reports']) for (const [key, row] of (await store.list(table, String(sid))).map(item => [item.id, item])) await store.delete(table, key) }
   async function auditRunFor(sid, runId) {
     const runs = await store.list('audit_runs', String(sid))
@@ -1027,16 +1166,53 @@ export function createRuntime(rawConfig = {}, suppliedStore, sessions, services 
       return { runId: run.id, understanding }
     })
   }
+  function resolveAuditApi(apis, input) {
+    const apiId = String(input.apiId || '').trim()
+    if (apiId) {
+      const api = apis.find(item => item.id === apiId)
+      if (!api) throw new Error(`API 不存在或不属于当前运行：${apiId}`)
+      return api
+    }
+    const entryId = String(input.entryId || '').trim()
+    const matches = apis.filter(item => String(item.entryId || '').trim() === entryId)
+    const handler = String(input.handler || '').trim()
+    if (handler) {
+      const api = matches.find(item => String(item.handler || '').trim() === handler)
+      if (!api) throw new Error(`API 不存在或 handler 不匹配：${entryId} · ${handler}`)
+      return api
+    }
+    if (matches.length > 1) throw new Error(`entryId 对应多个 handler，请提供 handler 或 apiId：${entryId}`)
+    return matches[0] || null
+  }
   async function auditAddApi(input, exec = {}) {
     assertCodeAuditSession(exec, sessions); const sid = getSessionId(exec); if (!sid) throw new Error('无法确定当前会话')
     return withLock(locks, `session:${sid}`, async () => {
       const run = await auditRunFor(sid, input.runId); if (!run) throw new Error('请先使用 dsh_code_audit_start 创建审计运行')
       const entryId = limitedText(String(input.entryId || ''), 256); if (!entryId) throw new Error('entryId 不能为空')
-      const existing = (await store.list('apis', sid)).filter(item => item.runId === run.id); const id = `${run.id}:api-${stableKey(entryId)}`
+      const handler = limitedText(String(input.handler || ''), 1024)
+      const identity = handler ? `${entryId}\u0000${handler}` : entryId
+      const existing = (await store.list('apis', sid)).filter(item => item.runId === run.id); const id = `${run.id}:api-${stableKey(identity)}`
       if (!existing.some(item => item.id === id) && existing.length >= config.maxAuditApis) throw new Error(`API 清单超过上限 ${config.maxAuditApis}`)
       const now = new Date().toISOString()
-      const row = { id, sessionId: sid, runId: run.id, entryId, entryType: String(input.entryType || 'http'), method: String(input.method || ''), path: limitedText(String(input.path || ''), 1024), handler: limitedText(String(input.handler || ''), 1024), auth: String(input.auth || 'unknown'), module: limitedText(String(input.module || ''), 256), active: String(input.active || 'unknown'), featureSummary: limitedText(String(input.featureSummary || ''), config.maxPacketBytes), sourceCandidates: textList(input.sourceCandidates, config.maxPacketBytes), sinkCandidates: textList(input.sinkCandidates, config.maxPacketBytes), riskTags: textList(input.riskTags, 256), targetPaths: textList(input.targetPaths, config.maxPacketBytes), graphHints: textList(input.graphHints, config.maxPacketBytes), contextFiles: textList(input.contextFiles, config.maxPacketBytes, 100), relatedSymbols: textList(input.relatedSymbols, 4096, 100), authGuards: textList(input.authGuards, config.maxPacketBytes, 100), configRefs: textList(input.configRefs, config.maxPacketBytes, 100), dataModels: textList(input.dataModels, config.maxPacketBytes, 100), errorHandlers: textList(input.errorHandlers, config.maxPacketBytes, 100), middleware: textList(input.middleware, config.maxPacketBytes, 100), priority: String(input.priority || 'medium'), confidence: String(input.confidence || 'unknown'), language: limitedText(String(input.language || run.language || 'unknown'), 64), sourceConfidence: limitedText(String(input.sourceConfidence || input.confidence || 'unknown'), 64), aiAuthConclusion: deriveApiAuthConclusion(input), auditCoverage: limitedText(String(input.auditCoverage || 'extracted'), 64), auditDomains: textList(input.auditDomains, 512, 32), createdAt: now, updatedAt: now }
+      const row = { id, sessionId: sid, runId: run.id, entryId, entryType: String(input.entryType || 'http'), method: String(input.method || ''), path: limitedText(String(input.path || ''), 1024), handler, auth: String(input.auth || 'unknown'), module: limitedText(String(input.module || ''), 256), active: String(input.active || 'unknown'), featureSummary: limitedText(String(input.featureSummary || ''), config.maxPacketBytes), sourceCandidates: textList(input.sourceCandidates, config.maxPacketBytes), sinkCandidates: textList(input.sinkCandidates, config.maxPacketBytes), riskTags: textList(input.riskTags, 256), targetPaths: textList(input.targetPaths, config.maxPacketBytes), graphHints: textList(input.graphHints, config.maxPacketBytes), contextFiles: textList(input.contextFiles, config.maxPacketBytes, 100), relatedSymbols: textList(input.relatedSymbols, 4096, 100), authGuards: textList(input.authGuards, config.maxPacketBytes, 100), configRefs: textList(input.configRefs, config.maxPacketBytes, 100), dataModels: textList(input.dataModels, config.maxPacketBytes, 100), errorHandlers: textList(input.errorHandlers, config.maxPacketBytes, 100), middleware: textList(input.middleware, config.maxPacketBytes, 100), priority: String(input.priority || 'medium'), confidence: String(input.confidence || 'unknown'), language: limitedText(String(input.language || run.language || 'unknown'), 64), sourceConfidence: limitedText(String(input.sourceConfidence || input.confidence || 'unknown'), 64), aiAuthConclusion: deriveApiAuthConclusion(input), auditCoverage: normalizeAuditCoverage(input.auditCoverage), auditSummary: limitedText(String(input.auditSummary || ''), config.maxPacketBytes), auditDomains: textList(input.auditDomains, 512, 32), createdAt: now, updatedAt: now }
       await store.put('apis', id, row); await store.put('audit_runs', run.id, { ...run, updatedAt: now, status: 'evidence' }); return row
+    })
+  }
+  async function auditMarkApiReviewed(input, exec = {}) {
+    assertCodeAuditSession(exec, sessions); const sid = getSessionId(exec); if (!sid) throw new Error('无法确定当前会话')
+    return withLock(locks, `session:${sid}`, async () => {
+      const run = await auditRunFor(sid, input.runId); if (!run) throw new Error('请先使用 dsh_code_audit_start 创建审计运行')
+      const entryId = limitedText(String(input.entryId || ''), 256); if (!entryId) throw new Error('entryId 不能为空')
+      const apis = (await store.list('apis', sid)).filter(item => item.runId === run.id)
+      const api = resolveAuditApi(apis, { apiId: input.apiId, entryId, handler: input.handler })
+      if (!api) throw new Error(`API 不存在或不属于当前运行：${entryId}`)
+      const auditCoverage = normalizeAuditCoverage(input.auditCoverage || 'reviewed')
+      if (!['reviewed', 'verified'].includes(auditCoverage)) throw new Error('标记完成时 auditCoverage 只能是 reviewed 或 verified')
+      const now = new Date().toISOString()
+      const updated = { ...api, auditCoverage, auditSummary: limitedText(String(input.auditSummary || api.auditSummary || ''), config.maxPacketBytes), confidence: limitedText(String(input.confidence || api.confidence || 'unknown'), 64), aiAuthConclusion: input.aiAuthConclusion === undefined ? api.aiAuthConclusion : limitedText(String(input.aiAuthConclusion || ''), config.maxPacketBytes), auditDomains: input.auditDomains === undefined ? api.auditDomains : textList(input.auditDomains, 512, 32), updatedAt: now }
+      await store.put('apis', api.id, updated)
+      await store.put('audit_runs', run.id, { ...run, updatedAt: now, status: 'reviewing' })
+      return updated
     })
   }
   async function auditAddCandidate(input, exec = {}) {
@@ -1046,7 +1222,7 @@ export function createRuntime(rawConfig = {}, suppliedStore, sessions, services 
       const candidateId = limitedText(String(input.candidateId || ''), 256); if (!candidateId) throw new Error('candidateId 不能为空')
       const apis = (await store.list('apis', sid)).filter(item => item.runId === run.id)
       const entryId = limitedText(String(input.entryId || ''), 256); if (!entryId) throw new Error('entryId 不能为空')
-      const api = apis.find(item => item.entryId === entryId); if (!api) throw new Error(`候选必须关联当前运行中的 API：${entryId}`)
+      const api = resolveAuditApi(apis, { apiId: input.apiId, entryId, handler: input.handler }); if (!api) throw new Error(`候选必须关联当前运行中的 API：${entryId}`)
       const entry = limitedText(String(input.entry || ''), config.maxPacketBytes); if (!entry) throw new Error('entry 不能为空')
       const source = candidateEvidenceList(input.source, 'Source')
       const sink = candidateEvidenceList(input.sink, 'Sink')
@@ -1059,7 +1235,7 @@ export function createRuntime(rawConfig = {}, suppliedStore, sessions, services 
       const now = new Date().toISOString()
       normalizeAuditCandidateStatus(input.status)
       const cvss = safeCvssForInput(input)
-      const row = { id, sessionId: sid, runId: run.id, candidateId, domain: String(input.domain || 'unknown'), status: 'needs-review', severity: String(input.severity || cvss.severity || 'unknown').toLowerCase(), title: limitedText(String(input.title || candidateId), config.maxPacketBytes), entryId, entryType: String(input.entryType || api.entryType || 'unknown'), entry, auth: String(input.auth || 'unknown'), active: String(input.active || 'unknown'), source, sink, chain: textList(input.chain, config.maxPacketBytes), guards: textList(input.guards, config.maxPacketBytes), evidence, evidenceLocations, impact, confidence: String(input.confidence || 'unknown'), queueItem: limitedText(String(input.queueItem || ''), 1024), description: limitedText(String(input.description || ''), config.maxPacketBytes), remediation: limitedText(String(input.remediation || ''), config.maxPacketBytes), cvss: limitedText(String(input.cvss || ''), 128), cvssVector: cvss.vector, cvssScore: cvss.score, cvssSeverity: cvss.severity, reviewNotes: '', createdAt: now, updatedAt: now }
+      const row = { id, sessionId: sid, runId: run.id, candidateId, domain: String(input.domain || 'unknown'), status: 'needs-review', severity: String(input.severity || cvss.severity || 'unknown').toLowerCase(), title: limitedText(String(input.title || candidateId), config.maxPacketBytes), apiId: api.id, entryId, handler: api.handler, entryType: String(input.entryType || api.entryType || 'unknown'), entry, auth: String(input.auth || 'unknown'), active: String(input.active || 'unknown'), source, sink, chain: textList(input.chain, config.maxPacketBytes), guards: textList(input.guards, config.maxPacketBytes), evidence, evidenceLocations, impact, confidence: String(input.confidence || 'unknown'), queueItem: limitedText(String(input.queueItem || ''), 1024), description: limitedText(String(input.description || ''), config.maxPacketBytes), remediation: limitedText(String(input.remediation || ''), config.maxPacketBytes), requestPoc: limitedText(String(input.requestPoc || input.poc || ''), config.maxPacketBytes), cvss: limitedText(String(input.cvss || ''), 128), cvssVector: cvss.vector, cvssScore: cvss.score, cvssSeverity: cvss.severity, reviewNotes: '', createdAt: now, updatedAt: now }
       await store.put('audit_candidates', id, row); await store.put('audit_runs', run.id, { ...run, updatedAt: now, status: 'reviewing' }); return row
     })
   }
@@ -1075,10 +1251,17 @@ export function createRuntime(rawConfig = {}, suppliedStore, sessions, services 
       const selfCheck = normalizeSelfCheck(input, candidate.selfCheck)
       const evidenceLocations = input.evidenceLocations === undefined ? normalizeEvidenceLocations(candidate.evidenceLocations, config.maxPacketBytes) : normalizeEvidenceLocations(input.evidenceLocations, config.maxPacketBytes)
       if (!evidenceLocations.length) throw new Error('复核缺少证据位置，至少提供一个文件和行号/代码位置')
-      const status = requestedStatus !== 'needs-review' && (cvss.score == null || !selfCheckComplete(selfCheck)) ? 'needs-review' : requestedStatus
+      const requestPoc = input.requestPoc === undefined ? String(candidate.requestPoc || '') : limitedText(String(input.requestPoc || input.poc || ''), config.maxPacketBytes)
+      const status = requestedStatus !== 'needs-review' && (cvss.score == null || !selfCheckComplete(selfCheck) || (requestedStatus === 'confirmed' && !requestPocComplete(requestPoc))) ? 'needs-review' : requestedStatus
       const now = new Date().toISOString()
-      const updated = { ...candidate, status, evidenceLocations, selfCheck, confidence: String(input.confidence || candidate.confidence || 'unknown'), reviewNotes: limitedText(String(input.reviewNotes || candidate.reviewNotes || ''), config.maxPacketBytes), cvss: limitedText(String(input.cvss || candidate.cvss || ''), 128), cvssVector: cvss.vector || candidate.cvssVector, cvssScore: cvss.score == null ? candidate.cvssScore ?? null : cvss.score, cvssSeverity: cvss.severity || candidate.cvssSeverity || '', reviewedAt: now, updatedAt: now }
-      await store.put('audit_candidates', candidate.id, updated); await store.put('audit_runs', run.id, { ...run, updatedAt: now, status: status === 'confirmed' || status === 'false-positive' || status === 'accepted-risk' ? 'reviewed' : 'reviewing' }); return updated
+      const updated = { ...candidate, status, evidenceLocations, selfCheck, confidence: String(input.confidence || candidate.confidence || 'unknown'), reviewNotes: limitedText(String(input.reviewNotes || candidate.reviewNotes || ''), config.maxPacketBytes), remediation: limitedText(String(input.remediation || candidate.remediation || ''), config.maxPacketBytes), requestPoc, cvss: limitedText(String(input.cvss || candidate.cvss || ''), 128), cvssVector: cvss.vector || candidate.cvssVector, cvssScore: cvss.score == null ? candidate.cvssScore ?? null : cvss.score, cvssSeverity: cvss.severity || candidate.cvssSeverity || '', reviewedAt: now, updatedAt: now }
+      await store.put('audit_candidates', candidate.id, updated)
+      if (['confirmed', 'false-positive', 'accepted-risk'].includes(status)) {
+        const apis = (await store.list('apis', sid)).filter(item => item.runId === run.id)
+        const api = resolveAuditApi(apis, { apiId: candidate.apiId, entryId: candidate.entryId, handler: candidate.handler })
+        if (api) await store.put('apis', api.id, { ...api, auditCoverage: api.auditCoverage === 'verified' ? 'verified' : 'reviewed', auditSummary: limitedText(String(input.reviewNotes || api.auditSummary || `已完成候选复核：${status}`), config.maxPacketBytes), updatedAt: now })
+      }
+      await store.put('audit_runs', run.id, { ...run, updatedAt: now, status: status === 'confirmed' || status === 'false-positive' || status === 'accepted-risk' ? 'reviewed' : 'reviewing' }); return updated
     })
   }
   async function auditReport(input, exec = {}) {
@@ -1094,17 +1277,24 @@ export function createRuntime(rawConfig = {}, suppliedStore, sessions, services 
         const cvss = safeCvssForInput(item)
         const score = cvss.score
         const cvssSeverity = cvss.severity || String(item.cvssSeverity || '')
-        return { id: limitedText(String(item.id || item.candidateId || ''), 256), candidateId: limitedText(String(item.candidateId || ''), 256), title: limitedText(String(item.title || item.candidateId || ''), config.maxPacketBytes), severity: String(item.severity || cvssSeverity || 'unknown').toLowerCase(), cvssVector: cvss.vector || limitedText(String(item.cvssVector || ''), 256), cvssScore: score, cvssSeverity, status: candidateStatus(item), entry: limitedText(String(item.entry || item.entryId || ''), config.maxPacketBytes), impact: limitedText(String(item.impact || ''), config.maxPacketBytes), remediation: limitedText(String(item.remediation || ''), config.maxPacketBytes), confidence: limitedText(String(item.confidence || 'unknown'), 64), evidence: textList(item.evidence, config.maxPacketBytes), evidenceLocations: normalizeEvidenceLocations(item.evidenceLocations, config.maxPacketBytes), selfCheck: item.selfCheck ? normalizeSelfCheck(item.selfCheck) : null, reviewNotes: limitedText(String(item.reviewNotes || ''), config.maxPacketBytes), ...(Array.isArray(item.chain) ? { chain: textList(item.chain, config.maxPacketBytes, 100) } : {}) }
+        const requestPoc = limitedText(String(item.requestPoc || ''), config.maxPacketBytes)
+        const rawStatus = candidateStatus(item)
+        const status = rawStatus === 'confirmed' && !requestPocComplete(requestPoc) ? 'needs-review' : rawStatus
+        const evidenceLocations = normalizeEvidenceLocations(item.evidenceLocations, config.maxPacketBytes)
+        const affectedFiles = [...new Set(evidenceLocations.map(location => location.file).filter(Boolean))]
+        return { id: limitedText(String(item.id || item.candidateId || ''), 256), candidateId: limitedText(String(item.candidateId || ''), 256), title: limitedText(String(item.title || item.candidateId || ''), config.maxPacketBytes), severity: String(item.severity || cvssSeverity || 'unknown').toLowerCase(), cvssVector: cvss.vector || limitedText(String(item.cvssVector || ''), 256), cvssScore: score, cvssSeverity, status, apiId: item.apiId, entryId: limitedText(String(item.entryId || ''), 256), handler: limitedText(String(item.handler || ''), 1024), entry: limitedText(String(item.entry || item.entryId || ''), config.maxPacketBytes), impact: limitedText(String(item.impact || ''), config.maxPacketBytes), remediation: limitedText(String(item.remediation || ''), config.maxPacketBytes), requestPoc, confidence: limitedText(String(item.confidence || 'unknown'), 64), source: textList(item.source, config.maxPacketBytes), sink: textList(item.sink, config.maxPacketBytes), chain: textList(item.chain, config.maxPacketBytes, 100), guards: textList(item.guards, config.maxPacketBytes, 100), evidence: textList(item.evidence, config.maxPacketBytes), evidenceLocations, affectedFiles, selfCheck: item.selfCheck ? normalizeSelfCheck(item.selfCheck) : null, reviewNotes: limitedText(String(item.reviewNotes || ''), config.maxPacketBytes) }
       }
       const reportItems = candidates.map(toReportItem)
       const findings = sortAuditFindings(reportItems.filter(item => item.status === 'confirmed' && item.cvssScore != null))
       const reviewItems = reportItems.filter(item => item.status === 'needs-review' || (item.status === 'confirmed' && item.cvssScore == null))
       const excludedItems = reportItems.filter(item => item.status === 'false-positive')
       const acceptedRiskItems = reportItems.filter(item => item.status === 'accepted-risk')
-      const coverage = auditCoverageFor(apis, allCandidates)
+      const coverage = auditCoverageFor(apis)
       const structuredMarkdown = auditMarkdown(findings, run, { reviewItems, excludedItems, acceptedRiskItems, coverage })
-      const suppliedMarkdown = String(input.markdown || '').trim()
-      const markdown = limitedText(suppliedMarkdown ? `${suppliedMarkdown}\n\n---\n\n${structuredMarkdown}` : structuredMarkdown, config.maxReportBytes); const now = new Date().toISOString(); const id = `${run.id}:report`; const row = { id, sessionId: sid, runId: run.id, title: limitedText(String(input.title || '代码审计最终报告'), config.maxPacketBytes), status: String(input.status || 'final'), summary: limitedText(String(input.summary || `${findings.length} 条已确认发现，${reviewItems.length} 条待复核`), config.maxPacketBytes), markdown, counts: auditSeverityCounts(findings), findings, reviewItems, excludedItems, acceptedRiskItems, coverage, topPriorities: textList(input.topPriorities, config.maxPacketBytes), observations: textList(input.observations, config.maxPacketBytes), ...(run.productUnderstanding ? { productUnderstanding: run.productUnderstanding } : {}), updatedAt: now }
+      // The structured report is the canonical Markdown artifact. Do not append
+      // caller-supplied prose here: the model often sends a complete report,
+      // which would duplicate every finding and reintroduce hidden statuses.
+      const markdown = limitedText(structuredMarkdown, config.maxReportBytes); const now = new Date().toISOString(); const id = `${run.id}:report`; const row = { id, sessionId: sid, runId: run.id, title: limitedText(String(input.title || '代码审计最终报告'), config.maxPacketBytes), status: String(input.status || 'final'), summary: limitedText(String(input.summary || `${findings.length} 条已确认漏洞`), config.maxPacketBytes), markdown, counts: auditSeverityCounts(findings), findings, reviewItems, excludedItems, acceptedRiskItems, coverage, topPriorities: textList(input.topPriorities, config.maxPacketBytes), observations: textList(input.observations, config.maxPacketBytes), ...(run.productUnderstanding ? { productUnderstanding: run.productUnderstanding } : {}), updatedAt: now }
       await store.put('audit_reports', id, row); await store.put('audit_runs', run.id, { ...run, updatedAt: now, status: row.status }); return row
     })
   }
@@ -1112,7 +1302,33 @@ export function createRuntime(rawConfig = {}, suppliedStore, sessions, services 
   async function stateSummary(sid) { const result = await state(sid, { includeHistory: false, includeReports: false }); result.exchanges = { count: (await store.list('exchanges', String(sid))).length }; result.reports = { count: (await store.list('reports', String(sid))).length }; return result }
   async function history(sid, options) { const rows = (await store.list('exchanges', String(sid))).sort((a, b) => b.time.localeCompare(a.time) || b.id.localeCompare(a.id)); if (!options) return rows; return paginateRows(rows, options, row => row.time, 'desc') }
   async function reports(sid, options) { const rows = (await store.list('reports', String(sid))).sort((a, b) => a.key.localeCompare(b.key) || a.id.localeCompare(b.id)); if (!options) return rows; return paginateRows(rows, options, row => row.key, 'asc') }
-  async function auditApis(sid, options) { const rows = (await store.list('apis', String(sid))).sort((a, b) => a.entryId.localeCompare(b.entryId) || a.id.localeCompare(b.id)); if (!options) return rows; return paginateRows(rows, options, row => row.entryId, 'asc') }
+  async function auditApis(sid, options) {
+    const sessionId = String(sid)
+    const rows = (await store.list('apis', sessionId)).sort((a, b) => String(a.entryId || '').localeCompare(String(b.entryId || '')) || String(a.handler || '').localeCompare(String(b.handler || '')) || a.id.localeCompare(b.id))
+    const apisByEntry = new Map()
+    for (const api of rows) {
+      const matches = apisByEntry.get(api.entryId) || []
+      matches.push(api)
+      apisByEntry.set(api.entryId, matches)
+    }
+    const confirmedByApi = new Map()
+    for (const candidate of await store.list('audit_candidates', sessionId)) {
+      if (candidateStatus(candidate) !== 'confirmed' || safeCvssForInput(candidate).score == null || !requestPocComplete(candidate.requestPoc)) continue
+      let api = candidate.apiId ? rows.find(item => item.id === candidate.apiId) : null
+      if (!api && candidate.handler) api = rows.find(item => item.entryId === candidate.entryId && item.handler === candidate.handler)
+      if (!api) {
+        const matches = apisByEntry.get(candidate.entryId) || []
+        api = matches.length === 1 ? matches[0] : null
+      }
+      if (!api) continue
+      const ids = confirmedByApi.get(api.id) || []
+      if (!ids.includes(candidate.candidateId)) ids.push(candidate.candidateId)
+      confirmedByApi.set(api.id, ids)
+    }
+    const projected = rows.map(row => { const vulnerabilityIds = confirmedByApi.get(row.id) || []; return { ...row, hasVulnerability: vulnerabilityIds.length > 0, vulnerabilityIds, ...(vulnerabilityIds.length ? { reportId: `${row.runId}:report` } : {}) } })
+    if (!options) return projected
+    return paginateRows(projected, options, row => row.id, 'asc')
+  }
   async function auditReports(sid, options) { const rows = (await store.list('audit_reports', String(sid))).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || b.id.localeCompare(a.id)); if (!options) return rows; return paginateRows(rows, options, row => row.updatedAt, 'desc') }
   async function auditState(sid, options = {}) { const run = await auditRunFor(String(sid)); if (options.summaryOnly) return { run: run || null }; return { run: run || null, apis: await auditApis(sid), candidates: (await store.list('audit_candidates', String(sid))).filter(item => !run || item.runId === run.id), reports: await auditReports(sid) } }
   function referenceSessionTitle(session, sid) {
@@ -1186,7 +1402,7 @@ export function createRuntime(rawConfig = {}, suppliedStore, sessions, services 
     return limitedText(text, config.maxReferenceBytes)
   }
   async function clear(sid) { return withLock(locks, `session:${String(sid)}`, () => store.clear(String(sid))) }
-  return { config, sessions, store, request, start, addAsset: (input, exec) => addStructured('assets', input, exec, 'asset'), addFact: (input, exec) => addStructured('facts', input, exec, 'fact'), addFinding: (input, exec) => addStructured('findings', input, exec, 'finding'), report, auditStart, auditUpdateUnderstanding, auditAddApi, auditAddCandidate, auditReviewCandidate, auditReport, auditApis, auditReports, auditState, auditReferenceCandidates, auditReferenceContent, state, stateSummary, history, reports, clear, policy: policyFor, updatePolicy: (sid, input) => updatePolicy(sid, input) }
+  return { config, sessions, store, request, start, addAsset: (input, exec) => addStructured('assets', input, exec, 'asset'), addFact: (input, exec) => addStructured('facts', input, exec, 'fact'), addFinding: (input, exec) => addStructured('findings', input, exec, 'finding'), report, auditStart, auditUpdateUnderstanding, auditAddApi, auditMarkApiReviewed, auditAddCandidate, auditReviewCandidate, auditReport, auditApis, auditReports, auditState, auditReferenceCandidates, auditReferenceContent, state, stateSummary, history, reports, clear, policy: policyFor, updatePolicy: (sid, input) => updatePolicy(sid, input) }
 }
 
 function sendJson(res, status, body) { res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', vary: 'Origin' }); res.end(JSON.stringify(body)) }
@@ -1252,9 +1468,10 @@ function pageNumber(value, fallback, max) {
 }
 
 export function apply(ctx, config) {
-  const store = new SecurityStore(ctx); const sessions = ctx.get('sessions'); let llm
+  const store = new SecurityStore(ctx); const sessions = ctx.get('sessions'); let llm; let approval
   try { llm = ctx.get('llm') } catch { /* keep the runtime fail-closed when the LLM service is unavailable */ }
-  const runtime = createRuntime(config, store, sessions, { llm }); const apiToken = randomBytes(32).toString('hex'); ctx.provide('dshSecurity', runtime)
+  try { approval = ctx.get('approval') } catch { /* test/diagnostic contexts may omit the optional approval seam */ }
+  const runtime = createRuntime(config, store, sessions, { llm, approval }); const apiToken = randomBytes(32).toString('hex'); ctx.provide('dshSecurity', runtime)
   ctx.effect(() => ctx.get('webServer').register({
     kind: 'prefix',
     path: '/api/dsh-security',

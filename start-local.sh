@@ -117,4 +117,4 @@ fi
 
 say "starting source Harness: profile=$PROFILE host=$HOST port=$PORT"
 cd "$HARNESS_ROOT"
-exec pnpm dsh --profile "$PROFILE" web --host "$HOST" --port "$PORT"
+exec pnpm dsh --profile "$PROFILE" --host "$HOST" --port "$PORT"

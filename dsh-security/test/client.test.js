@@ -49,6 +49,7 @@ test('registers security history and report conversation views', () => {
   assert.deepEqual(registrations.map(item => item.definition.order), [-20, 20, 30])
   assert.match(source, /flow\?\.response\?\.status \?\? flow\?\.status/)
   assert.match(source, /historyStatusLabel\(flow\)/)
+  assert.match(source, /typeof value === 'number'.*Number\(value\)/s)
   snapshot = { current: 's1', byId: { s1: { agentPreset: 'standard' } } }
   sync()
   assert.deepEqual([...active.keys()], ['security-session-mode'])
@@ -59,12 +60,31 @@ test('registers security history and report conversation views', () => {
 
 test('renders the structured API inventory contract', () => {
   const source = fs.readFileSync(new URL('../client.js', import.meta.url), 'utf8')
-  for (const label of ['搜索路径或方法', '方法', '路径', '类型', '语言', '来源置信度', 'AI 鉴权结论', '审计覆盖', '关联风险', '审计域']) assert.match(source, new RegExp(label))
+  for (const label of ['搜索路径或方法', '方法', '路径', '漏洞', '漏洞 ID', '存在漏洞', '未发现漏洞']) assert.match(source, new RegExp(label))
+  for (const removed of ['来源置信度', 'AI 鉴权结论', '审计覆盖', '关联风险', '审计域', '入口详情']) assert.doesNotMatch(source, new RegExp(removed))
   assert.match(source, /dsec-api-search/)
+  assert.match(source, /dsec-api-method/)
+  assert.match(source, /item\.handler/)
+  assert.match(source, /dsec-api-secondary/)
   assert.match(source, /dsec-badge-good/)
-  assert.match(source, /auditDomains/)
-  assert.match(source, /CandidateGroup/)
   assert.match(source, /API 覆盖率/)
+  assert.match(source, /displayAuditSummary/)
+  assert.doesNotMatch(source, /待复核项.*CandidateGroup/)
+  assert.match(source, /dsec-report-section/)
+  assert.match(source, /dsec-coverage-fill/)
+  assert.match(source, /dsec-report-impact/)
+  assert.match(source, /dsec-coverage-entry/)
+  assert.match(source, /dsec-summary-card-critical/)
+  assert.match(source, /dsec-summary-card-high/)
+  assert.match(source, /dsec-summary-card-medium/)
+  assert.match(source, /dsec-finding-critical/)
+  assert.match(source, /auditSeverityClass/)
+  assert.match(source, /vulnerabilityIds/)
+  assert.match(source, /focusAuditFinding/)
+  assert.match(source, /auditFindingAnchor/)
+  assert.match(source, /dsec-report-poc/)
+  assert.match(source, /Request PoC（未执行）/)
+  for (const label of ['调用链路', '受影响文件', '修复建议', 'dsec-finding-api', 'dsec-finding-cvss']) assert.match(source, new RegExp(label))
 })
 
 test('keeps DSH code-audit mode independent from local deep-audit skill stages', () => {
@@ -73,5 +93,8 @@ test('keeps DSH code-audit mode independent from local deep-audit skill stages',
     new URL('../presets/code-audit/agent.cordis.yml', import.meta.url),
     new URL('../presets/code-audit/preset.yml', import.meta.url),
   ].map(url => fs.readFileSync(url, 'utf8')).join('\n')
+  assert.match(files, /dsh_code_audit_mark_api_reviewed/)
+  assert.match(files, /每个 API 分析结束后必须调用 dsh_code_audit_mark_api_reviewed/)
+  assert.match(files, /不要归一化或合并记录/)
   assert.doesNotMatch(files, /L0\.5|L1\.5|code-review-graph|queue worker|verifier|深度审计/)
 })

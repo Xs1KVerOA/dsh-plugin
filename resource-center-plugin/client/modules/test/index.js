@@ -811,7 +811,14 @@
           try {
             const next = { ...config, interceptRoutes: splitMitmList(routesText), interceptSuffixes: splitMitmList(suffixesText), autoReleaseRules: JSON.parse(autoRulesText || '[]'), haeRules: JSON.parse(haeRulesText || '[]') }
             const response = await api('config', { method: 'POST', body: JSON.stringify(next) })
-            applyRemoteConfig(response.mitm); setError('')
+            applyRemoteConfig(response.mitm)
+            setStatus(current => {
+              if (!current) return current
+              const released = Number(response.released?.releasedRequests || 0) + Number(response.released?.releasedResponses || 0)
+              return { ...current, mitm: response.mitm, pendingCount: Math.max(0, Number(current.pendingCount || 0) - released) }
+            })
+            setError('')
+            await refresh()
           } catch (cause) { setError(cause?.message || String(cause)) } finally { setSavingConfig(false) }
         }
         const toggleProxy = async () => {

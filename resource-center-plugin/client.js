@@ -183,24 +183,9 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
 .drc-menu-item:hover{background:var(--dsw-alias-bg-layer-2,#f1f3f6)}
 .drc-menu-item.drc-danger{color:var(--dsw-alias-state-error-primary,#d94b4b)}
 .drc-menu-separator{height:1px;margin:4px 6px;background:var(--dsw-alias-border-l1,#e5e7eb)}
-.FJxK0a_root{position:relative}
-.dsh-resource-center-session-cost{display:inline-flex;align-items:center;margin-left:8px;padding-left:8px;border-left:1px solid var(--dsw-alias-separator-primary,#e2e5e9);color:var(--dsw-alias-state-business-primary,#3578e5);font-size:inherit;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
+.dsh-resource-center-session-cost{display:inline-flex;align-items:center;min-height:24px;margin:0 8px 0 0;padding:0 9px;border:1px solid var(--dsw-alias-state-business-tertiary,#cfe0ff);border-radius:999px;background:var(--dsw-alias-state-business-quaternary,#f4f8ff);color:var(--dsw-alias-state-business-primary,#3578e5);font-size:12px;font-weight:500;line-height:22px;font-variant-numeric:tabular-nums;white-space:nowrap}
 @media (prefers-color-scheme:dark){.drc-panel,.drc-rail{background:var(--dsw-specific-sidebar-fill,#1d1f23)}.drc-menu{background:var(--dsw-alias-bg-layer-1,#24272c)}}
 `
-
-      function readCurrentSessionId(sessions) {
-        try {
-          const snapshot = sessions?.list && typeof sessions.list.getSnapshot === 'function'
-            ? sessions.list.getSnapshot()
-            : undefined
-          const current = snapshot?.current
-          if (typeof current === 'string') return current
-          if (current && typeof current.id === 'string') return current.id
-        } catch {
-          // The host session store can be unavailable while the app is booting.
-        }
-        return ''
-      }
 
       function compactUsageTokens(value) {
         const number = Number(value) || 0
@@ -209,112 +194,64 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         return `${Math.round(number / 1e5) / 10}M`
       }
 
-      function currentSessionCostRoots() {
-        if (typeof document === 'undefined') return []
-        // The conversation footer uses a hashed class name, but the slot name
-        // is part of the host extension contract and survives host rebuilds.
-        const selectors = [
-          '[data-slot="conversation.composer.dock"] > *',
-          '.FJxK0a_root',
-        ]
-        const roots = []
-        const seen = new Set()
-        for (const selector of selectors) {
-          for (const root of document.querySelectorAll?.(selector) || []) {
-            if (!seen.has(root)) {
-              seen.add(root)
-              roots.push(root)
+      // Render this through the host's session-scoped header utility slot. The
+      // slot remounts when sessionId changes, so switching conversations cannot
+      // leave the previous cost behind or expand the composer footer.
+      function CurrentSessionCost(props) {
+        const sessionId = typeof props?.sessionId === 'string' ? props.sessionId : ''
+        const [usage, setUsage] = React.useState(null)
+        React.useEffect(() => {
+          if (!sessionId) return undefined
+          let disposed = false
+          let controller
+          let timer
+          const refresh = async () => {
+            controller?.abort?.()
+            controller = typeof AbortController === 'function' ? new AbortController() : undefined
+            try {
+              const response = await fetchWithTimeout(
+                `${CURRENT_SESSION_USAGE_PATH}?sessionId=${encodeURIComponent(sessionId)}`,
+                controller ? { signal: controller.signal } : undefined,
+              )
+              const result = await response.json().catch(() => ({}))
+              const nextUsage = result.currentSession?.id === sessionId ? result.currentSession.usage : undefined
+              if (!disposed && response.ok && result.ok !== false && nextUsage) {
+                setUsage({
+                  calls: Number(nextUsage.calls) || 0,
+                  input: Number(nextUsage.input) || 0,
+                  cacheHit: Number(nextUsage.cacheHit) || 0,
+                  output: Number(nextUsage.output) || 0,
+                  cost: Number(nextUsage.cost) || 0,
+                })
+              }
+            } catch (error) {
+              // An unmounted session or a superseded refresh is expected.
+              if (error?.name !== 'AbortError' && !disposed) return
             }
           }
-          if (roots.length) break
-        }
-        return roots
-      }
+          void refresh()
+          if (typeof window !== 'undefined' && typeof window.setInterval === 'function') {
+            timer = window.setInterval(refresh, 10_000)
+          }
+          return () => {
+            disposed = true
+            controller?.abort?.()
+            if (timer !== undefined) window.clearInterval(timer)
+          }
+        }, [sessionId])
 
-      function installCurrentSessionCost(sessions) {
-        if (typeof document === 'undefined' || !document.body) return () => {}
-        let disposed = false
-        let currentSessionId = ''
-        let usage = { calls: 0, input: 0, cacheHit: 0, output: 0, cost: 0 }
-        let requestController
-        let timer
-        let observer
-        let unsubscribe
-
-        const removeIndicators = () => {
-          for (const indicator of document.querySelectorAll?.('[data-dsh-resource-center-session-cost]') || []) indicator.remove?.()
-        }
-        const paint = () => {
-          if (disposed) return
-          const roots = currentSessionCostRoots()
-          if (!currentSessionId || roots.length === 0) {
-            if (!currentSessionId) removeIndicators()
-            return
-          }
-          const cost = Number(usage.cost) || 0
-          const calls = Number(usage.calls) || 0
-          const input = compactUsageTokens(usage.input)
-          const output = compactUsageTokens(usage.output)
-          const cacheHit = compactUsageTokens(usage.cacheHit)
-          for (const root of roots) {
-            let indicator = root.querySelector?.('[data-dsh-resource-center-session-cost]')
-            if (!indicator) {
-              indicator = document.createElement('span')
-              indicator.className = 'dsh-resource-center-session-cost'
-              indicator.dataset.dshResourceCenterSessionCost = 'true'
-              root.appendChild(indicator)
-            }
-            const text = `本会话 ¥${cost.toFixed(4)}`
-            const title = `${calls} 次 · 输入 ${input} tok · 输出 ${output} tok · 缓存命中 ${cacheHit} tok`
-            if (indicator.textContent !== text) indicator.textContent = text
-            if (indicator.title !== title) indicator.title = title
-          }
-        }
-        const refresh = async () => {
-          const nextSessionId = readCurrentSessionId(sessions)
-          if (nextSessionId !== currentSessionId) {
-            currentSessionId = nextSessionId
-            usage = { calls: 0, input: 0, cacheHit: 0, output: 0, cost: 0 }
-          }
-          if (!currentSessionId) {
-            removeIndicators()
-            return
-          }
-          requestController?.abort?.()
-          const controller = typeof AbortController === 'function' ? new AbortController() : undefined
-          requestController = controller
-          try {
-            const response = await fetchWithTimeout(`${CURRENT_SESSION_USAGE_PATH}?sessionId=${encodeURIComponent(currentSessionId)}`, controller ? { signal: controller.signal } : undefined)
-            const result = await response.json().catch(() => ({}))
-            if (!response.ok || result.ok === false || currentSessionId !== nextSessionId) return
-            usage = result.currentSession?.usage || usage
-          } catch (error) {
-            if (error?.name !== 'AbortError') paint()
-          } finally {
-            if (requestController === controller) requestController = undefined
-          }
-          paint()
-        }
-        const onSessionChange = () => {
-          if (readCurrentSessionId(sessions) !== currentSessionId) void refresh()
-          else paint()
-        }
-        const store = sessions?.list
-        if (store && typeof store.subscribe === 'function') unsubscribe = store.subscribe(onSessionChange)
-        if (typeof MutationObserver === 'function') {
-          observer = new MutationObserver(paint)
-          observer.observe(document.querySelector('.hHd-Xa_root') || document.body, { childList: true })
-        }
-        if (typeof window !== 'undefined' && typeof window.setInterval === 'function') timer = window.setInterval(refresh, 10_000)
-        void refresh()
-        return () => {
-          disposed = true
-          requestController?.abort?.()
-          if (timer !== undefined) window.clearInterval(timer)
-          observer?.disconnect?.()
-          unsubscribe?.()
-          removeIndicators()
-        }
+        if (!sessionId) return null
+        const cost = Number(usage?.cost) || 0
+        const calls = Number(usage?.calls) || 0
+        const input = compactUsageTokens(usage?.input)
+        const output = compactUsageTokens(usage?.output)
+        const cacheHit = compactUsageTokens(usage?.cacheHit)
+        const title = `${calls} 次 · 输入 ${input} tok · 输出 ${output} tok · 缓存命中 ${cacheHit} tok`
+        return h('span', {
+          className: 'dsh-resource-center-session-cost',
+          'data-dsh-resource-center-session-cost': 'true',
+          title,
+        }, usage ? `本会话 ¥${cost.toFixed(4)}` : '本会话 …')
       }
 
       function ActivityIcon() {
@@ -1120,6 +1057,10 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         if (rightSidebarModule && typeof rightSidebarModule.apply === 'function') {
           rightSidebarModule.apply(ctx, { sidebar })
         }
+        ctx.slots.inject('conversation.session.header.utilities', () => ctx.slots.register(
+          { name: 'conversation.session.header.utilities', id: 'dsh-resource-center-session-cost', order: 100, label: '当前会话费用' },
+          props => h(CurrentSessionCost, props),
+        ))
         ctx.effect(() => {
           const style = document.createElement('style')
           style.dataset.plugin = 'dsh-resource-center'
@@ -1128,7 +1069,6 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           return () => style.remove()
         }, 'dsh-resource-center: styles')
         ctx.effect(installHostLayoutMetrics, 'dsh-resource-center: host layout metrics')
-        ctx.effect(() => installCurrentSessionCost(ctx.get('sessions')), 'dsh-resource-center: current session cost')
         ctx.slots.inject('sidebar.workspaces', () => ctx.slots.register(
           { name: 'sidebar.workspaces', id: 'dsh-resource-center', priority: -20 },
           props => h(WorkspaceDock, {
@@ -3381,7 +3321,14 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           try {
             const next = { ...config, interceptRoutes: splitMitmList(routesText), interceptSuffixes: splitMitmList(suffixesText), autoReleaseRules: JSON.parse(autoRulesText || '[]'), haeRules: JSON.parse(haeRulesText || '[]') }
             const response = await api('config', { method: 'POST', body: JSON.stringify(next) })
-            applyRemoteConfig(response.mitm); setError('')
+            applyRemoteConfig(response.mitm)
+            setStatus(current => {
+              if (!current) return current
+              const released = Number(response.released?.releasedRequests || 0) + Number(response.released?.releasedResponses || 0)
+              return { ...current, mitm: response.mitm, pendingCount: Math.max(0, Number(current.pendingCount || 0) - released) }
+            })
+            setError('')
+            await refresh()
           } catch (cause) { setError(cause?.message || String(cause)) } finally { setSavingConfig(false) }
         }
         const toggleProxy = async () => {

@@ -6,9 +6,10 @@
       建立运行 → 产品理解 → API/入口提取 → 入口逐项分析 → 候选记录 → 候选复核 → 结构化报告。
       先用 dsh_code_audit_start 记录目标、语言、范围和授权说明，再用 dsh_code_audit_update_understanding 提交产品用途、核心能力、功能边界、运行假设和技术栈。
       发现真实 HTTP/RPC/job/consumer/CLI/artifact 入口后，用 dsh_code_audit_add_api 写入 API 清单；逐个 API 同时读取入口/路由、Handler、参数来源、Service/Repository、权限校验、关键配置、Model/数据库操作、错误处理和中间件，并记录上下文文件和相关符号。
-      第一阶段只能用 dsh_code_audit_add_candidate 记录候选，必须包含已有 API ID、Entry、Source、Sink、Impact、证据说明以及文件/行号/代码位置，不能直接确认漏洞。
-      第二阶段用 dsh_code_audit_review_candidate 逐项回答可达性、认证授权、输入过滤/编码、是否生产代码、证据是否充分；任一项未知或没有有效 CVSS:3.1 向量，只能保留 needs-review。
-      最终使用 dsh_code_audit_report；只有 confirmed 进入已确认漏洞，needs-review、false-positive、accepted-risk 和未覆盖入口分区展示，并按 CVSS 3.1 从高到低排序。不得执行破坏性 payload 或未授权动态验证。
+      每个 API 分析结束后必须调用 dsh_code_audit_mark_api_reviewed，设置 reviewed 或 verified、auditSummary 和 confidence；没有确认漏洞的 API 也必须显式标记完成，不能用候选记录代替覆盖状态。
+      第一阶段只能用 dsh_code_audit_add_candidate 记录候选，必须包含已有 API ID、Entry、Source、Sink、Impact、证据说明以及文件/行号/代码位置，不能直接确认漏洞；可以附带安全的 Request PoC 模板，但不能执行请求。
+      第二阶段用 dsh_code_audit_review_candidate 逐项回答可达性、认证授权、输入过滤/编码、是否生产代码、证据是否充分；确认漏洞时必须提供原始 HTTP 请求格式的 requestPoc，使用占位符和非破坏性语义，不得包含真实密钥或破坏性 payload；任一项未知、没有有效 CVSS:3.1 向量或缺少 requestPoc，只能保留 needs-review。
+      最终使用 dsh_code_audit_report；最终报告只展示 confirmed 漏洞及其 CVSS、置信度和未执行的 Request PoC，覆盖率只统计显式 marked reviewed/verified 的 API，未覆盖入口单独统计但不作为漏洞。不得执行破坏性 payload 或未授权动态验证。
 
 - id: code-audit-tools
   name: 'dsh-security/audit-tools'

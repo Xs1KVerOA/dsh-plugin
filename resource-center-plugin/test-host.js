@@ -666,6 +666,46 @@ function shouldIntercept(state, input) {
   return true
 }
 
+function resolvePendingStage(state, flow, stage, result) {
+  const key = `${flow.id}:${stage}`
+  const pending = state.pending.get(key)
+  if (!pending) return false
+  clearPendingStage(state, flow, stage)
+  pending.resolve(result)
+  return true
+}
+
+/**
+ * Re-evaluate requests that were already held when the MITM configuration
+ * changed. Configuration updates must affect the live queue as well as new
+ * traffic; otherwise switching to observe/auto-release leaves old requests
+ * blocked until the user manually opens each one.
+ */
+function reconcilePendingInterceptions(state) {
+  let releasedRequests = 0
+  let releasedResponses = 0
+  for (const flow of state.flows) {
+    const stage = flow.metadata?.pendingStage
+    if (stage === 'request') {
+      const stillIntercepted = shouldIntercept(state, {
+        method: flow.method,
+        url: flow.url,
+        headers: flow.requestHeaders,
+      })
+      if (!stillIntercepted && resolvePendingStage(state, flow, 'request', { action: 'release', reason: 'MITM 配置已更新，当前请求自动放行' })) {
+        flow.metadata.configAutoReleased = true
+        releasedRequests += 1
+      }
+    } else if (stage === 'response' && state.mitm?.holdResponse === false) {
+      if (resolvePendingStage(state, flow, 'response', { action: 'release', reason: 'MITM 配置已更新，当前响应自动放行' })) {
+        flow.metadata.configAutoReleased = true
+        releasedResponses += 1
+      }
+    }
+  }
+  return { releasedRequests, releasedResponses }
+}
+
 function packetText(headers, body) {
   const head = Object.entries(headers || {}).map(([key, value]) => `${key}: ${value}`).join('\n')
   const bodyText = Buffer.isBuffer(body) ? body.toString('utf8') : String(body || '')
@@ -789,11 +829,14 @@ function publicFlow(flow, detail = false) {
     response,
     startedAt: flow.startedAt,
     requestTime: flow.startedAt,
-    durationMs: flow.durationMs,
-    status: flow.status,
+    // Pending interceptions do not have a duration/status/error yet. Use
+    // explicit nulls: Cordis tool output is lossless JSON and rejects object
+    // properties whose value is undefined.
+    durationMs: Number.isFinite(flow.durationMs) ? flow.durationMs : null,
+    status: Number.isFinite(flow.status) ? flow.status : null,
     responseSizeBytes: Buffer.isBuffer(flow.responseBody) ? flow.responseBody.length : Buffer.byteLength(String(flow.responseBody || '')),
-    error: flow.error,
-    metadata: flow.metadata,
+    error: flow.error == null ? null : String(flow.error),
+    metadata: flow.metadata || {},
     highlights: flow.highlights || { request: [], response: [] },
   }
   if (detail) {
@@ -1167,8 +1210,9 @@ export function makeRuntime(config) {
         const body = await readBody(req, MAX_JSON_BODY)
         const patch = body.length ? JSON.parse(body.toString('utf8')) : {}
         state.mitm = mergeMitmConfig(state.mitm, patch)
+        const released = reconcilePendingInterceptions(state)
         refreshHaeHighlights(state)
-        return json(res, 200, { ok: true, mitm: state.mitm })
+        return json(res, 200, { ok: true, mitm: state.mitm, released })
       }
       if (matchPath(parsed.pathname, 'flows')) return json(res, 200, { ok: true, flows: state.flows.slice(0, clampInt(parsed.searchParams.get('limit'), 100, 1, 500)).map(flow => publicFlow(flow)) })
       if (matchPath(parsed.pathname, 'rules')) {
@@ -1295,8 +1339,9 @@ export function applyWebTesting(ctx, rawConfig = {}) {
         if (action === 'config') return { ok: true, mitm: runtime.state.mitm }
         if (action === 'setConfig') {
           runtime.state.mitm = mergeMitmConfig(runtime.state.mitm, args.config || {})
+          const released = reconcilePendingInterceptions(runtime.state)
           refreshHaeHighlights(runtime.state)
-          return { ok: true, mitm: runtime.state.mitm }
+          return { ok: true, mitm: runtime.state.mitm, released }
         }
         if (action === 'flowAction') return { ok: true, flow: publicFlow(resolveFlowAction(runtime.state, args.id, args.payload || {}), true) }
         if (action === 'rules') return { ok: true, rules: runtime.state.rules }

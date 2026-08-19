@@ -63,8 +63,8 @@ npx @deepseek-ai/dsh --profile web --dump-config
 ./start-local.sh
 ```
 
-它实际执行的是 `pnpm dsh --profile web web`，工作目录为同级的
-`deepseek-harness` 源码 checkout。可通过 `DSH_ROOT`、`DSH_PROFILE`、
+它实际执行的是 `pnpm dsh --profile web --host 127.0.0.1 --port 3080`，工作目录
+为同级的 `deepseek-harness` 源码 checkout。可通过 `DSH_ROOT`、`DSH_PROFILE`、
 `DSH_HOST` 和 `DSH_PORT` 覆盖默认值。`npx` 仅用于 profile 的安装/管理，
 不作为运行时入口，从而避免临时 npx cache 继续加载旧的加固 bundle。
 

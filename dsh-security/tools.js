@@ -13,13 +13,14 @@ export function apply(ctx) {
   const output = { schema: { type: 'object', additionalProperties: true }, render: (_args, value) => render(value) }
   ctx.tools.register(defineTool({
     name: 'dsh_security_request',
-    description: '在授权范围内发起一次 HTTP/HTTPS/WebSocket 请求，并自动记录请求包与响应包。发包前会由 LLM 综合分析授权范围、方法、路径、参数、请求体、SQL/GraphQL/JSON 语义、历史响应和潜在影响；LLM 只提供风险判断，更新/创建/删除/管理、未知或低置信度请求，以及私网/内部目标，必须由用户审批，审批失败则禁止发包。',
+    description: '在已成功建立 engagement 且授权范围内发起一次 HTTP/HTTPS/WebSocket 请求，并自动记录请求包与响应包。发包前会由 LLM 综合分析授权范围、方法、路径、参数、请求体、SQL/GraphQL/JSON 语义、历史响应和潜在影响；LLM 只提供风险判断，更新/创建/删除/管理、未知或低置信度请求，以及私网/内部目标，必须由用户审批，审批失败则禁止发包。HTTP/HTTPS 请求只能使用 body；messages 仅用于 ws/wss，不能把 messages 当作 HTTP 请求参数。',
     parameters: {
-      url: { type: 'string', required: true }, method: { type: 'string' }, headers: { type: 'object', additionalProperties: true }, body: { type: 'string' },
-      messages: { type: 'array', items: { type: 'json' } }, timeoutMs: { type: 'number' }, waitMs: { type: 'number' },
+      url: { type: 'string', required: true }, method: { type: 'string' }, headers: { type: 'object', additionalProperties: true },
+      body: { type: 'string', description: 'HTTP/HTTPS 请求体；GET/HEAD 不支持请求体。' },
+      messages: { type: 'array', items: { type: 'json' }, description: '仅用于 ws/wss 的消息数组；HTTP/HTTPS 必须使用 body。' }, timeoutMs: { type: 'number' }, waitMs: { type: 'number' },
     },
     output,
-    async execute(input, exec) { assertPentestSession(exec, runtime.sessions); return runtime.request(input, { ...exec, approval: ctx.get('approval') }) },
+    async execute(input, exec) { assertPentestSession(exec, runtime.sessions); return runtime.request(input, exec) },
   }))
   ctx.tools.register(defineTool({
     name: 'dsh_security_start',
