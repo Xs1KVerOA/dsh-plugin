@@ -604,7 +604,7 @@ function paginateRows(rows, options, keyOf, direction = 'asc') {
   const nextCursor = last && start + items.length < rows.length
     ? encodeCursor({ key: String(keyOf(last)), id: String(last.id) })
     : null
-  return { items, hasMore: nextCursor !== null, nextCursor }
+  return { items, total: rows.length, hasMore: nextCursor !== null, nextCursor }
 }
 
 function policyFromConfig(config) {
@@ -743,13 +743,17 @@ function safeCvssForInput(input = {}) {
 
 function normalizeAuditCandidateStatus(value) {
   const raw = String(value || '').trim().toLowerCase()
+  if (raw === 'pending') return 'needs-review'
   if (!raw || raw === 'candidate') return 'needs-review'
   if (!AUDIT_CANDIDATE_STATUSES.includes(raw)) throw new Error(`候选状态无效：${raw}，仅支持 ${AUDIT_CANDIDATE_STATUSES.join(', ')}`)
   return raw
 }
 
 function normalizeAuditCoverage(value, fallback = 'extracted') {
-  const raw = String(value || fallback).trim().toLowerCase()
+  const rawValue = String(value || fallback).trim().toLowerCase()
+  // Older audit prompts used `partial`; keep the persisted contract fixed and
+  // translate that input to the closest supported state at the boundary.
+  const raw = rawValue === 'partial' ? 'in-progress' : rawValue
   if (!AUDIT_COVERAGE_STATUSES.includes(raw)) throw new Error(`API 审计覆盖状态无效：${raw}，仅支持 ${AUDIT_COVERAGE_STATUSES.join(', ')}`)
   return raw
 }
@@ -1169,9 +1173,10 @@ export function createRuntime(rawConfig = {}, suppliedStore, sessions, services 
   function resolveAuditApi(apis, input) {
     const apiId = String(input.apiId || '').trim()
     if (apiId) {
-      const api = apis.find(item => item.id === apiId)
-      if (!api) throw new Error(`API 不存在或不属于当前运行：${apiId}`)
-      return api
+      const matches = apis.filter(item => item.id === apiId || String(item.id).endsWith(`:${apiId}`))
+      if (matches.length === 1) return matches[0]
+      if (matches.length > 1) throw new Error(`API ID 不唯一，请改用当前运行的完整 apiId：${apiId}`)
+      throw new Error(`API 不存在或不属于当前运行：${apiId}`)
     }
     const entryId = String(input.entryId || '').trim()
     const matches = apis.filter(item => String(item.entryId || '').trim() === entryId)
@@ -1518,7 +1523,7 @@ export function apply(ctx, config) {
         const limit = pageNumber(url.searchParams.get('limit'), 100, 200)
         const cursor = String(url.searchParams.get('cursor') || '')
         if (cursor.length > 2048) throw new Error('分页 cursor 过长')
-        if (mode === 'code-audit' && req.method === 'GET' && path === 'audit/apis') { const page = await runtime.auditApis(sid, { limit, cursor }); return sendJson(res, 200, { ok: true, mode, apis: page.items, hasMore: page.hasMore, nextCursor: page.nextCursor }) }
+        if (mode === 'code-audit' && req.method === 'GET' && path === 'audit/apis') { const page = await runtime.auditApis(sid, { limit, cursor }); return sendJson(res, 200, { ok: true, mode, apis: page.items, total: page.total, hasMore: page.hasMore, nextCursor: page.nextCursor }) }
         if (mode === 'code-audit' && req.method === 'GET' && path === 'audit/reports') { const page = await runtime.auditReports(sid, { limit: Math.min(limit, 100), cursor }); return sendJson(res, 200, { ok: true, mode, reports: page.items, hasMore: page.hasMore, nextCursor: page.nextCursor }) }
         if (mode === 'code-audit' && req.method === 'GET' && path === 'audit/state') return sendJson(res, 200, { ok: true, mode, state: await runtime.auditState(sid, { summaryOnly: true }) })
         if (req.method === 'GET' && path === 'history') { const page = await runtime.history(sid, { limit, cursor }); return sendJson(res, 200, { ok: true, history: page.items, hasMore: page.hasMore, nextCursor: page.nextCursor }) }
