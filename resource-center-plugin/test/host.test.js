@@ -122,9 +122,11 @@ test('combined Host plugin keeps workspace routes and service-management Tool', 
     '/dsh-resource-center/sidebar/html',
   ])
   assert.deepEqual(tools.map(tool => tool.name), ['dsh_server_manage', 'dsh_web_fuzzer', 'dsh_mitm_capture'])
-  assert.equal(guards.length, 1)
+  assert.equal(guards.length, 2)
   assert.match(String(guards[0]({ name: 'bash', arguments: { command: 'ssh user@example.com' } })), /dsh_server_manage/)
   assert.equal(guards[0]({ name: 'bash', arguments: { command: 'pwd' } }), undefined)
+  assert.match(String(guards[1]({ name: 'dsh_web_fuzzer', agent: { session: { header: { agentPreset: 'code-audit' } } } })), /代码审计模式不提供/)
+  assert.equal(guards[1]({ name: 'dsh_web_fuzzer', agent: { session: { header: { agentPreset: 'standard' } } } }), undefined)
   assert.equal(upgrades.length, 2)
   assert.equal(effects.length, 16)
 })

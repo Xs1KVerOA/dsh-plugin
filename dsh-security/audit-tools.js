@@ -1,24 +1,139 @@
+import { spawn } from 'node:child_process'
+import { mkdir, readdir, rm, stat } from 'node:fs/promises'
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { assertCodeAuditSession } from './index.js'
 
 export const name = 'dsh-security-code-audit-tools'
-export const inject = ['tools', 'dshSecurity']
+export const inject = ['tools', 'dshSecurity', 'sandboxPolicy']
 
 function render(value) {
   return [{ type: 'text', text: JSON.stringify(value, null, 2) }]
 }
 
+const SAFE_REPOSITORY_PART = /^[A-Za-z0-9._-]+$/
+const SAFE_REF = /^(?!-)[A-Za-z0-9._/-]{1,128}$/
+
+export function normalizeAuditRepository(value) {
+  const raw = String(value || '').trim()
+  let url
+  try { url = new URL(raw) } catch { throw new Error('代码审计远程仓库必须是有效的 HTTPS GitHub URL') }
+  if (url.protocol !== 'https:' || url.hostname.toLowerCase() !== 'github.com' || url.username || url.password || url.search || url.hash) {
+    throw new Error('代码审计远程拉取目前只允许不带凭据的 HTTPS GitHub 仓库 URL')
+  }
+  const parts = url.pathname.split('/').filter(Boolean)
+  if (parts.length < 2 || parts.length > 2) throw new Error('GitHub 仓库 URL 必须是 https://github.com/<owner>/<repo>')
+  const owner = parts[0]
+  const repo = parts[1].replace(/\.git$/i, '')
+  if (!SAFE_REPOSITORY_PART.test(owner) || !SAFE_REPOSITORY_PART.test(repo)) throw new Error('GitHub 仓库名称包含不支持的字符')
+  return { url: `https://github.com/${owner}/${repo}.git`, owner, repo }
+}
+
+function auditWorkspace(exec, sandboxPolicy) {
+  const session = exec?.agent?.session
+  const policyRoot = sandboxPolicy?.resolve?.({ session })?.workspaceRoot
+  const cwd = String(exec?.agent?.session?.header?.cwd || '').trim()
+  return resolve(String(policyRoot || cwd || process.cwd()))
+}
+
+export function resolveAuditRepositoryDestination(exec, repository, requested, sandboxPolicy) {
+  const workspace = auditWorkspace(exec, sandboxPolicy)
+  const defaultName = `${repository.owner}-${repository.repo}`
+  const value = String(requested || join('.dsh-audit', defaultName)).trim()
+  if (!value) throw new Error('远程仓库落盘目录不能为空')
+  const destination = resolve(workspace, value)
+  const outside = relative(workspace, destination)
+  if (outside === '..' || outside.startsWith(`..${String.fromCharCode(47)}`) || isAbsolute(outside)) {
+    throw new Error('远程仓库只能拉取到当前工作区目录内')
+  }
+  return { workspace, destination }
+}
+
+async function existingDirectoryState(destination) {
+  try {
+    const info = await stat(destination)
+    if (!info.isDirectory()) throw new Error(`远程仓库落盘路径不是目录：${destination}`)
+    const entries = await readdir(destination)
+    if (entries.length) throw new Error(`远程仓库落盘目录已存在且非空：${destination}`)
+    return { existed: true }
+  } catch (error) {
+    if (error?.code === 'ENOENT') return { existed: false }
+    throw error
+  }
+}
+
+function cloneRepository({ repository, ref, workspace, destination, signal }) {
+  const args = ['clone', '--depth', '1', '--no-tags', '--single-branch']
+  if (ref) args.push('--branch', ref)
+  args.push(repository.url, destination)
+  return new Promise((resolvePromise, reject) => {
+    const child = spawn('git', args, {
+      cwd: workspace,
+      shell: false,
+      env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+      stdio: ['ignore', 'ignore', 'pipe'],
+    })
+    let stderr = ''
+    let settled = false
+    const finish = (callback, value) => {
+      if (settled) return
+      settled = true
+      if (signal) signal.removeEventListener?.('abort', abort)
+      callback(value)
+    }
+    const abort = () => {
+      child.kill('SIGTERM')
+      finish(reject, new Error('远程仓库拉取已取消'))
+    }
+    if (signal?.aborted) return abort()
+    signal?.addEventListener?.('abort', abort, { once: true })
+    child.stderr.on('data', chunk => {
+      stderr = `${stderr}${String(chunk)}`.slice(-4000)
+    })
+    child.once('error', error => finish(reject, new Error(`无法启动 git 拉取：${error.message}`)))
+    child.once('exit', (code, reason) => {
+      if (code === 0) return finish(resolvePromise, undefined)
+      const detail = stderr.trim().replace(/\s+/g, ' ')
+      finish(reject, new Error(`远程仓库拉取失败${detail ? `：${detail}` : `（${reason || `exit ${code}`}）`}`))
+    })
+  })
+}
+
+async function materializeAuditTarget(input, exec, sandboxPolicy) {
+  const targetPath = String(input.targetPath || '').trim()
+  if (!/^https?:\/\//i.test(targetPath)) return { targetPath }
+  const repository = normalizeAuditRepository(targetPath)
+  const ref = String(input.ref || '').trim()
+  if (ref && !SAFE_REF.test(ref)) throw new Error('远程仓库 ref 包含不支持的字符')
+  const { workspace, destination } = resolveAuditRepositoryDestination(exec, repository, input.destination, sandboxPolicy)
+  const state = await existingDirectoryState(destination)
+  await mkdir(dirname(destination), { recursive: true })
+  try {
+    await cloneRepository({ repository, ref, workspace, destination, signal: exec?.signal })
+  } catch (error) {
+    if (!state.existed) await rm(destination, { recursive: true, force: true }).catch(() => {})
+    throw error
+  }
+  return { targetPath: destination, sourceRepository: targetPath, sourceLocalPath: destination, sourceRef: ref || undefined }
+}
+
 export function apply(ctx) {
   const runtime = ctx.get('dshSecurity')
+  const sandboxPolicy = ctx.get('sandboxPolicy')
   const output = { schema: { type: 'object', additionalProperties: true }, render: (_args, value) => render(value) }
   ctx.tools.register(defineTool({
     name: 'dsh_code_audit_start',
-    description: '开始一次代码审计运行，记录目标、语言、范围和授权说明。新的运行会替换当前会话之前的代码审计清单与报告。',
+    description: '开始一次代码审计运行，记录目标、语言、范围和授权说明。targetPath 可以直接传 HTTPS GitHub 仓库 URL，工具会自动以浅克隆方式拉取到当前工作区后开始静态审计；不得使用 Web Fuzzer 或 MITM 代替仓库拉取。新的运行会替换当前会话之前的代码审计清单与报告。',
     parameters: {
-      targetPath: { type: 'string', required: true }, language: { type: 'string' }, scope: { type: 'string' }, authorization: { type: 'string' },
+      targetPath: { type: 'string', required: true }, destination: { type: 'string', description: '远程仓库落盘目录，只能位于当前工作区内。' }, ref: { type: 'string', description: '可选 Git 分支、tag 或 commit。' }, language: { type: 'string' }, scope: { type: 'string' }, authorization: { type: 'string' },
     },
     output,
-    async execute(input, exec) { assertCodeAuditSession(exec, runtime.sessions); return runtime.auditStart(input, exec) },
+    async execute(input, exec) {
+      assertCodeAuditSession(exec, runtime.sessions)
+      const materialized = await materializeAuditTarget(input, exec, sandboxPolicy)
+      const run = await runtime.auditStart({ ...input, targetPath: materialized.targetPath }, exec)
+      return { ...run, ...(materialized.sourceRepository ? { sourceRepository: materialized.sourceRepository, sourceLocalPath: materialized.sourceLocalPath, sourceRef: materialized.sourceRef || null } : {}) }
+    },
   }))
   ctx.tools.register(defineTool({
     name: 'dsh_code_audit_update_understanding',
@@ -81,6 +196,6 @@ export function apply(ctx) {
   }))
   ctx.inject(['systemPrompt'], scope => scope.systemPrompt.section({
     name: 'dsh-security:code-audit-protocol', order: 50,
-    text: () => '你是企业级代码安全审计助手。只使用 DSH 自身的业务流程，按“建立运行 → 产品理解 → API/入口提取 → 入口逐项分析 → 候选记录 → 候选复核 → 结构化报告”的顺序工作，不引入 AST 或额外编排阶段。先用 dsh_code_audit_start 记录目标、语言、范围和授权说明，再用 dsh_code_audit_update_understanding 提交产品用途、核心能力、功能边界、运行假设和技术栈。提取 API 时不要归一化或合并记录：同一 entryId 下每个不同 handler 都必须单独调用 dsh_code_audit_add_api，并原样保留 handler；后续候选和覆盖标记在多个 handler 时必须提供 handler 或 apiId。提取 API 后逐个分析：同时读取路由/入口、Handler、参数来源、调用的 Service/Repository、权限校验函数、关键配置、相关 Model/数据库操作、同功能错误处理和中间件；先搜索入口与符号，再搜索调用者和被调用者，长文件按函数或行号分块，并把已读取文件和相关符号写入 API 清单上下文。每个 API 分析结束后必须调用 dsh_code_audit_mark_api_reviewed，设置 reviewed 或 verified、auditSummary 和 confidence；没有确认漏洞的 API 也必须标记完成，不能靠候选记录代替覆盖状态。第一阶段只能用 dsh_code_audit_add_candidate 提出候选，候选必须关联已有 API，并提供 Entry、Source、Sink、Impact、证据说明和至少一个文件/行号/代码位置；可以同时提供安全的 Request PoC 模板，但不得执行。第二阶段逐个使用 dsh_code_audit_review_candidate，回答可达性、认证授权、输入过滤/编码、是否生产代码、证据是否充分五项自检；确认漏洞时必须补充 requestPoc，使用原始 HTTP 请求格式、占位符和非破坏性请求语义，不得放入真实密钥或破坏性 payload。任何一项未知、无法判断、缺少有效 CVSS:3.1 向量或缺少 requestPoc，都只能是 needs-review。最终状态只能是 confirmed、needs-review、false-positive、accepted-risk；报告只把 confirmed 纳入已确认漏洞，并为每条 confirmed 输出未执行的 Request PoC、CVSS 和置信度，同时提供 API 覆盖率和未覆盖入口。不得执行破坏性 payload 或未授权动态验证。',
+    text: () => '你是企业级代码安全审计助手。只使用 DSH 自身的业务流程，按“建立运行 → 产品理解 → API/入口提取 → 入口逐项分析 → 候选记录 → 候选复核 → 结构化报告”的顺序工作，不引入 AST 或额外编排阶段。若审计目标是 HTTPS GitHub 仓库，直接把仓库 URL 传给 dsh_code_audit_start，由工具自动拉取到当前工作区；禁止调用 dsh_web_fuzzer 或 dsh_mitm_capture 获取源代码。先用 dsh_code_audit_start 记录目标、语言、范围和授权说明，再用 dsh_code_audit_update_understanding 提交产品用途、核心能力、功能边界、运行假设和技术栈。提取 API 时不要归一化或合并记录：同一 entryId 下每个不同 handler 都必须单独调用 dsh_code_audit_add_api，并原样保留 handler；后续候选和覆盖标记在多个 handler 时必须提供 handler 或 apiId。提取 API 后逐个分析：同时读取路由/入口、Handler、参数来源、调用的 Service/Repository、权限校验函数、关键配置、相关 Model/数据库操作、同功能错误处理和中间件；先搜索入口与符号，再搜索调用者和被调用者，长文件按函数或行号分块，并把已读取文件和相关符号写入 API 清单上下文。每个 API 分析结束后必须调用 dsh_code_audit_mark_api_reviewed，设置 reviewed 或 verified、auditSummary 和 confidence；没有确认漏洞的 API 也必须标记完成，不能靠候选记录代替覆盖状态。第一阶段只能用 dsh_code_audit_add_candidate 提出候选，候选必须关联已有 API，并提供 Entry、Source、Sink、Impact、证据说明和至少一个文件/行号/代码位置；可以同时提供安全的 Request PoC 模板，但不得执行。第二阶段逐个使用 dsh_code_audit_review_candidate，回答可达性、认证授权、输入过滤/编码、是否生产代码、证据是否充分五项自检；确认漏洞时必须补充 requestPoc，使用原始 HTTP 请求格式、占位符和非破坏性请求语义，不得放入真实密钥或破坏性 payload。任何一项未知、无法判断、缺少有效 CVSS:3.1 向量或缺少 requestPoc，都只能是 needs-review。最终状态只能是 confirmed、needs-review、false-positive、accepted-risk；报告只把 confirmed 纳入已确认漏洞，并为每条 confirmed 输出未执行的 Request PoC、CVSS 和置信度，同时提供 API 覆盖率和未覆盖入口。不得执行破坏性 payload 或未授权动态验证。',
   }))
 }

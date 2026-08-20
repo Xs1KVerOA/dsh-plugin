@@ -3,6 +3,7 @@ import http from 'node:http'
 import test from 'node:test'
 import { WebSocketServer } from 'ws'
 import { assertSecuritySession, assertTargetAllowed, assessRequestRisk, createRuntime, normalizeTarget, requestApprovalAlwaysScope, requestApprovalScope, requestFingerprint, scoreCvss31, securityDomain, targetKey } from '../index.js'
+import { normalizeAuditRepository, resolveAuditRepositoryDestination } from '../audit-tools.js'
 
 function securityExec(sessionId = 'session-1', overrides = {}) {
   return { sessionId, callId: 'call-1', agent: { session: { id: sessionId, header: { agentPreset: 'security' } } }, approval: { request: async () => 'allowed-once' }, ...overrides }
@@ -21,6 +22,22 @@ function fakeRiskLlm(value, calls = []) {
     },
   }
 }
+
+test('accepts only safe public GitHub repository URLs for direct code-audit pulls', () => {
+  assert.deepEqual(normalizeAuditRepository('https://github.com/labring/aiproxy'), {
+    url: 'https://github.com/labring/aiproxy.git', owner: 'labring', repo: 'aiproxy',
+  })
+  assert.throws(() => normalizeAuditRepository('https://github.com/labring/aiproxy/tree/main'), /必须是 https:\/\/github\.com/)
+  assert.throws(() => normalizeAuditRepository('https://github.com/labring/aiproxy?token=secret'), /只允许不带凭据/)
+  assert.throws(() => normalizeAuditRepository('http://github.com/labring/aiproxy'), /只允许不带凭据/)
+})
+
+test('keeps direct repository pulls inside the current audit workspace', () => {
+  const exec = { agent: { session: { header: { cwd: '/tmp/dsh-audit-workspace' } } } }
+  const repository = normalizeAuditRepository('https://github.com/labring/aiproxy')
+  assert.equal(resolveAuditRepositoryDestination(exec, repository, 'sources/aiproxy').destination, '/tmp/dsh-audit-workspace/sources/aiproxy')
+  assert.throws(() => resolveAuditRepositoryDestination(exec, repository, '../outside'), /只能拉取到当前工作区目录内/)
+})
 
 test('normalizes supported targets and groups by hostname:port', () => {
   const url = normalizeTarget('https://Example.com/path')

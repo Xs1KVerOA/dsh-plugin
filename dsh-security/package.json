@@ -14,6 +14,7 @@
     ".": "./index.js",
     "./tools": "./tools.js",
     "./audit-tools": "./audit-tools.js",
+    "./audit-tool-policy": "./audit-tool-policy.js",
     "./preset-root": "./preset-root.js",
     "./storage-sqlite": "./storage-sqlite.js",
     "./client": "./client.js",
@@ -23,6 +24,7 @@
     "index.js",
     "tools.js",
     "audit-tools.js",
+    "audit-tool-policy.js",
     "preset-root.js",
     "storage-sqlite.js",
     "client.js",
@@ -65,6 +67,7 @@
     "@deepseek-ai/dsh-llm": "0.1.0-rc.8",
     "@deepseek-ai/dsh-storage-domain": "0.1.0-rc.8",
     "@deepseek-ai/dsh-storage": "0.1.0-rc.8",
+    "@deepseek-ai/dsh-sandbox-policy": "0.1.0-rc.8",
     "@deepseek-ai/dsh-tools": "0.1.0-rc.8",
     "@deepseek-ai/dsh-client-ui-input-trigger": "0.1.0-rc.8",
     "react": ">=18.0.0"

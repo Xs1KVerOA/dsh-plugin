@@ -96,5 +96,8 @@ test('keeps DSH code-audit mode independent from local deep-audit skill stages',
   assert.match(files, /dsh_code_audit_mark_api_reviewed/)
   assert.match(files, /每个 API 分析结束后必须调用 dsh_code_audit_mark_api_reviewed/)
   assert.match(files, /不要归一化或合并记录/)
+  assert.match(files, /dsh_code_audit_start.*HTTPS GitHub 仓库/s)
+  assert.match(files, /禁止调用 dsh_web_fuzzer 或 dsh_mitm_capture/s)
+  assert.match(files, /audit-tool-policy/)
   assert.doesNotMatch(files, /L0\.5|L1\.5|code-review-graph|queue worker|verifier|深度审计/)
 })

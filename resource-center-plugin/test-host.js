@@ -1378,9 +1378,33 @@ export function applyWebTesting(ctx, rawConfig = {}) {
   const runtime = makeRuntime(config)
   const webServer = ctx.get('webServer')
   const tools = ctx.get('tools')
+  const sessions = ctx.get('sessions')
 
   ctx.effect(() => webServer.register({ kind: 'prefix', path: '/api/dsh-web-testing', handler: runtime.apiHandler }), 'dsh-web-testing: api')
   if (tools) {
+    // Web Fuzzer and MITM are penetration-testing capabilities. Keep a
+    // defense-in-depth execution guard because a stale client/tool catalog or
+    // a direct tool call must not bypass the code-audit preset restriction.
+    if (typeof tools.guard === 'function') {
+      tools.guard(execution => {
+        if (!['dsh_web_fuzzer', 'dsh_mitm_capture'].includes(String(execution?.name || ''))) return undefined
+        let session = execution?.agent?.session
+        const visited = new Set()
+        for (let depth = 0; session && depth < 32; depth += 1) {
+          const id = String(session.id || '')
+          if (id && visited.has(id)) break
+          if (id) visited.add(id)
+          const header = session.header || {}
+          const events = Array.isArray(session.events) ? session.events : []
+          const selected = [...events].reverse().find(event => event?.type === 'agent-preset/selected')?.data?.agentPreset
+          const preset = header.agentPreset || session.agentPreset || selected
+          if (preset === 'code-audit') return '代码审计模式不提供 Web Fuzzer/MITM；请直接使用 dsh_code_audit_start 拉取远程仓库，或使用文件读取工具进行静态审计。'
+          const parentId = header.parentSession || session.parentSession
+          session = parentId && sessions?.get?.(parentId)
+        }
+        return undefined
+      })
+    }
     ctx.tools.register(defineTool({
       name: 'dsh_web_fuzzer',
       description: 'Run an authorized HTTP Web Fuzzer request matrix. Use {{name}} in method, URL, headers, or body and provide payloads.name as an array. Results are bounded and include response status, duration, and captured flow ids.',
