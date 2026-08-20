@@ -1301,9 +1301,9 @@
 			"react-dom/client",
 			"cordis",
 			"@deepseek-ai/dsh-client-ui-slots",
-			"@deepseek-ai/dsh-client-web-react",
+			"@deepseek-ai/dsh-client-ui-renderer",
 			"@deepseek-ai/dsh-client-ui-primitives",
-			"@deepseek-ai/dsh-client-schema-form",
+			"@deepseek-ai/dsh-code-runtime-python",
 			"@deepseek-ai/dsh-client-runtime/client"
 		];
 		/** Chunk script endpoint served by the plugin host half (src/bundle-route.ts). */

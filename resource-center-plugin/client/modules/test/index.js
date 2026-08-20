@@ -12,6 +12,7 @@
       const h = React.createElement
 
       const CSS = `
+.dwt-transform-menu{position:relative}.dwt-transform-menu>summary{list-style:none}.dwt-transform-menu>summary::-webkit-details-marker{display:none}.dwt-transform-menu[open]>summary{border-color:#c9d9ef;background:#f1f6ff;color:#3578e5}.dwt-transform-menu-list{position:absolute;right:0;top:calc(100% + 5px);z-index:10;display:flex;min-width:190px;max-height:330px;flex-direction:column;gap:2px;padding:5px;border:1px solid #dbe3ee;border-radius:8px;background:#fff;box-shadow:0 12px 28px rgba(30,55,90,.16)}.dwt-transform-menu-list .dwt-btn{width:100%;border:0;border-radius:5px;padding:7px 9px;text-align:left;white-space:nowrap}.dwt-transform-menu-list .dwt-btn:hover{background:#f1f6ff;color:#3578e5}.dwt-transform-menu-divider{height:1px;margin:3px 0;background:#e8edf4}
 .dwt-panel{display:flex;flex-direction:column;height:100%;min-height:0;background:var(--dsw-alias-bg-layer-1,#fff);color:var(--dsw-alias-label-primary,#25282d);font-size:12px}
 .dwt-panel *{box-sizing:border-box}
 .dwt-sub{color:var(--dsw-alias-label-tertiary,#969da7);font-size:10px}
@@ -53,7 +54,8 @@
 .dwt-sidebar-copy{padding:10px 9px;color:var(--dsw-alias-label-tertiary,#969da7);font-size:10.5px;line-height:1.5}
 .dwt-sidebar-fuzzer-config{display:flex;flex:1;min-height:0;flex-direction:column;gap:8px;padding:10px 9px;overflow:auto;background:var(--dsw-alias-bg-layer-1,#fff)}
 .dwt-sidebar-fuzzer-config .dwt-fuzzer-config-head{margin:0}.dwt-sidebar-fuzzer-config .dwt-config-section{padding:9px 0}.dwt-sidebar-fuzzer-config .dwt-config-content{gap:7px}.dwt-sidebar-fuzzer-config .dwt-textarea{min-height:76px}.dwt-sidebar-fuzzer-config .dwt-config-note{font-size:10px}.dwt-sidebar-fuzzer-config .dwt-network-pem{min-height:58px;font-size:9px}.dwt-sidebar-fuzzer-config .dwt-checkbox-row{display:flex;align-items:flex-start;gap:6px;color:var(--dsw-alias-label-secondary,#727983);font-size:10px;line-height:1.4}.dwt-sidebar-fuzzer-config .dwt-checkbox-row input{margin:1px 0 0;accent-color:var(--dsw-alias-state-business-primary,#3578e5)}
-.dwt-center-pane-layer{position:fixed;left:min(var(--dsh-resource-center-left-width,280px),100vw);right:var(--dsh-resource-center-right-width,0px);top:0;bottom:0;z-index:24;display:flex;pointer-events:none}
+.dwt-switch-row{display:flex;align-items:center;gap:8px;padding:8px 9px;border:1px solid #dce7f8;border-radius:8px;background:#f7faff;cursor:pointer}.dwt-switch-copy{display:flex;min-width:0;flex:1;flex-direction:column;gap:2px}.dwt-switch-copy strong{font-size:11px}.dwt-switch-copy small{color:var(--dsw-alias-label-tertiary,#969da7);font-size:9px;line-height:1.35}.dwt-switch-input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}.dwt-switch-track{display:flex;width:31px;height:18px;flex:0 0 auto;align-items:center;padding:2px;border-radius:999px;background:#c7ced8;transition:background .15s ease}.dwt-switch-thumb{width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,.2);transition:transform .15s ease}.dwt-switch-row:has(.dwt-switch-input:checked) .dwt-switch-track,.dwt-config-switch:has(.dwt-switch-input:checked) .dwt-switch-track{background:#3578e5}.dwt-switch-row:has(.dwt-switch-input:checked) .dwt-switch-thumb,.dwt-config-switch:has(.dwt-switch-input:checked) .dwt-switch-thumb{transform:translateX(13px)}.dwt-switch-row:focus-within,.dwt-config-switch:focus-within{outline:2px solid rgba(53,120,229,.2);outline-offset:1px}
+.dwt-center-pane-layer{position:fixed;left:var(--dsh-resource-center-left-width,280px);right:var(--dsh-resource-center-right-width,0px);top:var(--dsh-resource-center-top,0px);bottom:var(--dsh-resource-center-bottom,0px);z-index:24;display:flex;pointer-events:none}
 .dwt-center-pane-grid{width:100%;height:100%;min-width:0;box-sizing:border-box;pointer-events:auto;background:var(--dsw-alias-bg-layer-1,#fff);border-left:1px solid var(--dsw-alias-border-l1,#e5e7eb);box-shadow:-12px 0 30px rgba(15,23,42,.04)}
 .dwt-center-pane{display:flex;width:100%;height:100%;min-width:0;min-height:0;flex-direction:column;background:var(--dsw-alias-bg-layer-1,#fff);overflow:hidden;color:var(--dsw-alias-label-primary,#25282d)}
 .dwt-center-pane-head{display:flex;align-items:center;gap:8px;flex:0 0 48px;padding:0 calc(12px + var(--dsh-host-toggle-width,0px)) 0 12px;border-bottom:1px solid var(--dsw-alias-border-l1,#e5e7eb);background:var(--dsw-alias-bg-layer-1,#fff)}
@@ -78,7 +80,7 @@
 .dwt-fuzzer-workbench-central{grid-template-columns:minmax(320px,1fr) minmax(340px,1fr)}
 .dwt-fuzzer-config{min-width:0;min-height:0;overflow:auto;padding:12px;border-right:1px solid var(--dsw-alias-border-l1,#e5e7eb);background:var(--dsw-alias-bg-layer-1,#fff)}
 .dwt-fuzzer-config-head{display:flex;align-items:baseline;gap:7px;margin-bottom:9px}.dwt-fuzzer-config-title{font-size:12px;font-weight:650}.dwt-fuzzer-config-caption{color:var(--dsw-alias-label-tertiary,#969da7);font-size:10px}
-.dwt-config-section{padding:11px 0;border-top:1px solid var(--dsw-alias-border-l1,#eef0f3)}.dwt-config-section:first-of-type{border-top:0;padding-top:0}.dwt-config-section summary{cursor:pointer;list-style:none;font-size:11px;font-weight:600}.dwt-config-section summary::-webkit-details-marker{display:none}.dwt-config-section summary:before{content:'›';display:inline-block;width:15px;color:var(--dsw-alias-label-tertiary,#969da7)}.dwt-config-section[open] summary:before{content:'⌄'}
+.dwt-config-section{padding:11px 0;border-top:1px solid var(--dsw-alias-border-l1,#eef0f3)}.dwt-config-section:first-of-type{border-top:0;padding-top:0}.dwt-config-section summary{display:flex;align-items:center;gap:6px;cursor:pointer;list-style:none;font-size:11px;font-weight:600}.dwt-config-section summary::-webkit-details-marker{display:none}.dwt-config-section summary:before{content:'›';display:inline-block;width:15px;color:var(--dsw-alias-label-tertiary,#969da7)}.dwt-config-section[open] summary:before{content:'⌄'}.dwt-config-summary-title{min-width:0;flex:1}.dwt-config-switch{display:inline-flex;align-items:center;cursor:pointer}.dwt-config-switch .dwt-switch-track{transform:scale(.88);transform-origin:right center}.dwt-config-switch .dwt-switch-input{pointer-events:auto}
 .dwt-config-content{display:flex;flex-direction:column;gap:8px;padding:9px 0 0}.dwt-config-content .dwt-textarea{min-height:86px}.dwt-config-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}.dwt-config-note{color:var(--dsw-alias-label-tertiary,#969da7);font-size:10px;line-height:1.45}
 .dwt-fuzzer-request,.dwt-fuzzer-response{display:flex;min-width:0;min-height:0;flex-direction:column;background:var(--dsw-alias-bg-layer-1,#fff)}.dwt-fuzzer-request{border-right:1px solid var(--dsw-alias-border-l1,#e5e7eb)}
 .dwt-fuzzer-pane-head{display:flex;align-items:center;gap:7px;min-height:42px;padding:0 11px;border-bottom:1px solid var(--dsw-alias-border-l1,#e5e7eb)}.dwt-fuzzer-pane-title{font-weight:650;font-size:12px;flex:1}.dwt-fuzzer-pane-caption{color:var(--dsw-alias-label-tertiary,#969da7);font-size:10px}.dwt-fuzzer-pane-actions{display:flex;gap:4px}
@@ -292,10 +294,13 @@
 
       const DEFAULT_RAW = 'POST /login HTTP/1.1\nHost: example.com\nContent-Type: application/json\n\n{"name":"{{user}}"}'
       const DEFAULT_HAE_RULES = [
-        { id: 'jwt', name: 'JWT', regex: '\\beyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\b', flags: 'g', color: '#ffe08a' },
-        { id: 'email', name: 'Email', regex: '\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}\\b', flags: 'gi', color: '#bde7ff' },
-        { id: 'aws-access-key', name: 'AWS Access Key', regex: '\\bAKIA[0-9A-Z]{16}\\b', flags: 'g', color: '#ffc9c9' },
-        { id: 'bearer-token', name: 'Bearer Token', regex: '\\bBearer\\s+[A-Za-z0-9._~+/=-]+', flags: 'gi', color: '#d8c8ff' },
+        { id: 'jwt', name: 'JWT', regex: '\\beyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\b', flags: 'g', scope: 'any', format: '{0}', sensitive: true, color: '#ffe08a' },
+        { id: 'email', name: 'Email', regex: '\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}\\b', flags: 'gi', scope: 'any', format: '{0}', sensitive: false, color: '#bde7ff' },
+        { id: 'aws-access-key', name: 'AWS Access Key', regex: '\\bAKIA[0-9A-Z]{16}\\b', flags: 'g', scope: 'any', format: '{0}', sensitive: true, color: '#ffc9c9' },
+        { id: 'bearer-token', name: 'Bearer Token', regex: '\\bBearer\\s+[A-Za-z0-9._~+/=-]+', flags: 'gi', scope: 'any', format: '{0}', sensitive: true, color: '#d8c8ff' },
+        { id: 'github-token', name: 'GitHub Token', regex: '\\b(?:ghp|gho|ghs|ghr)_[A-Za-z0-9]{20,255}\\b', flags: 'g', scope: 'any', format: '{0}', sensitive: true, color: '#ffd1a8' },
+        { id: 'private-key', name: 'Private Key', regex: '-----BEGIN [A-Z0-9 ]+PRIVATE KEY-----[\\s\\S]+?-----END [A-Z0-9 ]+PRIVATE KEY-----', flags: 'g', scope: 'any', format: '{0}', sensitive: true, color: '#f7b7d2' },
+        { id: 'generic-secret', name: 'Secret Assignment', regex: '\\b(?:api[_-]?key|secret|password|token)\\s*[:=]\\s*["\\\']?[A-Za-z0-9._~+/=-]{12,}', flags: 'gi', scope: 'any', format: '{0}', sensitive: false, color: '#d8c8ff' },
       ]
 
       function Icon(props) {
@@ -325,6 +330,168 @@
         const body = text.slice(separator + 2).trim()
         if (!body) return `${head}\n\n`
         try { return `${head}\n\n${JSON.stringify(JSON.parse(body), null, 2)}` } catch { return `${head}\n\n${body}` }
+      }
+
+      function parseEditableHttp(raw) {
+        const text = String(raw || '').replace(/\r\n/g, '\n')
+        const separator = text.indexOf('\n\n')
+        const head = separator < 0 ? text : text.slice(0, separator)
+        const body = separator < 0 ? '' : text.slice(separator + 2)
+        const lines = head.split('\n')
+        const firstLine = String(lines.shift() || '').trim()
+        const match = /^(\S+)\s+(\S+)(?:\s+(HTTP\/\d(?:\.\d+)?))?$/i.exec(firstLine)
+        if (!match) throw new Error('请求首行必须是 METHOD /path HTTP/1.1')
+        const headers = lines.filter(line => line.trim()).map(line => {
+          const split = line.indexOf(':')
+          if (split <= 0) throw new Error(`请求头无效：${line}`)
+          return { name: line.slice(0, split).trim(), value: line.slice(split + 1).trim() }
+        })
+        return { method: match[1].toUpperCase(), target: match[2], version: match[3] || 'HTTP/1.1', headers, body }
+      }
+
+      function editableHeader(packet, name) {
+        const needle = String(name).toLowerCase()
+        return packet.headers.find(header => header.name.toLowerCase() === needle)?.value || ''
+      }
+
+      function setEditableHeader(packet, name, value) {
+        const needle = String(name).toLowerCase()
+        const index = packet.headers.findIndex(header => header.name.toLowerCase() === needle)
+        if (index >= 0) {
+          packet.headers[index] = { name: packet.headers[index].name, value: String(value) }
+          packet.headers = packet.headers.filter((header, headerIndex) => header.name.toLowerCase() !== needle || headerIndex === index)
+        } else packet.headers.push({ name: String(name), value: String(value) })
+      }
+
+      function removeEditableHeader(packet, name) {
+        const needle = String(name).toLowerCase()
+        packet.headers = packet.headers.filter(header => header.name.toLowerCase() !== needle)
+      }
+
+      function parseStructuredBody(body, contentType) {
+        const text = String(body || '')
+        if (!text.trim()) return { value: {}, kind: 'empty' }
+        if (String(contentType || '').toLowerCase().includes('json')) {
+          try { return { value: JSON.parse(text), kind: 'json' } } catch { return { value: undefined, kind: 'invalid-json' } }
+        }
+        if (String(contentType || '').toLowerCase().includes('x-www-form-urlencoded')) {
+          const value = {}
+          new URLSearchParams(text).forEach((item, key) => {
+            if (Object.prototype.hasOwnProperty.call(value, key)) value[key] = Array.isArray(value[key]) ? [...value[key], item] : [value[key], item]
+            else value[key] = item
+          })
+          return { value, kind: 'form' }
+        }
+        return { value: undefined, kind: 'text' }
+      }
+
+      function valuePairs(value) {
+        if (value == null) return []
+        if (Array.isArray(value)) return value.flatMap(item => valuePairs(item))
+        if (typeof value === 'object') return Object.entries(value).flatMap(([key, item]) => {
+          if (Array.isArray(item)) return item.map(entry => [key, entry])
+          return [[key, item]]
+        })
+        return [['payload', value]]
+      }
+
+      function bodyPairs(packet) {
+        const contentType = editableHeader(packet, 'content-type')
+        const parsed = parseStructuredBody(packet.body, contentType)
+        if (parsed.value !== undefined && parsed.kind !== 'empty') return valuePairs(parsed.value)
+        return packet.body ? [['payload', packet.body]] : []
+      }
+
+      function xmlEscape(value) {
+        return String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[character])
+      }
+
+      function xmlTagName(value) {
+        const name = String(value || 'item').replace(/[^A-Za-z0-9_.-]/g, '_')
+        return /^[A-Za-z_]/.test(name) ? name : `item_${name}`
+      }
+
+      function jsonToXml(value, tag = 'root') {
+        const name = xmlTagName(tag)
+        if (Array.isArray(value)) return value.map(item => jsonToXml(item, name)).join('')
+        if (value && typeof value === 'object') return `<${name}>${Object.entries(value).map(([key, item]) => jsonToXml(item, key)).join('')}</${name}>`
+        return `<${name}>${xmlEscape(value)}</${name}>`
+      }
+
+      function formEncodePairs(pairs) {
+        return pairs.map(([key, value]) => `${encodeURIComponent(String(key))}=${encodeURIComponent(String(value ?? ''))}`).join('&')
+      }
+
+      function appendQuery(packet, pairs) {
+        if (!pairs.length) return
+        try {
+          const absolute = /^https?:\/\//i.test(packet.target)
+          const target = new URL(packet.target, 'http://dsh-resource-center.invalid')
+          pairs.forEach(([key, value]) => target.searchParams.append(String(key), String(value ?? '')))
+          packet.target = absolute ? target.href : `${target.pathname || '/'}${target.search}${target.hash}`
+        } catch {
+          const separator = packet.target.includes('?') ? '&' : '?'
+          packet.target += separator + formEncodePairs(pairs)
+        }
+      }
+
+      function toMultipartBody(value) {
+        const boundary = `----DSHBoundary${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`
+        const source = String(value || '')
+        const body = [
+          `--${boundary}`,
+          'Content-Disposition: form-data; name="file"; filename="payload.txt"',
+          'Content-Type: application/octet-stream',
+          '',
+          source,
+          `--${boundary}--`,
+          '',
+        ].join('\n')
+        return { boundary, body }
+      }
+
+      function transformHttpRequest(raw, action) {
+        const packet = parseEditableHttp(raw)
+        const normalizedAction = String(action || '').toLowerCase()
+        if (normalizedAction === 'get') {
+          appendQuery(packet, bodyPairs(packet))
+          packet.method = 'GET'
+          packet.body = ''
+          removeEditableHeader(packet, 'content-type')
+          removeEditableHeader(packet, 'content-length')
+          removeEditableHeader(packet, 'transfer-encoding')
+        } else if (normalizedAction === 'post') {
+          packet.method = 'POST'
+        } else if (normalizedAction === 'upload') {
+          const multipart = toMultipartBody(packet.body)
+          packet.method = 'POST'
+          packet.body = multipart.body
+          setEditableHeader(packet, 'Content-Type', `multipart/form-data; boundary=${multipart.boundary}`)
+          removeEditableHeader(packet, 'content-length')
+          removeEditableHeader(packet, 'transfer-encoding')
+        } else if (normalizedAction === 'text' || normalizedAction === 'json' || normalizedAction === 'xml' || normalizedAction === 'form') {
+          const parsed = parseStructuredBody(packet.body, editableHeader(packet, 'content-type'))
+          const value = parsed.value === undefined ? (normalizedAction === 'json' ? { payload: packet.body || '' } : packet.body || '') : parsed.value
+          if (normalizedAction === 'text') {
+            packet.body = parsed.value === undefined ? String(packet.body || '') : JSON.stringify(parsed.value)
+            setEditableHeader(packet, 'Content-Type', 'text/plain; charset=utf-8')
+          } else if (normalizedAction === 'json') {
+            packet.body = JSON.stringify(value, null, 2)
+            setEditableHeader(packet, 'Content-Type', 'application/json; charset=utf-8')
+          } else if (normalizedAction === 'xml') {
+            packet.body = jsonToXml(value)
+            setEditableHeader(packet, 'Content-Type', 'application/xml; charset=utf-8')
+          } else {
+            packet.body = formEncodePairs(parsed.value === undefined ? [['payload', packet.body || '']] : valuePairs(parsed.value))
+            setEditableHeader(packet, 'Content-Type', 'application/x-www-form-urlencoded; charset=utf-8')
+          }
+          removeEditableHeader(packet, 'content-length')
+          removeEditableHeader(packet, 'transfer-encoding')
+        } else if (normalizedAction === 'format') {
+          return formatRawHttp(raw)
+        } else throw new Error(`未知的请求变形操作：${action}`)
+        const head = [`${packet.method} ${packet.target} ${packet.version}`, ...packet.headers.map(header => `${header.name}: ${header.value}`)].join('\n')
+        return packet.body ? `${head}\n\n${packet.body}` : `${head}\n\n`
       }
 
       function FuzzerResultTable({ result, selectedIndex, onSelect, filter = 'all' }) {
@@ -398,6 +565,10 @@
       }
 
       function useFuzzerState(historyStore, historyMeta) {
+        const [enabled, setEnabled] = React.useState(true)
+        const [requestConfigEnabled, setRequestConfigEnabled] = React.useState(true)
+        const [networkConfigEnabled, setNetworkConfigEnabled] = React.useState(true)
+        const [concurrencyConfigEnabled, setConcurrencyConfigEnabled] = React.useState(true)
         const [raw, setRaw] = React.useState(DEFAULT_RAW)
         const [payloads, setPayloads] = React.useState('{\n  "user": ["admin", "guest"]\n}')
         const [maxCases, setMaxCases] = React.useState('100')
@@ -437,8 +608,17 @@
         }, [])
 
         const execute = React.useCallback(async spec => {
+          const executionEnabled = spec?.enabled ?? enabled
+          const requestConfigActive = spec?.requestConfigEnabled ?? requestConfigEnabled
+          const networkConfigActive = spec?.networkConfigEnabled ?? networkConfigEnabled
+          const concurrencyConfigActive = spec?.concurrencyConfigEnabled ?? concurrencyConfigEnabled
+          if (executionEnabled === false) {
+            setError('Web Fuzzer 当前已停用，请先在左侧配置中开启。')
+            return
+          }
           const rawValue = String(spec?.raw || DEFAULT_RAW)
-          const payloadsValue = typeof spec?.payloads === 'string' ? spec.payloads : JSON.stringify(spec?.payloads || {}, null, 2)
+          const configuredPayloadsValue = typeof spec?.payloads === 'string' ? spec.payloads : JSON.stringify(spec?.payloads || {}, null, 2)
+          const payloadsValue = requestConfigActive ? configuredPayloadsValue : '{}'
           const maxCasesValue = String(spec?.maxCases ?? '100')
           const concurrencyValue = String(spec?.concurrency ?? '4')
           const timeoutValue = String(spec?.timeoutMs ?? '30000')
@@ -452,11 +632,11 @@
           }
           const historyId = `history_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
           const createdAt = Date.now()
-          setHistory(current => [{ id: historyId, createdAt, instanceId: historyInstanceId, instanceLabel: historyInstanceLabel, raw: rawValue, payloads: payloadsValue, maxCases: maxCasesValue, concurrency: concurrencyValue, timeoutMs: timeoutValue, network: networkValue, replayOf: spec?.replayOf, status: 'running', result: { total: 0, matched: 0, failed: 0 }, flowIds: [] }, ...current].slice(0, 200))
+          setHistory(current => [{ id: historyId, createdAt, instanceId: historyInstanceId, instanceLabel: historyInstanceLabel, enabled: executionEnabled !== false, requestConfigEnabled: requestConfigActive !== false, networkConfigEnabled: networkConfigActive !== false, concurrencyConfigEnabled: concurrencyConfigActive !== false, raw: rawValue, payloads: configuredPayloadsValue, maxCases: maxCasesValue, concurrency: concurrencyValue, timeoutMs: timeoutValue, network: networkValue, replayOf: spec?.replayOf, status: 'running', result: { total: 0, matched: 0, failed: 0 }, flowIds: [] }, ...current].slice(0, 200))
           setBusy(true); setError(''); setResult(null); setSelectedIndex(null); setSelectedFlow(null)
           try {
             const parsedPayloads = JSON.parse(payloadsValue || '{}')
-            const response = await api('fuzz', { method: 'POST', body: JSON.stringify({ request: { raw: rawValue }, payloads: parsedPayloads, maxCases: Number(maxCasesValue), concurrency: Number(concurrencyValue), timeoutMs: Number(timeoutValue), network: networkValue }) })
+            const response = await api('fuzz', { method: 'POST', body: JSON.stringify({ enabled: executionEnabled !== false, request: { raw: rawValue }, payloads: parsedPayloads, maxCases: concurrencyConfigActive ? Number(maxCasesValue) : undefined, concurrency: concurrencyConfigActive ? Number(concurrencyValue) : undefined, timeoutMs: concurrencyConfigActive ? Number(timeoutValue) : undefined, network: networkConfigActive ? networkValue : undefined }) })
             setResult(response.result)
             const first = (response.result.results || []).find(item => item.flowId)
             if (first) void loadResult(first)
@@ -466,15 +646,19 @@
             setError(message)
             setHistory(current => current.map(entry => entry.id === historyId ? { ...entry, status: 'failed', error: message, result: { total: 0, matched: 0, failed: 1 } } : entry))
           } finally { setBusy(false) }
-        }, [loadResult, historyInstanceId, historyInstanceLabel, setHistory])
+        }, [ca, cert, concurrencyConfigEnabled, enabled, forceHttps, historyInstanceId, historyInstanceLabel, key, loadResult, networkConfigEnabled, proxyUrl, rejectUnauthorized, requestConfigEnabled, setHistory])
 
-        const run = React.useCallback(() => execute({ raw, payloads, maxCases, concurrency, timeoutMs, proxyUrl, ca, cert, key, rejectUnauthorized, forceHttps }), [raw, payloads, maxCases, concurrency, timeoutMs, proxyUrl, ca, cert, key, rejectUnauthorized, forceHttps, execute])
+        const run = React.useCallback(() => execute({ enabled, requestConfigEnabled, networkConfigEnabled, concurrencyConfigEnabled, raw, payloads, maxCases, concurrency, timeoutMs, proxyUrl, ca, cert, key, rejectUnauthorized, forceHttps }), [enabled, requestConfigEnabled, networkConfigEnabled, concurrencyConfigEnabled, raw, payloads, maxCases, concurrency, timeoutMs, proxyUrl, ca, cert, key, rejectUnauthorized, forceHttps, execute])
 
         const reset = React.useCallback(() => {
-          setRaw(DEFAULT_RAW); setPayloads('{\n  "user": ["admin", "guest"]\n}'); setMaxCases('100'); setConcurrency('4'); setTimeoutMs('30000'); setProxyUrl(''); setCa(''); setCert(''); setKey(''); setRejectUnauthorized(true); setForceHttps(false); setResult(null); setSelectedIndex(null); setSelectedFlow(null); setError('')
+          setEnabled(true); setRequestConfigEnabled(true); setNetworkConfigEnabled(true); setConcurrencyConfigEnabled(true); setRaw(DEFAULT_RAW); setPayloads('{\n  "user": ["admin", "guest"]\n}'); setMaxCases('100'); setConcurrency('4'); setTimeoutMs('30000'); setProxyUrl(''); setCa(''); setCert(''); setKey(''); setRejectUnauthorized(true); setForceHttps(false); setResult(null); setSelectedIndex(null); setSelectedFlow(null); setError('')
         }, [])
         const clearResult = React.useCallback(() => { setResult(null); setSelectedIndex(null); setSelectedFlow(null); setError('') }, [])
         const extractHistory = React.useCallback(entry => {
+          setEnabled(entry?.enabled !== false)
+          setRequestConfigEnabled(entry?.requestConfigEnabled !== false)
+          setNetworkConfigEnabled(entry?.networkConfigEnabled !== false)
+          setConcurrencyConfigEnabled(entry?.concurrencyConfigEnabled !== false)
           setRaw(entry?.raw || DEFAULT_RAW)
           setPayloads(entry?.payloads || '{}')
           setMaxCases(String(entry?.maxCases ?? '100'))
@@ -489,6 +673,10 @@
           setResult(null); setSelectedIndex(null); setSelectedFlow(null); setError(''); setHistoryOpen(false); setHistoryQuery('')
         }, [])
         const replayHistory = React.useCallback(entry => {
+          setEnabled(entry?.enabled !== false)
+          setRequestConfigEnabled(entry?.requestConfigEnabled !== false)
+          setNetworkConfigEnabled(entry?.networkConfigEnabled !== false)
+          setConcurrencyConfigEnabled(entry?.concurrencyConfigEnabled !== false)
           setRaw(entry?.raw || DEFAULT_RAW)
           setPayloads(entry?.payloads || '{}')
           setMaxCases(String(entry?.maxCases ?? '100'))
@@ -504,6 +692,10 @@
           void execute({ ...entry, ...entry.network, replayOf: entry?.id })
         }, [execute])
         const restore = React.useCallback(snapshot => {
+          setEnabled(snapshot?.enabled !== false)
+          setRequestConfigEnabled(snapshot?.requestConfigEnabled !== false)
+          setNetworkConfigEnabled(snapshot?.networkConfigEnabled !== false)
+          setConcurrencyConfigEnabled(snapshot?.concurrencyConfigEnabled !== false)
           setRaw(snapshot?.raw || DEFAULT_RAW)
           setPayloads(snapshot?.payloads || '{\n  "user": ["admin", "guest"]\n}')
           setMaxCases(String(snapshot?.maxCases ?? '100'))
@@ -517,14 +709,14 @@
           setForceHttps(snapshot?.forceHttps === true)
           setResult(snapshot?.result || null); setSelectedIndex(snapshot?.selectedIndex ?? null); setSelectedFlow(snapshot?.selectedFlow || null); setError('')
         }, [])
-        const snapshot = React.useCallback(() => ({ raw, payloads, maxCases, concurrency, timeoutMs, proxyUrl, ca, cert, key, rejectUnauthorized, forceHttps, result, selectedIndex, selectedFlow }), [raw, payloads, maxCases, concurrency, timeoutMs, proxyUrl, ca, cert, key, rejectUnauthorized, forceHttps, result, selectedIndex, selectedFlow])
+        const snapshot = React.useCallback(() => ({ enabled, requestConfigEnabled, networkConfigEnabled, concurrencyConfigEnabled, raw, payloads, maxCases, concurrency, timeoutMs, proxyUrl, ca, cert, key, rejectUnauthorized, forceHttps, result, selectedIndex, selectedFlow }), [enabled, requestConfigEnabled, networkConfigEnabled, concurrencyConfigEnabled, raw, payloads, maxCases, concurrency, timeoutMs, proxyUrl, ca, cert, key, rejectUnauthorized, forceHttps, result, selectedIndex, selectedFlow])
         const clearHistory = React.useCallback(() => setHistory([]), [])
         const toggleHistory = React.useCallback(() => setHistoryOpen(open => !open), [])
-        return { raw, setRaw, payloads, setPayloads, maxCases, setMaxCases, concurrency, setConcurrency, timeoutMs, setTimeoutMs, proxyUrl, setProxyUrl, ca, setCa, cert, setCert, key, setKey, rejectUnauthorized, setRejectUnauthorized, forceHttps, setForceHttps, result, selectedIndex, selectedFlow, error, busy, loadingFlow, loadResult, run, reset, clearResult, history, historyQuery, setHistoryQuery, historyOpen, toggleHistory, clearHistory, extractHistory, replayHistory, restore, snapshot }
+        return { enabled, setEnabled, requestConfigEnabled, setRequestConfigEnabled, networkConfigEnabled, setNetworkConfigEnabled, concurrencyConfigEnabled, setConcurrencyConfigEnabled, raw, setRaw, payloads, setPayloads, maxCases, setMaxCases, concurrency, setConcurrency, timeoutMs, setTimeoutMs, proxyUrl, setProxyUrl, ca, setCa, cert, setCert, key, setKey, rejectUnauthorized, setRejectUnauthorized, forceHttps, setForceHttps, result, selectedIndex, selectedFlow, error, setError, busy, loadingFlow, loadResult, run, reset, clearResult, history, historyQuery, setHistoryQuery, historyOpen, toggleHistory, clearHistory, extractHistory, replayHistory, restore, snapshot }
       }
 
       function FuzzerConfigSidebar({ state }) {
-        const { payloads, setPayloads, maxCases, setMaxCases, concurrency, setConcurrency, timeoutMs, setTimeoutMs, proxyUrl, setProxyUrl, ca, setCa, cert, setCert, key, setKey, rejectUnauthorized, setRejectUnauthorized, forceHttps, setForceHttps } = state
+        const { enabled, setEnabled, requestConfigEnabled, setRequestConfigEnabled, networkConfigEnabled, setNetworkConfigEnabled, concurrencyConfigEnabled, setConcurrencyConfigEnabled, payloads, setPayloads, maxCases, setMaxCases, concurrency, setConcurrency, timeoutMs, setTimeoutMs, proxyUrl, setProxyUrl, ca, setCa, cert, setCert, key, setKey, rejectUnauthorized, setRejectUnauthorized, forceHttps, setForceHttps } = state
         const caseCount = estimatePayloadCases(payloads, maxCases)
         return h('div', { className: 'dwt-sidebar-fuzzer-config', 'aria-label': 'Fuzzer 配置' },
           h('div', { className: 'dwt-fuzzer-sidebar-hero' },
@@ -532,15 +724,20 @@
             h('div', { className: 'dwt-fuzzer-sidebar-hero-title' }, '请求编排'),
             h('div', { className: 'dwt-fuzzer-sidebar-hero-subtitle' }, '配置 Payload、网络链路和并发策略，快速构建可重复的请求矩阵。'),
           ),
+          h('label', { className: 'dwt-switch-row' },
+            h('span', { className: 'dwt-switch-copy' }, h('strong', null, 'Web Fuzzer'), h('small', null, enabled ? '已启用，可发送请求' : '已停用，不会发起请求')),
+            h('input', { className: 'dwt-switch-input', type: 'checkbox', checked: enabled, onChange: event => setEnabled(event.target.checked), 'aria-label': '启用 Web Fuzzer' }),
+            h('span', { className: 'dwt-switch-track', 'aria-hidden': 'true' }, h('span', { className: 'dwt-switch-thumb' })),
+          ),
           h('details', { className: 'dwt-config-section', open: true },
-            h('summary', null, '请求包配置'),
+            h('summary', null, h('span', { className: 'dwt-config-summary-title' }, '请求包配置'), h('label', { className: 'dwt-config-switch', onClick: event => event.stopPropagation() }, h('input', { className: 'dwt-switch-input', type: 'checkbox', checked: requestConfigEnabled, onChange: event => setRequestConfigEnabled(event.target.checked), 'aria-label': '启用请求包配置' }), h('span', { className: 'dwt-switch-track', 'aria-hidden': 'true' }, h('span', { className: 'dwt-switch-thumb' })))),
             h('div', { className: 'dwt-config-content' },
               h('div', { className: 'dwt-config-note' }, '请求中使用 {{name}}，这里配置替换值。'),
               h(Field, { label: 'Payload JSON' }, h('textarea', { className: 'dwt-textarea dwt-json', value: payloads, onChange: event => setPayloads(event.target.value) })),
             ),
           ),
           h('details', { className: 'dwt-config-section' },
-            h('summary', null, '网络配置'),
+            h('summary', null, h('span', { className: 'dwt-config-summary-title' }, '网络配置'), h('label', { className: 'dwt-config-switch', onClick: event => event.stopPropagation() }, h('input', { className: 'dwt-switch-input', type: 'checkbox', checked: networkConfigEnabled, onChange: event => setNetworkConfigEnabled(event.target.checked), 'aria-label': '启用网络配置' }), h('span', { className: 'dwt-switch-track', 'aria-hidden': 'true' }, h('span', { className: 'dwt-switch-thumb' })))),
             h('div', { className: 'dwt-config-content' },
               h('div', { className: 'dwt-config-note' }, '支持 HTTP/HTTPS/SOCKS5 代理；证书内容使用 PEM 格式。配置会应用于本次 Fuzz 的全部请求。'),
               h(Field, { label: '代理地址' }, h('input', { className: 'dwt-input', value: proxyUrl, onChange: event => setProxyUrl(event.target.value), placeholder: 'http://127.0.0.1:8080 或 socks5://127.0.0.1:1080' })),
@@ -553,7 +750,7 @@
             ),
           ),
           h('details', { className: 'dwt-config-section', open: true },
-            h('summary', null, '并发配置'),
+            h('summary', null, h('span', { className: 'dwt-config-summary-title' }, '并发配置'), h('label', { className: 'dwt-config-switch', onClick: event => event.stopPropagation() }, h('input', { className: 'dwt-switch-input', type: 'checkbox', checked: concurrencyConfigEnabled, onChange: event => setConcurrencyConfigEnabled(event.target.checked), 'aria-label': '启用并发配置' }), h('span', { className: 'dwt-switch-track', 'aria-hidden': 'true' }, h('span', { className: 'dwt-switch-thumb' })))),
             h('div', { className: 'dwt-config-content' },
               h('div', { className: 'dwt-config-grid' },
                 h('label', { className: 'dwt-label' }, '最大用例', h('input', { className: 'dwt-input', type: 'number', min: 1, max: 500, value: maxCases, onChange: event => setMaxCases(event.target.value) })),
@@ -632,15 +829,58 @@
         )
       }
 
+      function RequestTransformMenu({ onTransform }) {
+        const actions = [
+          ['get', '改变 HTTP 方法为 GET'],
+          ['post', '改变 HTTP 方法为 POST'],
+          ['upload', '转换为文件上传（multipart）'],
+          ['format', '请求包美化'],
+          ['text', 'Content-Type → text/plain'],
+          ['json', '转换为 JSON POST 参数'],
+          ['xml', '转换为 XML POST 参数'],
+          ['form', '转换为普通 POST 参数'],
+        ]
+        return h(
+          'details',
+          { className: 'dwt-transform-menu' },
+          h('summary', { className: 'dwt-btn', title: '修改当前 Raw HTTP 请求包' }, '请求变形'),
+          h(
+            'div',
+            { className: 'dwt-transform-menu-list', role: 'menu' },
+            actions.map(([action, label], index) => h(
+              React.Fragment,
+              { key: action },
+              index === 4 ? h('div', { className: 'dwt-transform-menu-divider' }) : null,
+              h(
+                'button',
+                {
+                  type: 'button',
+                  className: 'dwt-btn',
+                  role: 'menuitem',
+                  onClick: event => {
+                    event.currentTarget.closest('details')?.removeAttribute('open')
+                    onTransform(action)
+                  },
+                },
+                label,
+              ),
+            )),
+          ),
+        )
+      }
+
       function FuzzerPanel({ state, tabs, activeId, onSelectTab, onCreateTab, onCloseTab, onConfirm }) {
         const controller = state
-        const { raw, setRaw, payloads, result, selectedIndex, selectedFlow, error, busy, loadingFlow, loadResult, run, reset, clearResult, history, historyOpen, toggleHistory } = controller
+        const { enabled, raw, setRaw, payloads, result, selectedIndex, selectedFlow, error, setError, busy, loadingFlow, loadResult, run, reset, clearResult, history, historyOpen, toggleHistory } = controller
         const [responseQuery, setResponseQuery] = React.useState('')
         const [responseFilter, setResponseFilter] = React.useState('all')
         React.useEffect(() => { setResponseQuery(''); setResponseFilter('all') }, [activeId])
         const dictionaryEnabled = hasPayloadDictionary(payloads)
         const packet = selectedFlow ? responsePacket(selectedFlow) : ''
         const filter = dictionaryEnabled ? responseFilter : 'all'
+        const transform = action => {
+          try { setRaw(transformHttpRequest(raw, action)); setError('') } catch (cause) { setError(cause?.message || String(cause)) }
+        }
 
         return h('section', { className: 'dwt-panel dwt-panel-central' },
           h('div', { className: 'dwt-fuzzer-page' },
@@ -652,7 +892,7 @@
                 h('span', { className: 'dwt-fuzzer-toolbar-meta' }, 'Yakit 风格 raw HTTP'),
               ),
               h('span', { className: 'dwt-fuzzer-toolbar-spacer' }),
-              h('span', { className: 'dwt-fuzzer-toolbar-status' + (busy ? ' busy' : '') }, h('span', { className: 'dwt-fuzzer-toolbar-status-dot' }), busy ? '执行中' : '就绪'),
+              h('span', { className: 'dwt-fuzzer-toolbar-status' + (busy ? ' busy' : '') + (!enabled ? ' disabled' : '') }, h('span', { className: 'dwt-fuzzer-toolbar-status-dot' }), !enabled ? '已停用' : busy ? '执行中' : '就绪'),
               h('button', { className: 'dwt-btn', onClick: toggleHistory }, `历史${history.length ? ` (${history.length})` : ''}`),
               h('button', { className: 'dwt-btn', onClick: () => onConfirm({ title: '重置 Web Fuzzer？', message: '请求、Payload、网络配置、并发配置和当前结果都会恢复默认值。', confirmLabel: '确认重置' }, reset) }, '重置'),
             ),
@@ -660,7 +900,7 @@
             historyOpen ? h(FuzzerHistoryPanel, { state: controller }) : null,
             h('div', { className: 'dwt-fuzzer-workbench dwt-fuzzer-workbench-central' },
               h('main', { className: 'dwt-fuzzer-request' },
-                h('div', { className: 'dwt-fuzzer-pane-head' }, h('div', { className: 'dwt-fuzzer-pane-heading' }, h('span', { className: 'dwt-fuzzer-pane-mark' }, '↗'), h('div', { className: 'dwt-fuzzer-pane-heading-copy' }, h('span', { className: 'dwt-fuzzer-pane-title' }, 'Request'), h('span', { className: 'dwt-fuzzer-pane-caption' }, 'Raw HTTP 请求模板'))), h('div', { className: 'dwt-fuzzer-pane-actions' }, h('button', { className: 'dwt-btn primary dwt-fuzzer-run', disabled: busy, onClick: run }, busy ? '执行中…' : '发送 / 开始 Fuzz'), h('button', { className: 'dwt-btn', onClick: () => setRaw(formatRawHttp(raw)) }, '美化'), h('button', { className: 'dwt-btn', onClick: () => onConfirm({ title: '清空请求模板？', message: '当前 Raw HTTP 请求内容会被清除，且无法恢复。', confirmLabel: '确认清空' }, () => setRaw('')) }, '清空'))),
+                h('div', { className: 'dwt-fuzzer-pane-head' }, h('div', { className: 'dwt-fuzzer-pane-heading' }, h('span', { className: 'dwt-fuzzer-pane-mark' }, '↗'), h('div', { className: 'dwt-fuzzer-pane-heading-copy' }, h('span', { className: 'dwt-fuzzer-pane-title' }, 'Request'), h('span', { className: 'dwt-fuzzer-pane-caption' }, 'Raw HTTP 请求模板'))), h('div', { className: 'dwt-fuzzer-pane-actions' }, h('button', { className: 'dwt-btn primary dwt-fuzzer-run', disabled: busy || !enabled, onClick: run }, !enabled ? '已停用' : busy ? '执行中…' : '发送 / 开始 Fuzz'), h(RequestTransformMenu, { onTransform: transform }), h('button', { className: 'dwt-btn', onClick: () => onConfirm({ title: '清空请求模板？', message: '当前 Raw HTTP 请求内容会被清除，且无法恢复。', confirmLabel: '确认清空' }, () => setRaw('')) }, '清空'))),
                 h('div', { className: 'dwt-fuzzer-editor' }, h('label', { className: 'dwt-label' }, '请求模板', h('textarea', { className: 'dwt-textarea dwt-raw', value: raw, onChange: event => setRaw(event.target.value), spellCheck: false })), h('div', { className: 'dwt-fuzzer-hint' }, '支持 Yakit 风格 raw HTTP；请求头、URL 和 Body 均可使用 {{name}}。')),
               ),
               h('section', { className: 'dwt-fuzzer-response' },
@@ -755,7 +995,7 @@
         const [selected, setSelected] = React.useState(null)
         const [error, setError] = React.useState('')
         const [busy, setBusy] = React.useState(false)
-        const [config, setConfig] = React.useState({ listenHost: '127.0.0.1', listenPort: 0, enabled: true, mode: 'manual', interceptRoutes: [], interceptSuffixes: [], autoReleaseRules: [], holdResponse: true, haeEnabled: true, haeRules: DEFAULT_HAE_RULES })
+        const [config, setConfig] = React.useState({ listenHost: '127.0.0.1', listenPort: 0, enabled: true, mode: 'observe', interceptRoutes: [], interceptSuffixes: [], autoReleaseRules: [], holdResponse: false, haeEnabled: true, haeRules: DEFAULT_HAE_RULES })
         const [routesText, setRoutesText] = React.useState('')
         const [suffixesText, setSuffixesText] = React.useState('')
         const [autoRulesText, setAutoRulesText] = React.useState('[]')
@@ -855,13 +1095,13 @@
         const formatHaeRules = () => setHaeRulesText(formatJsonText(haeRulesText, '[]'))
         const loadDefaultHaeRules = () => setHaeRulesText(JSON.stringify(DEFAULT_HAE_RULES, null, 2))
         const interceptSection = h('details', { className: 'dwt-config-section', open: true },
-          h('summary', null, '拦截范围', h('span', { className: 'dwt-mitm-section-meta' }, config.mode === 'observe' ? '仅观察' : '手动劫持')),
+          h('summary', null, '拦截范围', h('span', { className: 'dwt-mitm-section-meta' }, config.mode === 'observe' ? '自动放行' : '手动劫持')),
           h('div', { className: 'dwt-config-content' },
-            h('label', { className: 'dwt-label' }, '模式', h('select', { className: 'dwt-select', value: config.mode, onChange: event => updateConfig('mode', event.target.value) }, h('option', { value: 'manual' }, '手动劫持'), h('option', { value: 'observe' }, '自动放行 / 仅观察'))),
+            h('label', { className: 'dwt-label' }, '模式', h('select', { className: 'dwt-select', value: config.mode, onChange: event => updateConfig('mode', event.target.value) }, h('option', { value: 'observe' }, '自动放行 / 仅观察'), h('option', { value: 'manual' }, '手动劫持'))),
             h('div', { className: 'dwt-config-note' }, '路由和后缀同时配置时，必须同时满足；都为空时匹配全部 HTTP 请求。'),
             h('label', { className: 'dwt-label' }, '指定路由（每行一个）', h('textarea', { className: 'dwt-textarea', value: routesText, onChange: event => setRoutesText(event.target.value), placeholder: '/api/\n/login' })),
             h('label', { className: 'dwt-label' }, '只匹配后缀（每行一个）', h('textarea', { className: 'dwt-textarea', value: suffixesText, onChange: event => setSuffixesText(event.target.value), placeholder: '.json\n/graphql' })),
-            h('label', { className: 'dwt-checkbox-row' }, h('input', { type: 'checkbox', checked: config.enabled, onChange: event => updateConfig('enabled', event.target.checked) }), '启用手动拦截'),
+            h('label', { className: 'dwt-checkbox-row' }, h('input', { type: 'checkbox', checked: config.enabled, onChange: event => updateConfig('enabled', event.target.checked) }), '启用 MITM 监听'),
             h('label', { className: 'dwt-checkbox-row' }, h('input', { type: 'checkbox', checked: config.holdResponse, onChange: event => updateConfig('holdResponse', event.target.checked) }), '放行请求后继续等待响应劫持'),
           ),
         )
@@ -877,9 +1117,9 @@
           h('summary', null, 'HaE 敏感数据', h('span', { className: 'dwt-mitm-section-meta' }, haeRules.error ? 'JSON 无效' : `${haeRuleCount} 条规则`)),
           h('div', { className: 'dwt-config-content' },
             h('label', { className: 'dwt-checkbox-row' }, h('input', { type: 'checkbox', checked: config.haeEnabled, onChange: event => updateConfig('haeEnabled', event.target.checked) }), '启用敏感数据高亮和提取'),
-            h('div', { className: 'dwt-config-note' }, '对请求头、请求体、响应头和响应体执行正则匹配；匹配结果会在流量详情中高亮，并在列表中统计。'),
+            h('div', { className: 'dwt-config-note' }, '兼容 HaE 的 F-Regex / S-Regex / Scope / Format / Sensitive 字段；对请求和响应内容高亮并统计提取结果。默认规则覆盖 JWT、Bearer、云密钥、私钥、邮箱和常见密钥赋值。'),
             h('textarea', { className: 'dwt-textarea dwt-json', value: haeRulesText, onChange: event => setHaeRulesText(event.target.value) }),
-            h('div', { className: 'dwt-mitm-rule-actions' }, h('button', { className: 'dwt-btn', onClick: formatHaeRules }, '格式化'), h('button', { className: 'dwt-btn', onClick: loadDefaultHaeRules }, '载入常用规则'), haeRules.error ? h('span', { className: 'dwt-mitm-rule-status invalid' }, haeRules.error) : h('span', { className: 'dwt-mitm-rule-status' }, `${haeRuleCount} 条规则 · flags 自动补全 g`)),
+            h('div', { className: 'dwt-mitm-rule-actions' }, h('button', { className: 'dwt-btn', onClick: formatHaeRules }, '格式化'), h('button', { className: 'dwt-btn', onClick: loadDefaultHaeRules }, '载入常用规则'), haeRules.error ? h('span', { className: 'dwt-mitm-rule-status invalid' }, haeRules.error) : h('span', { className: 'dwt-mitm-rule-status' }, `${haeRuleCount} 条规则 · 支持 F-Regex / S-Regex`)),
           ),
         )
         return h('section', { className: 'dwt-mitm-sidebar', 'aria-label': 'MITM 配置' },

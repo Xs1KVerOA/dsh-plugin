@@ -31,10 +31,13 @@ const DEFAULT_TIMEOUT_MS = 30_000
 const DEFAULT_DNS_LOOKUP_TIMEOUT_MS = 2_000
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1'])
 const DEFAULT_HAE_RULES = [
-  { id: 'jwt', name: 'JWT', regex: '\\beyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\b', flags: 'g', color: '#ffe08a' },
-  { id: 'email', name: 'Email', regex: '\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}\\b', flags: 'gi', color: '#bde7ff' },
-  { id: 'aws-access-key', name: 'AWS Access Key', regex: '\\bAKIA[0-9A-Z]{16}\\b', flags: 'g', color: '#ffc9c9' },
-  { id: 'bearer-token', name: 'Bearer Token', regex: '\\bBearer\\s+[A-Za-z0-9._~+/=-]+', flags: 'gi', color: '#d8c8ff' },
+  { id: 'jwt', name: 'JWT', regex: '\\beyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\b', flags: 'g', scope: 'any', format: '{0}', sensitive: true, color: '#ffe08a' },
+  { id: 'email', name: 'Email', regex: '\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}\\b', flags: 'gi', scope: 'any', format: '{0}', sensitive: false, color: '#bde7ff' },
+  { id: 'aws-access-key', name: 'AWS Access Key', regex: '\\bAKIA[0-9A-Z]{16}\\b', flags: 'g', scope: 'any', format: '{0}', sensitive: true, color: '#ffc9c9' },
+  { id: 'bearer-token', name: 'Bearer Token', regex: '\\bBearer\\s+[A-Za-z0-9._~+/=-]+', flags: 'gi', scope: 'any', format: '{0}', sensitive: true, color: '#d8c8ff' },
+  { id: 'github-token', name: 'GitHub Token', regex: '\\b(?:ghp|gho|ghs|ghr)_[A-Za-z0-9]{20,255}\\b', flags: 'g', scope: 'any', format: '{0}', sensitive: true, color: '#ffd1a8' },
+  { id: 'private-key', name: 'Private Key', regex: '-----BEGIN [A-Z0-9 ]+PRIVATE KEY-----[\\s\\S]+?-----END [A-Z0-9 ]+PRIVATE KEY-----', flags: 'g', scope: 'any', format: '{0}', sensitive: true, color: '#f7b7d2' },
+  { id: 'generic-secret', name: 'Secret Assignment', regex: '\\b(?:api[_-]?key|secret|password|token)\\s*[:=]\\s*["\\\']?[A-Za-z0-9._~+/=-]{12,}', flags: 'gi', scope: 'any', format: '{0}', sensitive: false, color: '#d8c8ff' },
 ]
 
 function clampInt(value, fallback, min, max) {
@@ -64,30 +67,57 @@ function stringList(value) {
   return String(value || '').split(/[\n,]/).map(item => item.trim()).filter(Boolean)
 }
 
+function normalizeHaeScope(value) {
+  const raw = Array.isArray(value) ? value.join(',') : String(value || 'any')
+  const scope = raw.trim().toLowerCase().replace(/[ _]/g, '-')
+  if (!scope || ['any', 'all', 'full', 'both', 'request-response', 'request/response'].includes(scope)) return 'any'
+  if (scope.includes('request') && scope.includes('body')) return 'request-body'
+  if (scope.includes('request') && scope.includes('header')) return 'request-headers'
+  if (scope.includes('response') && scope.includes('body')) return 'response-body'
+  if (scope.includes('response') && scope.includes('header')) return 'response-headers'
+  if (scope === 'request' || scope === 'response') return scope
+  if (scope === 'headers' || scope === 'bodies') return scope
+  return 'any'
+}
+
 function normalizeHaeRules(value) {
   const rules = value == null ? DEFAULT_HAE_RULES : (Array.isArray(value) ? value : DEFAULT_HAE_RULES)
   return rules.map((rule, index) => {
     const item = rule && typeof rule === 'object' ? rule : {}
-    const regex = String(item.regex || '')
-    if (!regex) throw new Error(`HaE 规则 ${index + 1} 缺少 regex`)
-    const flags = [...new Set(String(item.flags || 'g').replace(/[^dgimsuvy]/g, '').split(''))].join('')
+    const regex = String(item.regex || item.fRegex || item['F-Regex'] || '')
+    if (!regex) throw new Error(`HaE 规则 ${index + 1} 缺少 regex / F-Regex`)
+    const secondaryRegex = String(item.secondaryRegex || item.sRegex || item['S-Regex'] || '')
+    const sensitive = item.sensitive ?? item.Sensitive
+    let flags = [...new Set(String(item.flags || 'g').replace(/[^dgimsuvy]/g, '').split(''))].join('')
+    if (sensitive === false && !flags.includes('i')) flags += 'i'
+    if (sensitive === true) flags = flags.replace(/i/g, '')
     const executableFlags = flags.includes('g') ? flags : flags + 'g'
     try { new RegExp(regex, executableFlags) } catch { throw new Error(`HaE 规则 ${index + 1} 的正则无效`) }
-    const color = /^#[0-9a-f]{6}$/i.test(String(item.color || '')) ? String(item.color) : '#ffe08a'
+    if (secondaryRegex) {
+      try { new RegExp(secondaryRegex, executableFlags.replace(/g|y/g, '')) } catch { throw new Error(`HaE 规则 ${index + 1} 的 S-Regex 无效`) }
+    }
+    const colorValue = item.color || item.Color || ''
+    const color = /^#[0-9a-f]{6}$/i.test(String(colorValue)) ? String(colorValue) : '#ffe08a'
     return {
       id: String(item.id || `hae_${index + 1}`),
       name: String(item.name || item.id || `规则 ${index + 1}`),
       regex,
+      secondaryRegex,
+      format: String(item.format || item.Format || '{0}'),
+      scope: normalizeHaeScope(item.scope || item.Scope),
+      engine: String(item.engine || item.Engine || 'nfa').toLowerCase() === 'dfa' ? 'dfa' : 'nfa',
+      sensitive: sensitive !== false,
       flags: executableFlags,
       color,
-      enabled: item.enabled !== false,
+      enabled: item.enabled !== false && item.Loaded !== false,
     }
   })
 }
 
 export function normalizeMitmConfig(config = {}) {
-  const mode = config.mode === 'observe' ? 'observe' : 'manual'
+  const mode = config.mode == null ? 'observe' : (config.mode === 'manual' ? 'manual' : 'observe')
   const autoReleaseRules = Array.isArray(config.autoReleaseRules) ? config.autoReleaseRules.filter(item => item && typeof item === 'object') : []
+  const holdResponse = config.holdResponse == null ? mode === 'manual' : config.holdResponse === true
   return {
     listenHost: normalizeLoopbackHost(config.listenHost),
     listenPort: clampInt(config.listenPort, 0, 0, 65535),
@@ -96,7 +126,7 @@ export function normalizeMitmConfig(config = {}) {
     interceptRoutes: stringList(config.interceptRoutes),
     interceptSuffixes: stringList(config.interceptSuffixes),
     autoReleaseRules,
-    holdResponse: config.holdResponse !== false,
+    holdResponse,
     haeEnabled: config.haeEnabled !== false,
     haeRules: normalizeHaeRules(config.haeRules),
   }
@@ -334,6 +364,18 @@ export function expandPayloads(payloads, maxCases = 500) {
     if (cases.length >= maxCases) break
   }
   return cases
+}
+
+function countPayloadCases(payloads, limit = 500) {
+  const entries = Object.values(payloads && typeof payloads === 'object' ? payloads : {})
+    .map(values => Array.isArray(values) ? values : [values])
+    .map(values => values.length ? values.length : 1)
+  let total = 1
+  for (const size of entries) {
+    total *= size
+    if (total > limit) return limit + 1
+  }
+  return total
 }
 
 export function evaluateAssertions(assertions, response) {
@@ -712,20 +754,46 @@ function packetText(headers, body) {
   return `${head}${head && bodyText ? '\n\n' : ''}${bodyText}`
 }
 
-function extractHaeHighlights(text, rules) {
+function haeScopeMatches(scope, context) {
+  const value = normalizeHaeScope(scope)
+  if (value === 'any' || value === 'headers' || value === 'bodies') return true
+  return value === context || value.startsWith(`${context}-`)
+}
+
+function formatHaeValue(match, format) {
+  const template = String(format || '{0}')
+  return template.replace(/\{(\d+)\}/g, (_, index) => String(match?.[Number(index)] ?? ''))
+}
+
+function extractHaeHighlights(text, rules, context = 'any') {
   const source = String(text || '')
   const matches = []
   for (const rule of rules || []) {
     if (rule.enabled === false) continue
+    if (!haeScopeMatches(rule.scope, context)) continue
     let regex
     const flags = String(rule.flags || 'g')
     const executableFlags = flags.includes('g') ? flags : flags + 'g'
     try { regex = new RegExp(rule.regex, executableFlags) } catch { continue }
     for (const item of source.matchAll(regex)) {
-      const value = String(item[0] || '')
-      if (!value) continue
-      const start = item.index ?? 0
-      matches.push({ ruleId: rule.id, name: rule.name, color: rule.color, start, end: start + value.length, value })
+      const primaryValue = String(item[0] || '')
+      if (!primaryValue) continue
+      let highlightedValue = primaryValue
+      let extractedValue = formatHaeValue(item, rule.format)
+      if (rule.secondaryRegex) {
+        try {
+          const secondary = new RegExp(rule.secondaryRegex, executableFlags.replace(/g|y/g, ''))
+          const secondaryMatch = secondary.exec(primaryValue)
+          if (!secondaryMatch) continue
+          highlightedValue = String(secondaryMatch[0] || '')
+          extractedValue = formatHaeValue(secondaryMatch, rule.format)
+        } catch { continue }
+      }
+      if (!highlightedValue) continue
+      const primaryStart = item.index ?? 0
+      const relativeStart = Math.max(0, primaryValue.indexOf(highlightedValue))
+      const start = primaryStart + relativeStart
+      matches.push({ ruleId: rule.id, name: rule.name, color: rule.color, start, end: start + highlightedValue.length, value: extractedValue || highlightedValue, scope: rule.scope || 'any' })
       if (matches.length >= 500) break
     }
     if (matches.length >= 500) break
@@ -742,8 +810,8 @@ function updateFlowHighlights(state, flow) {
     return
   }
   flow.highlights = {
-    request: extractHaeHighlights(packetText(maskedHeaders(flow.requestHeaders), flow.requestBody), state.mitm.haeRules),
-    response: extractHaeHighlights(packetText(maskedHeaders(flow.responseHeaders), flow.responseBody), state.mitm.haeRules),
+    request: extractHaeHighlights(packetText(maskedHeaders(flow.requestHeaders), flow.requestBody), state.mitm.haeRules, 'request'),
+    response: extractHaeHighlights(packetText(maskedHeaders(flow.responseHeaders), flow.responseBody), state.mitm.haeRules, 'response'),
   }
   const allMatches = [...flow.highlights.request, ...flow.highlights.response]
   flow.metadata.haeCount = allMatches.length
@@ -765,6 +833,20 @@ function clearPendingStage(state, flow, stage) {
     state.pending.delete(key)
   }
   if (flow.metadata.pendingStage === stage) delete flow.metadata.pendingStage
+}
+
+function dropAllPending(state, reason) {
+  for (const [key, pending] of state.pending.entries()) {
+    clearTimeout(pending.timer)
+    state.pending.delete(key)
+    const separator = key.lastIndexOf(':')
+    const flowId = separator >= 0 ? key.slice(0, separator) : ''
+    const stage = pending.stage || (separator >= 0 ? key.slice(separator + 1) : '')
+    const flow = state.flows.find(item => item.id === flowId)
+    if (flow?.metadata?.pendingStage === stage) delete flow.metadata.pendingStage
+    pending.resolve({ action: 'drop', reason })
+  }
+  state.pending.clear()
 }
 
 function waitForFlowAction(state, flow, stage) {
@@ -1071,7 +1153,7 @@ function matchPath(pathname, suffix) {
 }
 
 export function makeRuntime(config) {
-  const state = { config, mitm: normalizeMitmConfig(), flows: [], rules: [], pending: new Map(), nextFlow: 1, server: undefined, endpoint: undefined, proxyError: '' }
+  const state = { config, mitm: normalizeMitmConfig(), flows: [], rules: [], pending: new Map(), sockets: new Set(), nextFlow: 1, server: undefined, endpoint: undefined, proxyError: '' }
   let startPromise
   let stopPromise
 
@@ -1084,6 +1166,10 @@ export function makeRuntime(config) {
       const host = normalizeLoopbackHost(options.host || state.mitm.listenHost || config.listenHost)
       const port = clampInt(options.port, state.mitm.listenPort ?? config.listenPort, 0, 65535)
       const server = createHttpServer((req, res) => proxyRequest(state, req, res))
+      server.on('connection', socket => {
+        state.sockets.add(socket)
+        socket.once('close', () => state.sockets.delete(socket))
+      })
       server.on('connect', (req, socket, head) => connectTunnel(state, req, socket, head))
       try {
         await new Promise((resolve, reject) => {
@@ -1100,6 +1186,7 @@ export function makeRuntime(config) {
         return state.endpoint
       } catch (error) {
         state.proxyError = String(error?.message || error)
+        for (const socket of state.sockets) socket.destroy()
         try { server.close() } catch {}
         throw error
       }
@@ -1116,8 +1203,12 @@ export function makeRuntime(config) {
       const server = state.server
       state.server = undefined
       state.endpoint = undefined
+      dropAllPending(state, '代理已停止')
+      for (const socket of state.sockets) socket.destroy()
       if (!server) return
-      await new Promise(resolve => server.close(() => resolve()))
+      await new Promise(resolve => {
+        try { server.close(() => resolve()) } catch { resolve() }
+      })
     })()
     stopPromise = operation
     try { return await operation } finally { if (stopPromise === operation) stopPromise = undefined }
@@ -1147,8 +1238,10 @@ export function makeRuntime(config) {
   }
 
   async function runFuzzer(spec, signal) {
+    if (spec?.enabled === false) throw new Error('Web Fuzzer 当前已停用，请先在左侧配置中开启。')
     const maxCases = clampInt(spec?.maxCases, 500, 1, 500)
     const cases = expandPayloads(spec?.payloads, maxCases)
+    const totalCaseCount = countPayloadCases(spec?.payloads, maxCases)
     const concurrency = clampInt(spec?.concurrency, 4, 1, 16)
     const timeoutMs = clampInt(spec?.timeoutMs, DEFAULT_TIMEOUT_MS, 100, 120_000)
     const results = new Array(cases.length)
@@ -1189,7 +1282,7 @@ export function makeRuntime(config) {
       total: results.length,
       matched: results.filter(item => item?.matched).length,
       failed: results.filter(item => item && !item.matched).length,
-      truncated: Object.keys(spec?.payloads || {}).length > 0 && cases.length >= maxCases,
+      truncated: totalCaseCount > cases.length,
       results,
     }
   }
@@ -1246,8 +1339,7 @@ export function makeRuntime(config) {
       }
       if (matchPath(parsed.pathname, 'clear')) {
         if (req.method !== 'POST') return json(res, 405, { ok: false, error: '仅支持 POST' })
-        for (const pending of state.pending.values()) pending.resolve({ action: 'drop', reason: '流量已清空' })
-        state.pending.clear()
+        dropAllPending(state, '流量已清空')
         state.flows.length = 0
         return json(res, 200, { ok: true })
       }
@@ -1294,6 +1386,7 @@ export function applyWebTesting(ctx, rawConfig = {}) {
       description: 'Run an authorized HTTP Web Fuzzer request matrix. Use {{name}} in method, URL, headers, or body and provide payloads.name as an array. Results are bounded and include response status, duration, and captured flow ids.',
       parameters: {
         request: { type: 'object', required: true, additionalProperties: true, description: 'Request template: method, url, headers JSON object or JSON string, and body.' },
+        enabled: { type: 'boolean', description: 'Whether this Web Fuzzer instance is enabled.' },
         payloads: { type: 'object', additionalProperties: true, description: 'Map of placeholder names to arrays of replacement values.' },
         maxCases: { type: 'number', description: 'Maximum cases, capped at 500.' },
         concurrency: { type: 'number', description: 'Concurrent requests, capped at 16.' },
@@ -1331,8 +1424,7 @@ export function applyWebTesting(ctx, rawConfig = {}) {
         if (action === 'start') return { ok: true, proxy: await runtime.startProxy({ host: args.host, port: args.port }) }
         if (action === 'stop') { await runtime.stopProxy(); return { ok: true } }
         if (action === 'clear') {
-          for (const pending of runtime.state.pending.values()) pending.resolve({ action: 'drop', reason: '流量已清空' })
-          runtime.state.pending.clear()
+          dropAllPending(runtime.state, '流量已清空')
           runtime.state.flows.length = 0
           return { ok: true }
         }

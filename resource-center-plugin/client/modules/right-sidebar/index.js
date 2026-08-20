@@ -30,7 +30,16 @@
         const RIGHT_BROWSER_FRAME_SELECTOR = 'iframe.W-zNGW_browserFrame, iframe.nArs4W_browserFrame, iframe[title]'
 
         function rightPanelElement() {
-          return typeof document === 'undefined' ? null : document.querySelector(RIGHT_PANEL_SELECTOR)
+          if (typeof document === 'undefined') return null
+          const panels = [...(document.querySelectorAll?.(RIGHT_PANEL_SELECTOR) || [])]
+          return panels.find(panel => {
+            const style = typeof getComputedStyle === 'function' ? getComputedStyle(panel) : null
+            const rect = panel.getBoundingClientRect?.()
+            return !RIGHT_PANEL_HIDDEN_CLASSES.some(className => panel.classList.contains(className))
+              && style?.visibility !== 'hidden'
+              && style?.display !== 'none'
+              && rect?.width > 0
+          }) || panels[0] || null
         }
 
         function rightPanelToggle() {

@@ -116,7 +116,7 @@
 
       const CSS = `
 .drc-dock{position:fixed;left:0;top:var(--dsh-resource-center-top,114px);width:var(--dsh-resource-center-rail-width,48px);height:calc(100vh - var(--dsh-resource-center-top,114px) - var(--dsh-resource-center-bottom,100px));z-index:24;display:flex;min-height:0;overflow:hidden;color:var(--dsw-alias-label-primary,#25282d);box-sizing:border-box;background:var(--dsw-alias-bg-layer-1,#fff);box-shadow:8px 0 24px rgba(22,35,55,.08);isolation:isolate;transition:width .16s ease}
-.drc-dock.drc-open{width:min(var(--dsh-resource-center-left-width,280px),100vw)}
+.drc-dock.drc-open{width:var(--dsh-resource-center-left-width,280px)}
 html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open{top:0;height:100vh;background:transparent;box-shadow:none;pointer-events:none}
 html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-rail{height:100%;padding-top:calc(var(--dsh-resource-center-top,114px) + 10px);background:transparent;border-right-color:transparent;pointer-events:none}
 html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-rail-button{pointer-events:auto}
@@ -774,6 +774,19 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
       const HOST_CENTER_SELECTOR = '.pI_x6G_centerCol'
       const HOST_DETAILS_SELECTOR = '.pI_x6G_detailsCol'
 
+      function hostRightPanelElement() {
+        if (typeof document === 'undefined') return null
+        const panels = [...(document.querySelectorAll?.(HOST_RIGHT_PANEL_SELECTOR) || [])]
+        return panels.find(panel => {
+          const style = getComputedStyle(panel)
+          const rect = panel.getBoundingClientRect?.()
+          return !HOST_RIGHT_PANEL_HIDDEN_CLASSES.some(className => panel.classList?.contains?.(className))
+            && style.visibility !== 'hidden'
+            && style.display !== 'none'
+            && rect?.width > 0
+        }) || panels[0] || null
+      }
+
       function syncHostLayoutMetrics() {
         if (typeof document === 'undefined' || typeof window === 'undefined' || !document.documentElement) return
         const hostRoot = document.querySelector('.hHd-Xa_root')
@@ -792,7 +805,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         const bottom = Math.max(24, Math.round(window.innerHeight - dockBottom))
         const hostToggleCluster = document.querySelector(HOST_RIGHT_TOGGLE_SELECTOR)
         const hostToggleRect = hostToggleCluster?.getBoundingClientRect?.()
-        const hostRightPanel = document.querySelector(HOST_RIGHT_PANEL_SELECTOR)
+        const hostRightPanel = hostRightPanelElement()
         const hostRightPanelRect = hostRightPanel?.getBoundingClientRect?.()
         const hostRightPanelStyle = hostRightPanel ? getComputedStyle(hostRightPanel) : null
         const rightPanelHidden = HOST_RIGHT_PANEL_HIDDEN_CLASSES.some(className => hostRightPanel?.classList?.contains?.(className))
@@ -836,7 +849,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           }
         }
         const refreshHostRightPanelObserver = () => {
-          const hostRightPanel = document.querySelector(HOST_RIGHT_PANEL_SELECTOR)
+          const hostRightPanel = hostRightPanelElement()
           if (hostRightPanel === observedHostRightPanel) return
           hostRightPanelObserver?.disconnect()
           observedHostRightPanel = hostRightPanel
@@ -874,7 +887,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         const settings = [...(document.querySelectorAll?.('button') || [])].find(button => button.textContent.trim() === '设置')
         observe(settings)
         observe(document.querySelector(HOST_RIGHT_TOGGLE_SELECTOR))
-        observe(document.querySelector(HOST_RIGHT_PANEL_SELECTOR))
+        observe(hostRightPanelElement())
         let hostStructureObserver
         if (document.body && typeof MutationObserver === 'function') {
           hostStructureObserver = new MutationObserver(update)

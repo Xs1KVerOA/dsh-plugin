@@ -10,15 +10,16 @@
   },
   "workspaces": [
     "resource-center-plugin",
-    "dsh-security"
+    "dsh-security",
+    "dsh-dex"
   ],
   "engines": {
     "node": ">=22.19.0"
   },
   "scripts": {
-    "check": "npm run check --workspace=dsh-resource-center && npm run check --workspace=dsh-security",
-    "test": "npm test --workspace=dsh-resource-center && npm test --workspace=dsh-security",
-    "pack": "npm pack --workspace=dsh-resource-center && npm pack --workspace=dsh-security",
+    "check": "npm run check --workspace=dsh-resource-center && npm run check --workspace=dsh-security && npm run check --workspace=dsh-dex",
+    "test": "npm test --workspace=dsh-resource-center && npm test --workspace=dsh-security && npm test --workspace=dsh-dex",
+    "pack": "npm pack --workspace=dsh-resource-center && npm pack --workspace=dsh-security && npm pack --workspace=dsh-dex",
     "start:local": "bash ./start-local.sh"
   }
 }

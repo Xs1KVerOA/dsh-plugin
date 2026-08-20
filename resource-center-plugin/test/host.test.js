@@ -625,8 +625,41 @@ test('Fuzzer records malformed request templates as failed cases', async () => {
   })
   assert.equal(result.total, 2)
   assert.equal(result.failed, 2)
+  assert.equal(result.truncated, false)
   assert.equal(result.results[0].matched, false)
   assert.match(result.results[0].reasons[0], /Host header/)
+})
+
+test('Fuzzer disabled state is enforced by both the runtime and HTTP API', async () => {
+  const runtime = makeRuntime(normalizeConfig())
+  const spec = {
+    enabled: false,
+    request: { raw: 'GET http://127.0.0.1/disabled HTTP/1.1\nHost: 127.0.0.1\n\n' },
+    payloads: {},
+  }
+  await assert.rejects(() => runtime.runFuzzer(spec), /Web Fuzzer 当前已停用/)
+  const response = await callRuntimeApi(runtime, 'POST', '/api/dsh-web-testing/fuzz', spec)
+  assert.equal(response.status, 400)
+  assert.match(response.body.error, /Web Fuzzer 当前已停用/)
+  assert.equal(runtime.state.flows.length, 0)
+})
+
+test('Fuzzer reports truncation only when payload combinations exceed the limit', async () => {
+  const runtime = makeRuntime(normalizeConfig())
+  const exact = await runtime.runFuzzer({
+    request: { raw: 'GET /missing-host HTTP/1.1\n\n' },
+    payloads: { user: ['admin', 'guest'] },
+    maxCases: 2,
+  })
+  const truncated = await runtime.runFuzzer({
+    request: { raw: 'GET /missing-host HTTP/1.1\n\n' },
+    payloads: { user: ['admin', 'guest', 'root'] },
+    maxCases: 2,
+  })
+  assert.equal(exact.total, 2)
+  assert.equal(exact.truncated, false)
+  assert.equal(truncated.total, 2)
+  assert.equal(truncated.truncated, true)
 })
 
 test('Fuzzer network settings support an HTTP proxy and validate TLS options', async () => {
@@ -720,6 +753,35 @@ test('MITM config supports route/suffix rules and HaE defaults', async () => {
   assert.equal(status.body.mitm.holdResponse, true)
 })
 
+test('MITM defaults to auto-release and accepts HaE Network rule fields', async () => {
+  const runtime = makeRuntime(normalizeConfig())
+  const initial = await callRuntimeApi(runtime, 'GET', '/api/dsh-web-testing/status')
+  assert.equal(initial.status, 200)
+  assert.equal(initial.body.mitm.mode, 'observe')
+  assert.equal(initial.body.mitm.holdResponse, false)
+
+  const configured = await callRuntimeApi(runtime, 'POST', '/api/dsh-web-testing/config', {
+    mode: 'observe',
+    haeRules: [{
+      id: 'email-user',
+      name: 'Email user',
+      'F-Regex': 'email=([^& ]+)',
+      'S-Regex': 'email=([^& ]+)',
+      Format: '{1}',
+      Scope: 'response-body',
+      Engine: 'nfa',
+      Sensitive: false,
+      Color: '#bde7ff',
+    }],
+  })
+  assert.equal(configured.status, 200)
+  assert.equal(configured.body.mitm.haeRules[0].regex, 'email=([^& ]+)')
+  assert.equal(configured.body.mitm.haeRules[0].secondaryRegex, 'email=([^& ]+)')
+  assert.equal(configured.body.mitm.haeRules[0].format, '{1}')
+  assert.equal(configured.body.mitm.haeRules[0].scope, 'response-body')
+  assert.equal(configured.body.mitm.haeRules[0].sensitive, false)
+})
+
 test('MITM partial config updates preserve existing settings', async () => {
   const runtime = makeRuntime(normalizeConfig())
   const initial = await callRuntimeApi(runtime, 'POST', '/api/dsh-web-testing/config', {
@@ -775,6 +837,25 @@ test('MITM start and stop are serialized across concurrent callers', async () =>
   } finally {
     await runtime.stopProxy()
   }
+})
+
+test('MITM stop resolves pending manual actions even when no listener is active', async () => {
+  const runtime = makeRuntime(normalizeConfig())
+  const flow = { id: 'flow-pending-stop', metadata: { pendingStage: 'request' } }
+  let resolution
+  const timer = setTimeout(() => {}, 60_000)
+  runtime.state.flows.push(flow)
+  runtime.state.pending.set(`${flow.id}:request`, {
+    stage: 'request',
+    timer,
+    resolve(value) { resolution = value },
+  })
+
+  await runtime.stopProxy()
+
+  assert.deepEqual(resolution, { action: 'drop', reason: '代理已停止' })
+  assert.equal(runtime.state.pending.size, 0)
+  assert.equal(flow.metadata.pendingStage, undefined)
 })
 
 test('MITM manually holds a request, then holds and replaces its response', async () => {

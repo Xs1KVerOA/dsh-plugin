@@ -1,0 +1,16 @@
+- insert:
+    - id: dsh-dex
+      name: 'dsh-dex'
+      config:
+        issuer: !!js process.env.DSH_DEX_ISSUER ?? 'http://8.130.114.110:8000/dex'
+        clientId: !!js process.env.DSH_DEX_CLIENT_ID ?? 'dsh'
+        clientSecretRef: !!js process.env.DSH_DEX_CLIENT_SECRET_REF ?? 'DEX_DSH_CLIENT_SECRET'
+        cookieSecretRef: !!js process.env.DSH_DEX_COOKIE_SECRET_REF ?? 'DSH_DEX_COOKIE_SECRET'
+        publicBaseUrl: !!js process.env.DSH_DEX_PUBLIC_BASE_URL ?? 'http://127.0.0.1:3080'
+        userRoot: !!js process.env.DSH_DEX_USER_ROOT ?? '/home/dsh'
+        adminUsers: !!js >-
+          process.env.DSH_DEX_ADMIN_USERS ? process.env.DSH_DEX_ADMIN_USERS.split(',') : []
+        adminGroups: !!js >-
+          process.env.DSH_DEX_ADMIN_GROUPS ? process.env.DSH_DEX_ADMIN_GROUPS.split(',') : []
+        cookieSecure: !!js >-
+          process.env.DSH_DEX_COOKIE_SECURE === 'true'

@@ -10,6 +10,7 @@ DeepSeek Harness 插件集合仓库。每个插件都保留独立的 `package.js
 | --- | --- | --- |
 | [`resource-center-plugin/`](./resource-center-plugin/) | `dsh-resource-center` | 工作区侧栏、服务管理、Web Fuzzer、MITM、用量统计 |
 | [`dsh-security/`](./dsh-security/) | `dsh-security` | 渗透测试、代码审计 preset、结构化 API/报告 |
+| [`dsh-dex/`](./dsh-dex/) | `dsh-dex` | Dex OIDC 登录、session/workspace/事件流用户隔离 |
 
 `dsh-resource-center` 已内置 Web Testing Host/API 和 Test 侧栏。同一个 profile
 不要再额外安装 `dsh-web-testing`，否则会重复注册相关能力。
