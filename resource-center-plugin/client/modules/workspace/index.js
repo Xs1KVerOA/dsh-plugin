@@ -209,7 +209,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
             controller = typeof AbortController === 'function' ? new AbortController() : undefined
             try {
               const response = await fetchWithTimeout(
-                `${CURRENT_SESSION_USAGE_PATH}?sessionId=${encodeURIComponent(sessionId)}`,
+                `${CURRENT_SESSION_USAGE_PATH}?scope=session&sessionId=${encodeURIComponent(sessionId)}`,
                 controller ? { signal: controller.signal } : undefined,
               )
               const result = await response.json().catch(() => ({}))
@@ -525,6 +525,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
             return undefined
           }
           let alive = true
+          const controller = typeof AbortController === 'function' ? new AbortController() : null
           setSearching(true)
           setSearchError('')
           const timer = window.setTimeout(() => {
@@ -532,6 +533,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
               method: 'POST',
               headers: { 'content-type': 'application/json' },
               body: JSON.stringify({ ids: searchableIds, query: query.trim() }),
+              ...(controller ? { signal: controller.signal } : {}),
             }).then(async response => {
               const result = await response.json().catch(() => ({}))
               if (!response.ok || result.ok === false) throw new Error(result.error || '内容搜索失败')
@@ -545,7 +547,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
               setSearchError(error?.message || '搜索失败')
             })
           }, 180)
-          return () => { alive = false; window.clearTimeout(timer) }
+          return () => { alive = false; window.clearTimeout(timer); controller?.abort() }
         }, [normalizedQuery, searchableIdsKey])
         const visible = (session) => {
           if (!session || archivedSet.has(session.id) || session.origin === 'subagent') return false

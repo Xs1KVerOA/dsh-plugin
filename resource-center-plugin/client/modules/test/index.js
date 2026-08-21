@@ -243,7 +243,7 @@
         const refresh = async () => {
           if (Date.now() < catalogExpiresAt) return catalog
           if (catalogPromise) return catalogPromise
-          catalogPromise = api('flows?limit=200').then(result => {
+          catalogPromise = api('flows?limit=80&summary=1').then(result => {
             catalog = Array.isArray(result.flows) ? result.flows : []
             catalogExpiresAt = Date.now() + 1200
             return catalog
@@ -261,7 +261,7 @@
             references.clear()
             const needle = String(query || '').trim().toLocaleLowerCase()
             return flows
-              .filter(flow => !needle || `${mitmReferenceLabel(flow)} ${flow.method || ''} ${flow.url || ''} ${flow.status || ''} ${flow.request?.packet || ''} ${flow.response?.packet || ''}`.toLocaleLowerCase().includes(needle))
+              .filter(flow => !needle || `${mitmReferenceLabel(flow)} ${flow.method || ''} ${flow.url || ''} ${flow.status || ''} ${flow.requestPreview || ''} ${flow.responsePreview || ''}`.toLocaleLowerCase().includes(needle))
               .map(flow => {
                 const label = mitmReferenceLabel(flow)
                 references.set(label, flow)
@@ -1024,8 +1024,9 @@
           refreshController.current = controller
           try {
             const requestOptions = controller ? { signal: controller.signal } : undefined
-            const [nextStatus, nextFlows] = await Promise.all([api('status', requestOptions), api('flows?limit=200', requestOptions)])
+            const [nextStatus, nextFlows] = await Promise.all([api('status', requestOptions), api('flows?limit=80&summary=1', requestOptions)])
             setStatus(nextStatus); setFlows(nextFlows.flows || [])
+            if (typeof window !== 'undefined') window.__dshResourceCenterMitmStatusCache = { value: nextStatus, at: Date.now() }
             if (!loadedRef.current && nextStatus.mitm) { applyRemoteConfig(nextStatus.mitm); loadedRef.current = true }
           } catch (cause) {
             if (!isAbortError(cause)) setError(cause?.message || String(cause))
@@ -1036,7 +1037,7 @@
         }, [applyRemoteConfig])
         React.useEffect(() => {
           refresh()
-          const timer = window.setInterval(refresh, 1600)
+          const timer = window.setInterval(refresh, 3000)
           return () => {
             window.clearInterval(timer)
             refreshController.current?.abort()

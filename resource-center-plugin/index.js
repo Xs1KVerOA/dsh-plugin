@@ -8,7 +8,7 @@ export const name = 'dsh-resource-center'
 // Host routes persist session titles and serialize bounded session references.
 // All list data and workspace grouping still come from the native DSH client stores.
 export const inject = [...new Set([
-  'webServer', 'sessions', 'credentials', 'fs', 'tools', 'sandboxPolicy', 'sessionQuery', 'timer',
+  'webServer', 'sessions', 'credentials', 'fs', 'tools', 'sandboxPolicy', 'dshAuth', 'sessionQuery', 'timer',
   ...rightSidebarInject,
 ])]
 export const Config = TestConfig
@@ -56,9 +56,8 @@ function sessionText(value, state = { size: 0, parts: [] }) {
   return state
 }
 
-function contentSnippet(events, query) {
-  const text = sessionText(events).parts.join('\n')
-  const position = text.toLocaleLowerCase().indexOf(query.toLocaleLowerCase())
+function contentSnippet(text, query, normalizedQuery = query.toLocaleLowerCase()) {
+  const position = text.toLocaleLowerCase().indexOf(normalizedQuery)
   if (position < 0) return undefined
   const start = Math.max(0, position - 42)
   const end = Math.min(text.length, position + query.length + 90)
@@ -84,6 +83,18 @@ export function apply(ctx, config = {}) {
   const sessions = ctx.get('sessions')
   const sessionTitle = ctx.get('sessionTitle')
   if (!webServer) return
+  const sessionSearchCache = new Map()
+  const searchableText = session => {
+    if (!session) return ''
+    const events = session?.events || []
+    const cached = sessionSearchCache.get(session?.id)
+    const lastEvent = Array.isArray(events) ? events[events.length - 1] : undefined
+    if (cached && cached.events === events && cached.length === events.length && cached.lastEvent === lastEvent) return cached.text
+    const text = sessionText(events).parts.join('\n')
+    sessionSearchCache.set(session.id, { events, length: events.length, lastEvent, text })
+    if (sessionSearchCache.size > 512) sessionSearchCache.delete(sessionSearchCache.keys().next().value)
+    return text
+  }
 
   ctx.effect(() => webServer.register({
     kind: 'exact',
@@ -119,9 +130,10 @@ export function apply(ctx, config = {}) {
           : []
         if (!query || !ids.length) return json(res, 200, { ok: true, matches: [] })
         const matches = []
+        const normalizedQuery = query.toLocaleLowerCase()
         for (const id of ids) {
           const session = sessions && typeof sessions.get === 'function' ? sessions.get(id) : undefined
-          const snippet = contentSnippet(session?.events || [], query)
+          const snippet = contentSnippet(searchableText(session), query, normalizedQuery)
           if (snippet) matches.push({ id, snippet })
         }
         return json(res, 200, { ok: true, matches })

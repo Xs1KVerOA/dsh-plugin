@@ -182,12 +182,13 @@ test('resource center owns an independent usage-stats route and records model/se
   assert.equal(body.stats.byModelName['deepseek-v4-flash'].calls, 1)
   assert.equal(body.stats.bySession['current-session'].output, 30)
   let currentBody
-  await route.handler({ method: 'GET', url: `${usageStatsPath}?sessionId=current-session` }, {
+  await route.handler({ method: 'GET', url: `${usageStatsPath}?scope=session&sessionId=current-session` }, {
     writeHead() {},
     end(value) { currentBody = JSON.parse(value) },
   })
   assert.equal(currentBody.currentSession.id, 'current-session')
   assert.equal(currentBody.currentSession.usage.cost, body.stats.bySession['current-session'].cost)
+  assert.equal(currentBody.stats, undefined)
   assert.ok(saved.length >= 1)
 })
 
@@ -347,6 +348,89 @@ test('service catalog exposes only allowlisted options and uses collision-free c
   assert.ok(credentialRefs.every(ref => /^DSH_SERVER_V2_[0-9a-f]{64}_/.test(ref)))
 })
 
+test('resource center provisions one global MinIO connection per Dex user root', async () => {
+  const envKeys = [
+    'DSH_DEX_USER_ROOT',
+    'DSH_RESOURCE_CENTER_MINIO_ENDPOINT',
+    'DSH_RESOURCE_CENTER_MINIO_BUCKET',
+    'DSH_RESOURCE_CENTER_MINIO_REGION',
+    'DSH_RESOURCE_CENTER_MINIO_ACCESS_KEY',
+    'DSH_RESOURCE_CENTER_MINIO_SECRET_KEY',
+  ]
+  const previousEnv = Object.fromEntries(envKeys.map(key => [key, process.env[key]]))
+  Object.assign(process.env, {
+    DSH_DEX_USER_ROOT: '/home/dsh',
+    DSH_RESOURCE_CENTER_MINIO_ENDPOINT: 'http://172.20.0.2:9000',
+    DSH_RESOURCE_CENTER_MINIO_BUCKET: 'codesentry-artifacts',
+    DSH_RESOURCE_CENTER_MINIO_REGION: 'us-east-1',
+    DSH_RESOURCE_CENTER_MINIO_ACCESS_KEY: 'minio-user',
+    DSH_RESOURCE_CENTER_MINIO_SECRET_KEY: 'minio-secret',
+  })
+  try {
+    const routes = []
+    const files = new Map()
+    const secrets = new Map()
+    const fs = {
+      async resolve(name, options = {}) { return `${options.cwd || '/tmp'}/${name}` },
+      async stat(target) {
+        if (!files.has(target)) { const error = new Error('not found'); error.code = 'ENOENT'; throw error }
+        return { size: files.get(target).length }
+      },
+      async readText(target) { return files.get(target) },
+      async writeText(target, text) { files.set(target, text) },
+    }
+    const credentials = {
+      async resolve(ref) { return secrets.has(ref) ? { value: secrets.get(ref) } : undefined },
+      async set(ref, value) { secrets.set(ref, value) },
+      async unset(ref) { secrets.delete(ref) },
+    }
+    const toolService = { register() {}, guard() {} }
+    const ctx = {
+      tools: toolService,
+      get(name) {
+        if (name === 'webServer') return { register(route) { routes.push(route); return () => {} } }
+        if (name === 'sessions') return { get() { return undefined } }
+        if (name === 'sessionTitle') return undefined
+        if (name === 'credentials') return credentials
+        if (name === 'fs') return fs
+        if (name === 'tools') return toolService
+        if (name === 'sandboxPolicy') return { workspaceRoot: '/opt/dsh' }
+        if (name === 'dshAuth') return { authenticateRequest: async () => ({ sub: 'user-1', username: 'alice', workspaceRoot: '/home/dsh/alice' }) }
+        return undefined
+      },
+      effect(factory) { factory() },
+    }
+    apply(ctx)
+    const route = routes.find(item => item.path === '/api/dsh-service-manage')
+    const request = {
+      method: 'POST',
+      socket: { remoteAddress: '127.0.0.1' },
+      async *[Symbol.asyncIterator]() { yield Buffer.from(JSON.stringify({ op: 'list' })) },
+    }
+    const call = async () => {
+      let body
+      await route.handler(request, { writeHead() {}, end(value) { body = JSON.parse(value) } })
+      return body
+    }
+    const first = await call()
+    const second = await call()
+    assert.equal(first.ok, true, JSON.stringify(first))
+    assert.equal(first.connections.length, 1)
+    assert.equal(first.connections[0].name, 'CodeSentry MinIO')
+    assert.equal(first.connections[0].type, 's3')
+    assert.equal(first.connections[0].options.endpoint, 'http://172.20.0.2:9000')
+    assert.equal(first.connections[0].secrets.accessKey, true)
+    assert.equal(second.connections.length, 1)
+    assert.deepEqual(JSON.parse(files.get('/home/dsh/alice/.dsh-servers.json')).connections.map(item => item.name), ['CodeSentry MinIO'])
+    assert.ok([...secrets.keys()].every(ref => /^DSH_SERVER_V2_[0-9a-f]{64}_/.test(ref)))
+  } finally {
+    for (const key of envKeys) {
+      if (previousEnv[key] === undefined) delete process.env[key]
+      else process.env[key] = previousEnv[key]
+    }
+  }
+})
+
 test('session references serialize readable bounded conversation context', async () => {
   const routes = []
   const session = { id: 'session-1', displayTitle: '架构分析', events: ['用户问题', { text: '助手回答' }] }
@@ -476,6 +560,11 @@ test('MITM flow list serializes pending interceptions as lossless JSON', async (
     assert.equal(list.body.flows[0].status, null)
     assert.equal(list.body.flows[0].durationMs, null)
     assert.equal(list.body.flows[0].error, null)
+    const summary = await callRuntimeApi(runtime, 'GET', '/api/dsh-web-testing/flows?limit=1&summary=1')
+    assert.equal(summary.status, 200)
+    assert.equal(summary.body.flows[0].id, flow.id)
+    assert.equal(summary.body.flows[0].requestHeaders, undefined)
+    assert.equal(typeof summary.body.flows[0].requestPreview, 'string')
     await callRuntimeApi(runtime, 'POST', `/api/dsh-web-testing/flow/${encodeURIComponent(flow.id)}/action`, { action: 'release-request' })
     await browserRequest
   } finally {

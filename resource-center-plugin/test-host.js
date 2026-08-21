@@ -822,7 +822,17 @@ function updateFlowHighlights(state, flow) {
 }
 
 function refreshHaeHighlights(state) {
-  for (const flow of state.flows) updateFlowHighlights(state, flow)
+  if (state.haeRefreshPromise) return state.haeRefreshPromise
+  state.haeRefreshPromise = (async () => {
+    const flows = [...state.flows]
+    for (let index = 0; index < flows.length; index += 16) {
+      for (const flow of flows.slice(index, index + 16)) updateFlowHighlights(state, flow)
+      // Rebuilding HaE highlights can touch hundreds of captured packets. Yield
+      // between batches so status/flow requests and the proxy keep responding.
+      if (index + 16 < flows.length) await new Promise(resolve => setImmediate(resolve))
+    }
+  })().finally(() => { state.haeRefreshPromise = undefined })
+  return state.haeRefreshPromise
 }
 
 function clearPendingStage(state, flow, stage) {
@@ -926,6 +936,35 @@ function publicFlow(flow, detail = false) {
     result.response.full = bodyPreview(flow.responseBody, flow.responseBody.length || 1)
   }
   return result
+}
+
+// The flow table and @MITM picker only need metadata. Keeping packet headers,
+// packet text and 16 KiB previews out of the polling response avoids turning a
+// list refresh into a repeated full-packet transfer. The detail endpoint still
+// uses publicFlow(flow, true) for the selected record.
+function publicFlowSummary(flow) {
+  const requestPreview = bodyPreview(flow.requestBody, 512)
+  const responsePreview = bodyPreview(flow.responseBody, 512)
+  return {
+    id: flow.id,
+    requestId: flow.id,
+    source: flow.source,
+    method: flow.method,
+    requestMethod: String(flow.method || '').toUpperCase(),
+    url: flow.url,
+    startedAt: flow.startedAt,
+    requestTime: flow.startedAt,
+    durationMs: Number.isFinite(flow.durationMs) ? flow.durationMs : null,
+    status: Number.isFinite(flow.status) ? flow.status : null,
+    responseSizeBytes: Buffer.isBuffer(flow.responseBody) ? flow.responseBody.length : Buffer.byteLength(String(flow.responseBody || '')),
+    error: flow.error == null ? null : String(flow.error),
+    requestPreview: requestPreview.text,
+    responsePreview: responsePreview.text,
+    metadata: {
+      pendingStage: flow.metadata?.pendingStage,
+      haeCount: Number(flow.metadata?.haeCount) || 0,
+    },
+  }
 }
 
 function sendRawResponse(res, status, headers, body) {
@@ -1153,7 +1192,7 @@ function matchPath(pathname, suffix) {
 }
 
 export function makeRuntime(config) {
-  const state = { config, mitm: normalizeMitmConfig(), flows: [], rules: [], pending: new Map(), sockets: new Set(), nextFlow: 1, server: undefined, endpoint: undefined, proxyError: '' }
+  const state = { config, mitm: normalizeMitmConfig(), flows: [], rules: [], pending: new Map(), sockets: new Set(), nextFlow: 1, server: undefined, endpoint: undefined, proxyError: '', haeRefreshPromise: undefined }
   let startPromise
   let stopPromise
 
@@ -1304,10 +1343,14 @@ export function makeRuntime(config) {
         const patch = body.length ? JSON.parse(body.toString('utf8')) : {}
         state.mitm = mergeMitmConfig(state.mitm, patch)
         const released = reconcilePendingInterceptions(state)
-        refreshHaeHighlights(state)
+        await refreshHaeHighlights(state)
         return json(res, 200, { ok: true, mitm: state.mitm, released })
       }
-      if (matchPath(parsed.pathname, 'flows')) return json(res, 200, { ok: true, flows: state.flows.slice(0, clampInt(parsed.searchParams.get('limit'), 100, 1, 500)).map(flow => publicFlow(flow)) })
+      if (matchPath(parsed.pathname, 'flows')) {
+        const limit = clampInt(parsed.searchParams.get('limit'), 100, 1, 500)
+        const summary = parsed.searchParams.get('summary') === '1'
+        return json(res, 200, { ok: true, flows: state.flows.slice(0, limit).map(flow => summary ? publicFlowSummary(flow) : publicFlow(flow)) })
+      }
       if (matchPath(parsed.pathname, 'rules')) {
         if (req.method === 'GET') return json(res, 200, { ok: true, rules: state.rules })
         if (req.method !== 'POST') return json(res, 405, { ok: false, error: '仅支持 GET/POST' })
@@ -1456,7 +1499,7 @@ export function applyWebTesting(ctx, rawConfig = {}) {
         if (action === 'setConfig') {
           runtime.state.mitm = mergeMitmConfig(runtime.state.mitm, args.config || {})
           const released = reconcilePendingInterceptions(runtime.state)
-          refreshHaeHighlights(runtime.state)
+          await refreshHaeHighlights(runtime.state)
           return { ok: true, mitm: runtime.state.mitm, released }
         }
         if (action === 'flowAction') return { ok: true, flow: publicFlow(resolveFlowAction(runtime.state, args.id, args.payload || {}), true) }
@@ -1473,7 +1516,7 @@ export function applyWebTesting(ctx, rawConfig = {}) {
           runtime.state.rules = runtime.state.rules.filter(item => item.id !== id)
           return { ok: true }
         }
-        if (action === 'list') return { ok: true, flows: runtime.state.flows.slice(0, clampInt(args.limit, 100, 1, 500)).map(flow => publicFlow(flow)) }
+        if (action === 'list') return { ok: true, flows: runtime.state.flows.slice(0, clampInt(args.limit, 100, 1, 500)).map(flow => args.summary ? publicFlowSummary(flow) : publicFlow(flow)) }
         if (action === 'detail') {
           const flow = runtime.state.flows.find(item => item.id === String(args.id || ''))
           if (!flow) throw new Error('flow 不存在')

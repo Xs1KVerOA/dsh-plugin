@@ -338,38 +338,45 @@ export function applyUsageStats(ctx) {
       throwIfBackfillCancelled(signal)
       const records = await withTimeout(sessionQuery.listSessions(), 60000, 'listSessions', signal)
       backfill.totalSessions = Array.isArray(records) ? records.length : 0
-      for (const record of records || []) {
-        throwIfBackfillCancelled(signal)
-        const id = typeof record?.header?.id === 'string' ? record.header.id : null
-        if (!id) continue
-        let snapshot
-        try { snapshot = await withTimeout(sessionQuery.readSession(id), 20000, 'readSession', signal) } catch (error) {
-          if (error?.name === 'AbortError') throw error
-          backfill.failed++
-          continue
-        }
-        backfill.sessions++
-        let model = 'unknown'
-        for (const event of getOwnedSessionEvents(snapshot)) {
+      let nextRecord = 0
+      const processRecord = async () => {
+        for (;;) {
           throwIfBackfillCancelled(signal)
-          if (event?.type === 'request/header') {
-            const value = event.data?.header?.config?.model
-            if (typeof value === 'string' && value) model = value
+          const record = records?.[nextRecord++]
+          if (!record) return
+          const id = typeof record?.header?.id === 'string' ? record.header.id : null
+          if (!id) continue
+          let snapshot
+          try { snapshot = await withTimeout(sessionQuery.readSession(id), 20000, 'readSession', signal) } catch (error) {
+            if (error?.name === 'AbortError') throw error
+            backfill.failed++
+            continue
           }
-          if (event?.type !== 'assistant/message') continue
-          const usage = normalizeUsage(event.data?.usage)
-          if (!usage) continue
-          backfill.found++
-          applyUsage(nextStats, model, usage, typeof event.time === 'number' ? event.time : Date.now(), id, false)
-        }
-        try {
-          const title = await withTimeout(sessionQuery.readTitle?.(id), 10000, 'readTitle', signal)
-          if (title?.title && nextStats.bySession[id]) nextStats.bySession[id].title = title.title
-        } catch (error) {
-          if (error?.name === 'AbortError') throw error
-          // Titles are optional and do not affect usage totals.
+          backfill.sessions++
+          let model = 'unknown'
+          for (const event of getOwnedSessionEvents(snapshot)) {
+            throwIfBackfillCancelled(signal)
+            if (event?.type === 'request/header') {
+              const value = event.data?.header?.config?.model
+              if (typeof value === 'string' && value) model = value
+            }
+            if (event?.type !== 'assistant/message') continue
+            const usage = normalizeUsage(event.data?.usage)
+            if (!usage) continue
+            backfill.found++
+            applyUsage(nextStats, model, usage, typeof event.time === 'number' ? event.time : Date.now(), id, false)
+          }
+          try {
+            const title = await withTimeout(sessionQuery.readTitle?.(id), 10000, 'readTitle', signal)
+            if (title?.title && nextStats.bySession[id]) nextStats.bySession[id].title = title.title
+          } catch (error) {
+            if (error?.name === 'AbortError') throw error
+            // Titles are optional and do not affect usage totals.
+          }
         }
       }
+      const workers = Math.min(4, Math.max(1, Array.isArray(records) ? records.length : 0))
+      await Promise.all(Array.from({ length: workers }, processRecord))
       nextStats.recent.sort((a, b) => b.ts - a.ts)
       nextStats.meta.lastBackfillAt = Date.now()
       nextStats.meta.lastBackfillSessions = backfill.sessions
@@ -462,12 +469,19 @@ export function applyUsageStats(ctx) {
         }
         const query = new URL(req.url, 'http://localhost').searchParams
         const requestedSessionId = String(query.get('sessionId') || '').trim()
+        const sessionOnly = query.get('scope') === 'session'
         const currentSession = requestedSessionId
           ? {
               id: requestedSessionId,
               usage: { ...sessionBucket(), ...(stats.bySession[requestedSessionId] || {}) },
             }
           : null
+        if (sessionOnly) return jsonResponse(res, 200, {
+          ok: true,
+          source: 'dsh-resource-center',
+          backfill: backfillSnapshot(),
+          currentSession,
+        })
         return jsonResponse(res, 200, {
           ok: true,
           source: 'dsh-resource-center',

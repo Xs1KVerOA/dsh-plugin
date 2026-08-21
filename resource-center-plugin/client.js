@@ -210,7 +210,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
             controller = typeof AbortController === 'function' ? new AbortController() : undefined
             try {
               const response = await fetchWithTimeout(
-                `${CURRENT_SESSION_USAGE_PATH}?sessionId=${encodeURIComponent(sessionId)}`,
+                `${CURRENT_SESSION_USAGE_PATH}?scope=session&sessionId=${encodeURIComponent(sessionId)}`,
                 controller ? { signal: controller.signal } : undefined,
               )
               const result = await response.json().catch(() => ({}))
@@ -526,6 +526,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
             return undefined
           }
           let alive = true
+          const controller = typeof AbortController === 'function' ? new AbortController() : null
           setSearching(true)
           setSearchError('')
           const timer = window.setTimeout(() => {
@@ -533,6 +534,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
               method: 'POST',
               headers: { 'content-type': 'application/json' },
               body: JSON.stringify({ ids: searchableIds, query: query.trim() }),
+              ...(controller ? { signal: controller.signal } : {}),
             }).then(async response => {
               const result = await response.json().catch(() => ({}))
               if (!response.ok || result.ok === false) throw new Error(result.error || '内容搜索失败')
@@ -546,7 +548,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
               setSearchError(error?.message || '搜索失败')
             })
           }, 180)
-          return () => { alive = false; window.clearTimeout(timer) }
+          return () => { alive = false; window.clearTimeout(timer); controller?.abort() }
         }, [normalizedQuery, searchableIdsKey])
         const visible = (session) => {
           if (!session || archivedSet.has(session.id) || session.origin === 'subagent') return false
@@ -2766,7 +2768,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         const refresh = async () => {
           if (Date.now() < catalogExpiresAt) return catalog
           if (catalogPromise) return catalogPromise
-          catalogPromise = api('flows?limit=200').then(result => {
+          catalogPromise = api('flows?limit=80&summary=1').then(result => {
             catalog = Array.isArray(result.flows) ? result.flows : []
             catalogExpiresAt = Date.now() + 1200
             return catalog
@@ -2784,7 +2786,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
             references.clear()
             const needle = String(query || '').trim().toLocaleLowerCase()
             return flows
-              .filter(flow => !needle || `${mitmReferenceLabel(flow)} ${flow.method || ''} ${flow.url || ''} ${flow.status || ''} ${flow.request?.packet || ''} ${flow.response?.packet || ''}`.toLocaleLowerCase().includes(needle))
+              .filter(flow => !needle || `${mitmReferenceLabel(flow)} ${flow.method || ''} ${flow.url || ''} ${flow.status || ''} ${flow.requestPreview || ''} ${flow.responsePreview || ''}`.toLocaleLowerCase().includes(needle))
               .map(flow => {
                 const label = mitmReferenceLabel(flow)
                 references.set(label, flow)
@@ -3547,8 +3549,9 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           refreshController.current = controller
           try {
             const requestOptions = controller ? { signal: controller.signal } : undefined
-            const [nextStatus, nextFlows] = await Promise.all([api('status', requestOptions), api('flows?limit=200', requestOptions)])
+            const [nextStatus, nextFlows] = await Promise.all([api('status', requestOptions), api('flows?limit=80&summary=1', requestOptions)])
             setStatus(nextStatus); setFlows(nextFlows.flows || [])
+            if (typeof window !== 'undefined') window.__dshResourceCenterMitmStatusCache = { value: nextStatus, at: Date.now() }
             if (!loadedRef.current && nextStatus.mitm) { applyRemoteConfig(nextStatus.mitm); loadedRef.current = true }
           } catch (cause) {
             if (!isAbortError(cause)) setError(cause?.message || String(cause))
@@ -3559,7 +3562,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         }, [applyRemoteConfig])
         React.useEffect(() => {
           refresh()
-          const timer = window.setInterval(refresh, 1600)
+          const timer = window.setInterval(refresh, 3000)
           return () => {
             window.clearInterval(timer)
             refreshController.current?.abort()
@@ -13535,10 +13538,20 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
 
           const refreshMitmStatus = async ({ silent = false } = {}) => {
             if (mitmRefreshPromise) return mitmRefreshPromise
+            const shared = typeof window !== 'undefined' ? window.__dshResourceCenterMitmStatusCache : undefined
+            if (shared && Date.now() - Number(shared.at) < 1200 && shared.value) {
+              mitmSnapshot = shared.value
+              mitmError = ''
+              updateBrowserControl()
+              rewriteBrowserFrame()
+              notify()
+              return shared.value
+            }
             const controller = typeof AbortController === 'function' ? new AbortController() : null
             mitmRefreshController = controller
             mitmRefreshPromise = requestMitm('status', controller ? { signal: controller.signal } : undefined).then(result => {
               mitmSnapshot = result
+              if (typeof window !== 'undefined') window.__dshResourceCenterMitmStatusCache = { value: result, at: Date.now() }
               mitmError = ''
               updateBrowserControl()
               rewriteBrowserFrame()
@@ -13679,7 +13692,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
               browserObserver.observe(browser, { childList: true, attributes: true, attributeFilter: ['src', BROWSER_COMPAT_ATTR] })
             }
             mountBrowserMitmControl()
-            browserPollTimer = setInterval(() => { void refreshMitmStatus({ silent: true }); mountBrowserMitmControl() }, 1600)
+            browserPollTimer = setInterval(() => { void refreshMitmStatus({ silent: true }); mountBrowserMitmControl() }, 4000)
           }
 
           const observePanel = () => {

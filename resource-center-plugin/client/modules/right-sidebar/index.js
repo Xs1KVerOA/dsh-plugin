@@ -284,10 +284,20 @@
 
           const refreshMitmStatus = async ({ silent = false } = {}) => {
             if (mitmRefreshPromise) return mitmRefreshPromise
+            const shared = typeof window !== 'undefined' ? window.__dshResourceCenterMitmStatusCache : undefined
+            if (shared && Date.now() - Number(shared.at) < 1200 && shared.value) {
+              mitmSnapshot = shared.value
+              mitmError = ''
+              updateBrowserControl()
+              rewriteBrowserFrame()
+              notify()
+              return shared.value
+            }
             const controller = typeof AbortController === 'function' ? new AbortController() : null
             mitmRefreshController = controller
             mitmRefreshPromise = requestMitm('status', controller ? { signal: controller.signal } : undefined).then(result => {
               mitmSnapshot = result
+              if (typeof window !== 'undefined') window.__dshResourceCenterMitmStatusCache = { value: result, at: Date.now() }
               mitmError = ''
               updateBrowserControl()
               rewriteBrowserFrame()
@@ -428,7 +438,7 @@
               browserObserver.observe(browser, { childList: true, attributes: true, attributeFilter: ['src', BROWSER_COMPAT_ATTR] })
             }
             mountBrowserMitmControl()
-            browserPollTimer = setInterval(() => { void refreshMitmStatus({ silent: true }); mountBrowserMitmControl() }, 1600)
+            browserPollTimer = setInterval(() => { void refreshMitmStatus({ silent: true }); mountBrowserMitmControl() }, 4000)
           }
 
           const observePanel = () => {

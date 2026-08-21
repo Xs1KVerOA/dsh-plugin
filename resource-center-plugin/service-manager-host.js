@@ -3,6 +3,7 @@ import { Agent as HttpsAgent } from 'node:https'
 import { createServer } from 'node:net'
 import { PassThrough, Readable } from 'node:stream'
 import { StringDecoder } from 'node:string_decoder'
+import { relative, resolve, sep } from 'node:path'
 import { URL } from 'node:url'
 
 import { DeleteObjectCommand, GetObjectCommand, ListBucketsCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
@@ -31,7 +32,7 @@ const PUBLIC_OPTION_FIELDS = new Set([
 ])
 
 export const name = 'dsh-service-manage'
-export const inject = ['webServer', 'credentials', 'fs', 'tools']
+export const inject = ['webServer', 'credentials', 'fs', 'tools', 'dshAuth']
 
 export const TYPES = Object.freeze({
   ssh: { label: 'SSH', port: 22 },
@@ -1114,8 +1115,33 @@ export function apply(ctx) {
   const fs = ctx.get('fs')
   const credentials = ctx.get('credentials')
   const tools = ctx.get('tools')
+  const dshAuth = ctx.get('dshAuth')
   const sandboxPolicy = ctx.get('sandboxPolicy')
   const workspaceRoot = typeof sandboxPolicy?.workspaceRoot === 'string' ? sandboxPolicy.workspaceRoot : process.cwd()
+  const dexUserRoot = resolve(String(process.env.DSH_DEX_USER_ROOT || '/home/dsh'))
+  const minioConfig = (() => {
+    const endpoint = String(process.env.DSH_RESOURCE_CENTER_MINIO_ENDPOINT || '').trim().replace(/\/+$/, '')
+    const accessKey = String(process.env.DSH_RESOURCE_CENTER_MINIO_ACCESS_KEY || '')
+    const secretKey = String(process.env.DSH_RESOURCE_CENTER_MINIO_SECRET_KEY || '')
+    if (!endpoint || !accessKey || !secretKey) return undefined
+    try {
+      const url = new URL(endpoint)
+      if (!['http:', 'https:'].includes(url.protocol)) return undefined
+      return {
+        endpoint,
+        host: url.hostname,
+        port: Number(url.port || (url.protocol === 'https:' ? 443 : 80)),
+        scheme: url.protocol === 'https:' ? 'https' : 'http',
+        region: String(process.env.DSH_RESOURCE_CENTER_MINIO_REGION || 'us-east-1').trim() || 'us-east-1',
+        bucket: String(process.env.DSH_RESOURCE_CENTER_MINIO_BUCKET || 'codesentry-artifacts').trim() || 'codesentry-artifacts',
+        accessKey,
+        secretKey,
+        token: String(process.env.DSH_RESOURCE_CENTER_MINIO_TOKEN || ''),
+      }
+    } catch {
+      return undefined
+    }
+  })()
   const activeTunnels = new Set()
   const terminalSessions = new Map()
   const sshSftpCache = new Map()
@@ -1128,10 +1154,22 @@ export function apply(ctx) {
     configMutation = operation.catch(() => {})
     return operation
   }
-  const configTarget = () => fs?.resolve?.('.dsh-servers.json', { cwd: workspaceRoot })
+  let defaultConnectionMutation = Promise.resolve()
+  const userRootFromCwd = cwd => {
+    const absolute = resolve(String(cwd || workspaceRoot))
+    const remainder = relative(dexUserRoot, absolute)
+    const first = remainder.split(sep)[0]
+    if (!first || first === '..' || first.startsWith('..') || first.includes(':')) return undefined
+    return resolve(dexUserRoot, first)
+  }
+  const userRootFor = (cwd, principal) => {
+    if (typeof principal?.workspaceRoot === 'string' && principal.workspaceRoot) return resolve(principal.workspaceRoot)
+    return userRootFromCwd(cwd)
+  }
+  const configTarget = cwd => fs?.resolve?.('.dsh-servers.json', { cwd: cwd || workspaceRoot })
 
-  async function readConfig() {
-    const target = await configTarget()
+  async function readConfigAt(cwd) {
+    const target = await configTarget(cwd)
     if (!target || !fs) throw new Error('filesystem service unavailable')
     try {
       const stat = await fs.stat(target)
@@ -1144,10 +1182,73 @@ export function apply(ctx) {
     }
   }
 
-  async function writeConfig(value) {
-    const target = await configTarget()
+  async function writeConfigAt(cwd, value) {
+    const target = await configTarget(cwd)
     if (!target || !fs) throw new Error('filesystem service unavailable')
     await fs.writeText(target, JSON.stringify(value, null, 2) + '\n')
+  }
+
+  const defaultConnectionId = userRoot => `dsh_minio_${createHash('sha256').update(resolve(userRoot)).digest('hex').slice(0, 24)}`
+
+  function defaultMinioConnection(userRoot) {
+    if (!minioConfig || !userRoot) return undefined
+    return {
+      id: defaultConnectionId(userRoot),
+      name: 'CodeSentry MinIO',
+      type: 's3',
+      host: minioConfig.host,
+      port: minioConfig.port,
+      username: '',
+      database: '',
+      authMode: 'password',
+      scope: 'user-global',
+      options: {
+        endpoint: minioConfig.endpoint,
+        region: minioConfig.region,
+        bucket: minioConfig.bucket,
+        scheme: minioConfig.scheme,
+        proxy: { type: 'none' },
+      },
+    }
+  }
+
+  function mergeConnections(globalConfig, localConfig, userRoot) {
+    const defaultId = defaultConnectionId(userRoot || '')
+    const merged = new Map()
+    for (const item of globalConfig?.connections || []) merged.set(item.id, item)
+    for (const item of localConfig?.connections || []) {
+      if (item.id !== defaultId) merged.set(item.id, item)
+    }
+    return [...merged.values()]
+  }
+
+  async function ensureDefaultMinio(userRoot) {
+    const connection = defaultMinioConnection(userRoot)
+    if (!connection) return
+    const operation = defaultConnectionMutation.catch(() => {}).then(async () => {
+      const config = await readConfigAt(userRoot)
+      const index = config.connections.findIndex(item => item.id === connection.id)
+      if (index < 0) config.connections.push(connection)
+      else config.connections[index] = { ...connection, ...config.connections[index], options: connection.options, scope: 'user-global' }
+      await writeConfigAt(userRoot, config)
+      await setSecrets(connection.id, {
+        accessKey: minioConfig.accessKey,
+        secretKey: minioConfig.secretKey,
+        ...(minioConfig.token ? { token: minioConfig.token } : {}),
+      })
+    })
+    defaultConnectionMutation = operation.catch(() => {})
+    return operation
+  }
+
+  async function readConfig(cwd = workspaceRoot, principal, ensureDefault = true) {
+    const userRoot = userRootFor(cwd, principal)
+    if (!userRoot) return readConfigAt(cwd)
+    if (ensureDefault) await ensureDefaultMinio(userRoot)
+    const globalConfig = await readConfigAt(userRoot)
+    const currentCwd = resolve(String(cwd || workspaceRoot))
+    const localConfig = currentCwd === userRoot ? globalConfig : await readConfigAt(currentCwd)
+    return { ...localConfig, connections: mergeConnections(globalConfig, localConfig, userRoot) }
   }
 
   async function readSecrets(id) {
@@ -1209,10 +1310,10 @@ export function apply(ctx) {
   }
 
   async function publicConnection(connection) {
-    const secrets = {}
-    for (const field of SECRET_FIELDS) {
-      try { secrets[field] = Boolean((await resolveSecret(connection.id, field))?.value) } catch { secrets[field] = false }
-    }
+    const entries = await Promise.all(SECRET_FIELDS.map(async field => {
+      try { return [field, Boolean((await resolveSecret(connection.id, field))?.value)] } catch { return [field, false] }
+    }))
+    const secrets = Object.fromEntries(entries)
     return {
       id: connection.id,
       name: connection.name,
@@ -1299,8 +1400,13 @@ export function apply(ctx) {
     throw new Error('不支持的 SSH 终端操作')
   }
 
-  async function execConnection(args) {
-    const cfg = await readConfig()
+  function executionCwd(exec) {
+    const cwd = exec?.agent?.session?.header?.cwd
+    return typeof cwd === 'string' && cwd ? cwd : workspaceRoot
+  }
+
+  async function execConnection(args, cwd = workspaceRoot, principal) {
+    const cfg = await readConfig(cwd, principal)
     const connection = cfg.connections.find(item => item.id === args.id)
     if (!connection) throw new Error('连接不存在')
     const secrets = await readSecrets(connection.id)
@@ -1350,11 +1456,12 @@ export function apply(ctx) {
       },
       async execute(args, exec) {
         if (exec.signal.aborted) throw new Error('服务操作已取消')
-        const config = await readConfig()
+        const cwd = executionCwd(exec)
+        const config = await readConfig(cwd)
         const connection = resolveConnectionReference(config, args.server)
         if (!SERVICE_TOOL_OPERATION_SET.has(args.operation)) throw new Error(`不支持的服务操作: ${args.operation}`)
         const params = args.params && typeof args.params === 'object' ? args.params : {}
-        const result = canonicalToolValue(await execConnection({ id: connection.id, params: { ...params, op: args.operation } }))
+        const result = canonicalToolValue(await execConnection({ id: connection.id, params: { ...params, op: args.operation } }, cwd))
         if (exec.signal.aborted) throw new Error('服务操作已取消')
         return result
       },
@@ -1371,15 +1478,18 @@ export function apply(ctx) {
     if (!loopbackRequest(req)) return json(res, 403, { ok: false, error: '服务管理接口只接受本机请求' })
     if (req.method !== 'POST') return json(res, 405, { ok: false, error: '仅支持 POST' })
     try {
+      const principal = dshAuth?.authenticateRequest ? await dshAuth.authenticateRequest(req) : undefined
+      if (dshAuth && !principal) return json(res, 401, { ok: false, error: 'authentication required' })
+      const cwd = principal?.workspaceRoot || workspaceRoot
       const args = await readJson(req)
       const op = String(args.op || '')
       if (op === 'list') {
-        const cfg = await readConfig()
+        const cfg = await readConfig(cwd, principal)
         return json(res, 200, { ok: true, connections: await Promise.all(cfg.connections.map(publicConnection)) })
       }
       if (op === 'reference') {
         const id = cleanString(args.id, 128)
-        const cfg = await readConfig()
+        const cfg = await readConfig(cwd, principal)
         const connection = cfg.connections.find(item => item.id === id)
         if (!connection) throw new Error('连接不存在')
         return json(res, 200, { ok: true, connection: referenceConnection(connection) })
@@ -1388,15 +1498,20 @@ export function apply(ctx) {
       if (op === 'capabilities') return json(res, 200, { ok: true, implementation: 'node-sdk', available: Object.fromEntries(Object.keys(TYPES).map(type => [type, true])) })
       if (op === 'save') {
         const result = await withConfigMutation(async () => {
-          const cfg = await readConfig()
+          const cfg = await readConfig(cwd, principal, false)
           const old = cfg.connections.find(item => item.id === args.connection?.id)
           const connection = validateConnection(args.connection || {}, old || {})
           if (!connection.id) connection.id = `srv_${Date.now().toString(36)}_${randomInt(1000, 9999)}`
-          const index = cfg.connections.findIndex(item => item.id === connection.id)
-          if (index >= 0) cfg.connections[index] = connection
-          else cfg.connections.push(connection)
+          const userRoot = userRootFor(cwd, principal)
+          const isGlobal = Boolean(userRoot && connection.id === defaultConnectionId(userRoot))
+          if (isGlobal) connection.scope = 'user-global'
+          const targetCwd = isGlobal ? userRoot : cwd
+          const targetConfig = await readConfigAt(targetCwd)
+          const index = targetConfig.connections.findIndex(item => item.id === connection.id)
+          if (index >= 0) targetConfig.connections[index] = connection
+          else targetConfig.connections.push(connection)
           closeSshSftpSessions(sshSftpCache, connection.id)
-          await writeConfig(cfg)
+          await writeConfigAt(targetCwd, targetConfig)
           const warnings = await setSecrets(connection.id, args.secrets)
           return { connection: await publicConnection(connection), warnings }
         })
@@ -1405,9 +1520,11 @@ export function apply(ctx) {
       if (op === 'delete') {
         await withConfigMutation(async () => {
           const id = cleanString(args.id, 128)
-          const cfg = await readConfig()
-          cfg.connections = cfg.connections.filter(item => item.id !== id)
-          await writeConfig(cfg)
+          const userRoot = userRootFor(cwd, principal)
+          if (userRoot && id === defaultConnectionId(userRoot)) throw new Error('用户默认 MinIO 连接不可删除')
+          const targetConfig = await readConfigAt(cwd)
+          targetConfig.connections = targetConfig.connections.filter(item => item.id !== id)
+          await writeConfigAt(cwd, targetConfig)
           await setSecrets(id, Object.fromEntries(SECRET_FIELDS.map(field => [field, ''])))
           await closeConnectionTerminals(id)
           closeSshSftpSessions(sshSftpCache, id)
@@ -1415,7 +1532,7 @@ export function apply(ctx) {
         return json(res, 200, { ok: true })
       }
       if (op === 'disconnect') return json(res, 200, { ok: true })
-      if (op === 'exec') return json(res, 200, await execConnection(args))
+      if (op === 'exec') return json(res, 200, await execConnection(args, cwd, principal))
       return json(res, 400, { ok: false, error: '未知操作' })
     } catch (error) { return json(res, 400, { ok: false, error: error?.message || String(error) }) }
   }

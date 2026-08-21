@@ -2399,6 +2399,22 @@ function buildApi(ctx, ptyManager, agentPtyRegistry, resolved, getSettings) {
 		};
 	};
 	const jobsApi = buildJobsApi(ctx, resolved.readLimit);
+	const treeCache = new Map();
+	const treeInFlight = new Map();
+	const treeCacheTtl = 750;
+	const treeFor = async (sessionId, path, limit) => {
+		const key = `${sessionId}\0${path}\0${limit}`;
+		const cached = treeCache.get(key);
+		if (cached && cached.expiresAt > Date.now()) return cached.value;
+		if (treeInFlight.has(key)) return treeInFlight.get(key);
+		const request = listDirectory(path, limit).then(value => {
+			treeCache.set(key, { value, expiresAt: Date.now() + treeCacheTtl });
+			if (treeCache.size > 256) treeCache.delete(treeCache.keys().next().value);
+			return value;
+		}).finally(() => treeInFlight.delete(key));
+		treeInFlight.set(key, request);
+		return request;
+	};
 	return {
 		"session.cwd": (payload) => {
 			const { sessionId, cwd } = cwdOf(payload);
@@ -2411,7 +2427,8 @@ function buildApi(ctx, ptyManager, agentPtyRegistry, resolved, getSettings) {
 		},
 		"fs.tree": async (payload) => {
 			const { cwd } = cwdOf(payload);
-			return listDirectory(payload.path === void 0 ? cwd : requireAbsolute(requireString(payload, "path")), resolved.listLimit);
+			const path = payload.path === void 0 ? cwd : requireAbsolute(requireString(payload, "path"));
+			return treeFor(payload.sessionId, path, resolved.listLimit);
 		},
 		"fs.read": async (payload) => {
 			const { cwd } = cwdOf(payload);
@@ -2437,6 +2454,7 @@ function buildApi(ctx, ptyManager, agentPtyRegistry, resolved, getSettings) {
 				await mkdir(dirname(path), { recursive: true });
 				await writeFile(tmp, content, "utf8");
 				await rename(tmp, path);
+				treeCache.clear();
 			} catch (error) {
 				await rm(tmp, { force: true }).catch(() => {});
 				throw new SidebarError("fs-error", `cannot write "${path}": ${error instanceof Error ? error.message : String(error)}`, 400);
