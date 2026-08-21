@@ -21,7 +21,7 @@
 
       const CSS = `
 .dsec-view{display:flex;flex-direction:column;width:100%;max-width:100%;min-width:0;min-height:0;overflow:hidden;color:var(--dsw-alias-label-primary,#25282d);font-size:12px;background:var(--dsw-alias-bg-layer-1,#fff)}
-.dsec-view *{box-sizing:border-box;min-width:0}.dsec-head{display:flex;align-items:center;gap:8px;width:100%;min-width:0;padding:11px 14px;border-bottom:1px solid var(--dsw-alias-border-l1,#e5e7eb);flex:0 0 auto;flex-wrap:wrap}.dsec-title{font-weight:650;min-width:0;flex:1 1 140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dsec-meta{min-width:0;color:var(--dsw-alias-label-tertiary,#969da7);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dsec-body{display:flex;width:100%;max-width:100%;min-width:0;min-height:0;overflow:auto;overflow-x:hidden;flex:1;flex-direction:column;gap:9px;padding:12px 14px}.dsec-btn{flex:0 0 auto;border:1px solid var(--dsw-alias-border-l2,#d8dce2);border-radius:6px;padding:5px 9px;background:var(--dsw-alias-bg-layer-1,#fff);color:inherit;cursor:pointer;font:inherit;font-size:11px}.dsec-btn:hover{background:var(--dsw-alias-bg-layer-2,#f1f3f6)}.dsec-btn:disabled{opacity:.5;cursor:default}.dsec-warning,.dsec-error{max-width:100%;padding:9px 10px;border-radius:6px;line-height:1.5;overflow-wrap:anywhere}.dsec-warning{background:#fff8e6;color:#8a621c}.dsec-error{background:#fff0f0;color:#bd4747}.dsec-list{display:flex;flex-direction:column;gap:5px;width:100%;max-width:100%;min-height:0;overflow:auto;overflow-x:hidden}.dsec-flow{display:grid;width:100%;max-width:100%;min-width:0;grid-template-columns:48px 54px minmax(0,1fr) auto;gap:7px;align-items:center;text-align:left;padding:7px 8px;border:1px solid var(--dsw-alias-border-l1,#e5e7eb);border-radius:6px;background:transparent;color:inherit;cursor:pointer;font:inherit}.dsec-flow:hover,.dsec-flow.active{background:var(--dsw-alias-bg-layer-2,#f1f3f6)}.dsec-flow-url{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dsec-flow-meta{min-width:72px;text-align:right;color:var(--dsw-alias-label-tertiary,#969da7);font-size:10px;white-space:nowrap}.dsec-pass{color:#32864b}.dsec-fail{color:#c04b4b}.dsec-detail{display:grid;width:100%;max-width:100%;min-width:0;grid-template-columns:minmax(0,1fr);gap:9px}.dsec-card{min-width:0;border:1px solid var(--dsw-alias-border-l1,#e5e7eb);border-radius:6px;overflow:hidden}.dsec-card-title{padding:7px 9px;background:var(--dsw-alias-bg-layer-2,#f5f6f8);font-weight:600}.dsec-pre{width:100%;max-width:100%;margin:0;padding:9px;max-height:290px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;font:10px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}.dsec-report{width:100%;max-width:100%;min-width:0;padding:2px 0 14px;overflow-wrap:anywhere}.dsec-report-head{display:flex;align-items:center;gap:8px;min-width:0}.dsec-report-title{font-weight:650;min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dsec-markdown{width:100%;max-width:100%;min-width:0;padding-top:6px;overflow-wrap:anywhere}.dsec-markdown :where(pre,table){display:block;max-width:100%;overflow:auto}.dsec-markdown :where(img,video){max-width:100%;height:auto}.dsec-markdown :where(code,a){overflow-wrap:anywhere}.dsec-report-list{width:100%;max-width:100%;min-width:0}.dsec-empty{max-width:100%;color:var(--dsw-alias-label-tertiary,#969da7);overflow-wrap:anywhere}
+.dsec-view *{box-sizing:border-box;min-width:0}.dsec-head{display:flex;align-items:center;gap:8px;width:100%;min-width:0;padding:11px 14px;border-bottom:1px solid var(--dsw-alias-border-l1,#e5e7eb);flex:0 0 auto;flex-wrap:wrap}.dsec-title{font-weight:650;min-width:0;flex:1 1 140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dsec-meta{min-width:0;color:var(--dsw-alias-label-tertiary,#969da7);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dsec-body{display:flex;width:100%;max-width:100%;min-width:0;min-height:0;overflow:auto;overflow-x:hidden;flex:1;flex-direction:column;gap:9px;padding:12px 14px}.dsec-btn{flex:0 0 auto;border:1px solid var(--dsw-alias-border-l2,#d8dce2);border-radius:6px;padding:5px 9px;background:var(--dsw-alias-bg-layer-1,#fff);color:inherit;cursor:pointer;font:inherit;font-size:11px}.dsec-btn:hover{background:var(--dsw-alias-bg-layer-2,#f1f3f6)}.dsec-btn:disabled{opacity:.5;cursor:default}.dsec-warning,.dsec-error{max-width:100%;padding:9px 10px;border-radius:6px;line-height:1.5;overflow-wrap:anywhere}.dsec-warning{background:#fff8e6;color:#8a621c}.dsec-error{background:#fff0f0;color:#bd4747}.dsec-list{display:flex;flex-direction:column;gap:5px;width:100%;max-width:100%;min-height:0;overflow:auto;overflow-x:hidden}.dsec-flow{display:grid;width:100%;max-width:100%;min-width:0;grid-template-columns:48px 54px 92px minmax(0,1fr) auto;gap:7px;align-items:center;text-align:left;padding:7px 8px;border:1px solid var(--dsw-alias-border-l1,#e5e7eb);border-radius:6px;background:transparent;color:inherit;cursor:pointer;font:inherit}.dsec-flow:hover,.dsec-flow.active{background:var(--dsw-alias-bg-layer-2,#f1f3f6)}.dsec-flow-url{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dsec-flow-phase{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#55738c;font-size:10px}.dsec-flow-meta{min-width:72px;text-align:right;color:var(--dsw-alias-label-tertiary,#969da7);font-size:10px;white-space:nowrap}.dsec-pass{color:#32864b}.dsec-fail{color:#c04b4b}.dsec-detail{display:grid;width:100%;max-width:100%;min-width:0;grid-template-columns:minmax(0,1fr);gap:9px}.dsec-card{min-width:0;border:1px solid var(--dsw-alias-border-l1,#e5e7eb);border-radius:6px;overflow:hidden}.dsec-card-title{padding:7px 9px;background:var(--dsw-alias-bg-layer-2,#f5f6f8);font-weight:600}.dsec-pre{width:100%;max-width:100%;margin:0;padding:9px;max-height:290px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;font:10px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}.dsec-report{width:100%;max-width:100%;min-width:0;padding:2px 0 14px;overflow-wrap:anywhere}.dsec-report-head{display:flex;align-items:center;gap:8px;min-width:0}.dsec-report-title{font-weight:650;min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dsec-markdown{width:100%;max-width:100%;min-width:0;padding-top:6px;overflow-wrap:anywhere}.dsec-markdown :where(pre,table){display:block;max-width:100%;overflow:auto}.dsec-markdown :where(img,video){max-width:100%;height:auto}.dsec-markdown :where(code,a){overflow-wrap:anywhere}.dsec-report-list{width:100%;max-width:100%;min-width:0}.dsec-empty{max-width:100%;color:var(--dsw-alias-label-tertiary,#969da7);overflow-wrap:anywhere}
 @media (min-width:800px){.dsec-detail{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.dsec-body{overflow:hidden}.dsec-report-list{overflow:auto}}.dsec-mode{display:inline-flex;align-items:center;gap:5px;max-width:280px;padding:3px 8px;border:1px solid var(--dsw-alias-border-l1,#e5e7eb);border-radius:999px;color:var(--dsw-alias-label-secondary,#5f6670);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dsec-mode-pentest{border-color:#f0c36a;background:#fff8e6;color:#8a621c}.dsec-mode-audit{border-color:#a9c7f4;background:#f1f6ff;color:#275c9e}.dsec-mode-standard{background:var(--dsw-alias-bg-layer-2,#f5f6f8)}.dsec-mode-name{overflow:hidden;text-overflow:ellipsis}.dsec-mode-policy{color:var(--dsw-alias-label-tertiary,#969da7);font-size:10px}
 @media (max-width:560px){.dsec-head{align-items:flex-start}.dsec-title{flex-basis:calc(100% - 92px)}.dsec-meta{order:3;flex:1 1 100%;white-space:normal}.dsec-flow{grid-template-columns:42px 48px minmax(0,1fr)}.dsec-flow-meta{grid-column:2 / -1;min-width:0;text-align:left}}.dsec-api-toolbar{display:flex;align-items:center;gap:8px;width:100%;min-width:0}.dsec-api-search{width:min(320px,100%);height:34px;padding:7px 10px;border:1px solid #cfe0f1;border-radius:6px;background:#fff;color:inherit;font:inherit;outline:none}.dsec-api-search:focus{border-color:#6aa7df;box-shadow:0 0 0 2px rgba(73,145,214,.12)}.dsec-api-scroll{flex:1;min-height:0;width:100%;overflow:auto;padding-bottom:2px}.dsec-api-grid{display:grid;grid-template-columns:90px minmax(210px,1.6fr) 130px 72px 110px 170px 100px minmax(190px,1.4fr) 130px;min-width:1180px;border:1px solid #dbe8f4;border-radius:7px;overflow:hidden;background:#fff}.dsec-api-cell{min-height:50px;padding:10px 9px;border-bottom:1px solid #e7eef6;overflow:hidden;text-overflow:ellipsis;white-space:normal;display:flex;align-items:center;gap:5px}.dsec-api-head{position:sticky;top:0;z-index:1;background:#f1f6fb;color:#315b7e;font-weight:650;min-height:36px;white-space:nowrap}.dsec-api-row{display:contents}.dsec-api-row:last-child .dsec-api-cell{border-bottom:0}.dsec-api-row:hover .dsec-api-cell{background:#f8fbfe}.dsec-api-button{width:100%;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;font:inherit}.dsec-api-button:hover{background:#f2f8fd}.dsec-api-primary{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dsec-api-secondary{display:block;min-width:0;color:var(--dsw-alias-label-tertiary,#8a96a3);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dsec-api-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#183452}.dsec-tags{display:flex;flex-wrap:wrap;gap:4px;min-width:0}.dsec-tag{padding:2px 5px;border-radius:4px;background:var(--dsw-alias-bg-layer-2,#f1f3f6);font-size:10px}.dsec-badge{display:inline-flex;align-items:center;max-width:100%;padding:3px 7px;border-radius:999px;font-size:10px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dsec-badge-good{background:#e5f7ed;color:#21854d}.dsec-badge-warn{background:#fff3db;color:#a66b13}.dsec-badge-risk{background:#fff0f0;color:#c94545}.dsec-badge-neutral{background:#edf1f5;color:#647181}.dsec-api-risk-cell{align-items:flex-start;flex-wrap:wrap}.dsec-summary{display:flex;flex-wrap:wrap;gap:6px}.dsec-summary-card{min-width:78px;padding:8px;border:1px solid var(--dsw-alias-border-l1,#e5e7eb);border-radius:6px;background:var(--dsw-alias-bg-layer-1,#fff)}.dsec-summary-number{display:block;font-size:16px;font-weight:650}.dsec-summary-label{color:var(--dsw-alias-label-tertiary,#969da7);font-size:10px}.dsec-finding{padding:9px 0;border-bottom:1px solid var(--dsw-alias-border-l1,#e5e7eb)}.dsec-finding:last-child{border-bottom:0}.dsec-finding-title{font-weight:650}.dsec-finding-meta{color:var(--dsw-alias-label-tertiary,#969da7);font-size:11px}.dsec-code-report{display:flex;flex-direction:column;gap:10px}
  .dsec-understanding{display:flex;flex-direction:column;gap:10px;padding:12px;border:1px solid #cfe1f5;border-radius:10px;background:linear-gradient(135deg,#fbfdff,#f4f9ff)}.dsec-eyebrow{color:#1769c2;font-size:10px;font-weight:700;letter-spacing:.16em}.dsec-section-title{font-size:16px;font-weight:700}.dsec-section-subtitle{color:#6f87a2;line-height:1.5}.dsec-understanding-summary{padding:9px 10px;border-radius:7px;background:#eef7ff;color:#496783;line-height:1.55}.dsec-understanding-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.dsec-understanding-card{min-width:0;padding:10px;border:1px solid #d5e4f3;border-radius:7px;background:rgba(255,255,255,.8)}.dsec-understanding-card-title{font-weight:650;margin-bottom:6px;color:#2d587e}.dsec-understanding-list{margin:0;padding-left:17px;color:#526b84;line-height:1.55}.dsec-understanding-list li{overflow-wrap:anywhere}.dsec-stack{padding-top:4px}.dsec-stack-title{font-weight:650;margin-bottom:7px}.dsec-stack-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.dsec-stack-card{min-width:0;border:1px solid #d5e4f3;border-top:3px solid #4d9ce8;border-radius:7px;background:#fff;overflow:hidden}.dsec-stack-card-title{padding:8px 9px;font-weight:650;background:#f4f9ff}.dsec-stack-row{display:grid;grid-template-columns:minmax(72px,.7fr) minmax(0,1.3fr);gap:8px;padding:7px 9px;border-top:1px solid #e7eef6;color:#526b84}.dsec-stack-row span:first-child{color:#89a0b7}.dsec-stack-row span:last-child{overflow-wrap:anywhere}@media (max-width:800px){.dsec-understanding-grid,.dsec-stack-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media (max-width:560px){.dsec-understanding-grid,.dsec-stack-grid{grid-template-columns:minmax(0,1fr)}}
@@ -42,7 +42,7 @@
         // report data or the severity-specific border colors. The direct
         // child selector intentionally excludes the API coverage cards that
         // also use dsec-report-content.
-        style.textContent += '.dsec-report-content > .dsec-finding{margin-top:16px;padding:14px 0}.dsec-report-content > .dsec-finding:first-child{margin-top:0}.dsec-report-content > .dsec-finding:last-child{border-bottom:0}@media (max-width:650px){.dsec-report-content > .dsec-finding{margin-top:12px;padding:12px 0}}'
+        style.textContent += '.dsec-report-content > .dsec-finding{margin-top:16px;padding:14px 0}.dsec-report-content > .dsec-finding:first-child{margin-top:0}.dsec-report-content > .dsec-finding:last-child{border-bottom:0}.dsec-detail-loading{padding:18px 0;color:#55738c;animation:dsec-loading-pulse 1.4s ease-in-out infinite}@keyframes dsec-loading-pulse{0%,100%{opacity:.55}50%{opacity:1}}@media (max-width:650px){.dsec-report-content > .dsec-finding{margin-top:12px;padding:12px 0}}'
         style.textContent += '.dsec-api-pagination{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:4px 0 2px}.dsec-api-pagination-status{min-width:64px;color:#718499;font-size:12px;text-align:center}'
         document.head.appendChild(style)
         return () => style.remove()
@@ -75,6 +75,10 @@
         }
         if (!response.ok || result.ok === false) throw new Error(result.error || `请求失败 (${response.status})`)
         return result
+      }
+
+      function isAbortError(cause) {
+        return cause?.name === 'AbortError' || /请求已取消|The operation was aborted/i.test(String(cause?.message || ''))
       }
 
       function rowPreset(row) {
@@ -223,11 +227,12 @@
 
       function RequestDetail(props) {
         if (!props.flow) return h('div', { className: 'dsec-empty' }, '选择一条记录查看请求包和响应包。')
+        if (props.loading) return h('div', { className: 'dsec-empty dsec-detail-loading' }, `正在加载 ${props.flow.target || '请求'} 的完整请求包和响应包…`)
         const risk = props.flow.riskAssessment
         return h('div', { className: 'dsec-detail' },
           h('section', { className: 'dsec-card' }, h('div', { className: 'dsec-card-title' }, '请求包'), h('pre', { className: 'dsec-pre' }, props.flow.requestPacket || '')),
           h('section', { className: 'dsec-card' }, h('div', { className: 'dsec-card-title' }, '响应包'), h('pre', { className: 'dsec-pre' }, props.flow.responsePacket || props.flow.error || '无响应包')),
-          risk ? h('section', { className: 'dsec-card' }, h('div', { className: 'dsec-card-title' }, '发送前风险评估'), h('pre', { className: 'dsec-pre' }, JSON.stringify({ ...risk, approvalScope: props.flow.approvalScope || null, requestFingerprint: props.flow.requestFingerprint || null }, null, 2))) : null,
+          risk ? h('section', { className: 'dsec-card' }, h('div', { className: 'dsec-card-title' }, '发送前风险评估'), h('pre', { className: 'dsec-pre' }, JSON.stringify({ probePhase: props.flow.probePhase || props.flow.request?.probePhase || 'reconnaissance', ...risk, approvalScope: props.flow.approvalScope || null, requestFingerprint: props.flow.requestFingerprint || null }, null, 2))) : null,
         )
       }
 
@@ -255,14 +260,14 @@
       }
 
       function historyStatusLabel(flow) {
-        if (flow?.response?.truncated) return '截断'
+        if (flow?.truncated || flow?.response?.truncated) return '截断'
         const status = historyStatus(flow)
         return status == null ? 'ERR' : String(status)
       }
 
       function historyStatusClass(flow) {
         const status = historyStatus(flow)
-        return flow?.error || flow?.response?.truncated || (status != null && status >= 400) ? 'dsec-fail' : 'dsec-pass'
+        return flow?.error || flow?.truncated || flow?.response?.truncated || (status != null && status >= 400) ? 'dsec-fail' : 'dsec-pass'
       }
 
       function SecurityHistoryView(props) {
@@ -271,6 +276,7 @@
         const security = true
         const [history, setHistory] = React.useState([])
         const [selected, setSelected] = React.useState(null)
+        const [detailLoading, setDetailLoading] = React.useState(false)
         const [error, setError] = React.useState('')
         const [hasMore, setHasMore] = React.useState(false)
         const [nextCursor, setNextCursor] = React.useState(null)
@@ -278,43 +284,73 @@
         const loadedMore = React.useRef(false)
         const requestInFlight = React.useRef(false)
         const requestGeneration = React.useRef(0)
+        const requestAbort = React.useRef(null)
+        const detailGeneration = React.useRef(0)
+        const detailAbort = React.useRef(null)
         const refresh = React.useCallback(async () => {
           if (!security || requestInFlight.current) return
+          if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
           const generation = ++requestGeneration.current
+          const controller = new AbortController()
+          requestAbort.current?.abort()
+          requestAbort.current = controller
           requestInFlight.current = true
           setLoading(true)
           try {
-            const result = await api(`history?sessionId=${encodeURIComponent(props.sessionId)}&limit=100`)
+            const result = await api(`history?sessionId=${encodeURIComponent(props.sessionId)}&limit=100&summary=1`, { signal: controller.signal })
             if (generation !== requestGeneration.current) return
             setHistory(previous => loadedMore.current ? mergeRows(result.history || [], previous) : (result.history || []))
             setHasMore(Boolean(result.hasMore))
             setNextCursor(result.nextCursor || null)
             setError('')
-          } catch (cause) { if (generation === requestGeneration.current) setError(cause?.message || String(cause)) } finally { if (generation === requestGeneration.current) { requestInFlight.current = false; setLoading(false) } }
+          } catch (cause) { if (generation === requestGeneration.current && !isAbortError(cause)) setError(cause?.message || String(cause)) } finally { if (requestAbort.current === controller) requestAbort.current = null; if (generation === requestGeneration.current) { requestInFlight.current = false; setLoading(false) } }
         }, [security, props.sessionId])
         React.useEffect(() => {
           requestGeneration.current += 1
+          requestAbort.current?.abort()
+          detailAbort.current?.abort()
+          detailGeneration.current += 1
           requestInFlight.current = false
           loadedMore.current = false
-          setHistory([]); setSelected(null); setHasMore(false); setNextCursor(null); setError('')
+          setHistory([]); setSelected(null); setDetailLoading(false); setHasMore(false); setNextCursor(null); setError('')
           void refresh()
           if (!security) return undefined
-          const timer = window.setInterval(refresh, 1500)
-          return () => { window.clearInterval(timer); requestGeneration.current += 1; requestInFlight.current = false }
+          const timer = window.setInterval(refresh, 3500)
+          return () => { window.clearInterval(timer); requestGeneration.current += 1; requestAbort.current?.abort(); detailAbort.current?.abort(); detailGeneration.current += 1; requestInFlight.current = false }
         }, [refresh, security])
         const loadMore = async () => {
           if (!security || requestInFlight.current || loading || !hasMore) return
           requestInFlight.current = true
           setLoading(true)
           const generation = requestGeneration.current
+          const controller = new AbortController()
+          requestAbort.current?.abort()
+          requestAbort.current = controller
           try {
-            const result = await api(`history?sessionId=${encodeURIComponent(props.sessionId)}&limit=100${nextCursor ? `&cursor=${encodeURIComponent(nextCursor)}` : ''}`)
+            const result = await api(`history?sessionId=${encodeURIComponent(props.sessionId)}&limit=100&summary=1${nextCursor ? `&cursor=${encodeURIComponent(nextCursor)}` : ''}`, { signal: controller.signal })
             if (generation !== requestGeneration.current) return
             setHistory(previous => mergeRows(previous, result.history || []))
             setHasMore(Boolean(result.hasMore))
             setNextCursor(result.nextCursor || null)
             loadedMore.current = true
-          } catch (cause) { if (requestGeneration.current === generation) setError(cause?.message || String(cause)) } finally { if (requestGeneration.current === generation) { requestInFlight.current = false; setLoading(false) } }
+          } catch (cause) { if (requestGeneration.current === generation && !isAbortError(cause)) setError(cause?.message || String(cause)) } finally { if (requestAbort.current === controller) requestAbort.current = null; if (requestGeneration.current === generation) { requestInFlight.current = false; setLoading(false) } }
+        }
+        const selectFlow = async flow => {
+          const generation = ++detailGeneration.current
+          detailAbort.current?.abort()
+          const controller = new AbortController()
+          detailAbort.current = controller
+          setSelected(flow)
+          setDetailLoading(true)
+          try {
+            const result = await api(`history/detail?sessionId=${encodeURIComponent(props.sessionId)}&id=${encodeURIComponent(flow.id)}`, { signal: controller.signal })
+            if (generation === detailGeneration.current) setSelected(result.history || flow)
+          } catch (cause) {
+            if (generation === detailGeneration.current && !isAbortError(cause)) setError(cause?.message || String(cause))
+          } finally {
+            if (detailAbort.current === controller) detailAbort.current = null
+            if (generation === detailGeneration.current) setDetailLoading(false)
+          }
         }
         const clear = async () => {
           if (typeof window !== 'undefined' && !window.confirm('确定清空当前安全会话的全部请求历史、结构化记录和报告吗？此操作不可撤销。')) return
@@ -322,12 +358,12 @@
         }
         if (!security) return h('section', { className: 'dsec-view' }, h('header', { className: 'dsec-head' }, h('span', { className: 'dsec-title' }, '历史记录')), h('div', { className: 'dsec-body' }, h(SecurityOnly)))
         return h('section', { className: 'dsec-view' },
-          h('header', { className: 'dsec-head' }, h('span', { className: 'dsec-title' }, '请求历史'), h('span', { className: 'dsec-meta' }, `${history.length} 条 · HTTP / HTTPS / WebSocket`), h('button', { className: 'dsec-btn', onClick: refresh }, '刷新'), h('button', { className: 'dsec-btn', onClick: clear, disabled: loading }, '清空')),
+          h('header', { className: 'dsec-head' }, h('span', { className: 'dsec-title' }, '请求历史'), h('span', { className: 'dsec-meta' }, `${history.length} 条 · HTTP / HTTPS / WebSocket`), h('button', { className: 'dsec-btn', onClick: refresh, disabled: loading }, loading ? '加载中…' : '刷新'), h('button', { className: 'dsec-btn', onClick: clear, disabled: loading }, '清空')),
           h('div', { className: 'dsec-body' },
             error ? h('div', { className: 'dsec-error' }, error) : null,
-            h('div', { className: 'dsec-list' }, history.length ? history.map(flow => h('button', { key: flow.id, className: 'dsec-flow' + (selected?.id === flow.id ? ' active' : ''), onClick: () => setSelected(flow) }, h('span', null, flow.protocol.toUpperCase()), h('span', { className: historyStatusClass(flow) }, historyStatusLabel(flow)), h('span', { className: 'dsec-flow-url', title: flow.target }, flow.target), h('span', { className: 'dsec-flow-meta' }, `${flow.durationMs || 0} ms`))) : h('div', { className: 'dsec-empty' }, '尚未记录渗透模式发起的请求。')),
+            h('div', { className: 'dsec-list' }, history.length ? history.map(flow => h('button', { key: flow.id, className: 'dsec-flow' + (selected?.id === flow.id ? ' active' : ''), onClick: () => selectFlow(flow) }, h('span', null, String(flow.protocol || 'http').toUpperCase()), h('span', { className: historyStatusClass(flow) }, historyStatusLabel(flow)), h('span', { className: 'dsec-flow-phase', title: `探测阶段：${flow.probePhase || 'reconnaissance'}` }, flow.probePhase || 'reconnaissance'), h('span', { className: 'dsec-flow-url', title: flow.target }, flow.target), h('span', { className: 'dsec-flow-meta' }, `${flow.durationMs || 0} ms`))) : h('div', { className: 'dsec-empty' }, '尚未记录渗透模式发起的请求。')),
             hasMore ? h('button', { className: 'dsec-btn', onClick: loadMore, disabled: loading }, loading ? '加载中…' : '加载更早记录') : null,
-            h(RequestDetail, { flow: selected }),
+            h(RequestDetail, { flow: selected, loading: detailLoading }),
           ),
         )
       }
@@ -343,27 +379,36 @@
         const loadedMore = React.useRef(false)
         const requestInFlight = React.useRef(false)
         const requestGeneration = React.useRef(0)
+        const requestAbort = React.useRef(null)
+        const latestUpdated = React.useRef('')
         const refresh = React.useCallback(async () => {
           if (!security || requestInFlight.current) return
+          if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
           const generation = ++requestGeneration.current
+          const controller = new AbortController()
+          requestAbort.current?.abort()
+          requestAbort.current = controller
           requestInFlight.current = true
           setLoading(true)
-          try { const result = await api(`reports?sessionId=${encodeURIComponent(props.sessionId)}&limit=50`); if (generation !== requestGeneration.current) return; setReports(previous => loadedMore.current ? mergeRows(result.reports || [], previous, 'key') : (result.reports || [])); setHasMore(Boolean(result.hasMore)); setNextCursor(result.nextCursor || null); setError('') } catch (cause) { if (generation === requestGeneration.current) setError(cause?.message || String(cause)) } finally { if (generation === requestGeneration.current) { requestInFlight.current = false; setLoading(false) } }
+          try { const since = latestUpdated.current; const result = await api(`reports?sessionId=${encodeURIComponent(props.sessionId)}&limit=50${since ? `&since=${encodeURIComponent(since)}` : ''}`, { signal: controller.signal }); if (generation !== requestGeneration.current) return; const incoming = result.reports || []; setReports(previous => since || loadedMore.current ? mergeRows(incoming, previous, 'key') : incoming); const maxUpdated = incoming.map(item => String(item.updatedAt || '')).filter(Boolean).sort().at(-1); if (maxUpdated && maxUpdated > latestUpdated.current) latestUpdated.current = maxUpdated; setHasMore(Boolean(result.hasMore)); setNextCursor(result.nextCursor || null); setError('') } catch (cause) { if (generation === requestGeneration.current && !isAbortError(cause)) setError(cause?.message || String(cause)) } finally { if (requestAbort.current === controller) requestAbort.current = null; if (generation === requestGeneration.current) { requestInFlight.current = false; setLoading(false) } }
         }, [security, props.sessionId])
         React.useEffect(() => {
-          requestGeneration.current += 1; requestInFlight.current = false; loadedMore.current = false
+          requestGeneration.current += 1; requestInFlight.current = false; loadedMore.current = false; latestUpdated.current = ''
           setReports([]); setHasMore(false); setNextCursor(null); setError('')
           void refresh()
           if (!security) return undefined
-          const timer = window.setInterval(refresh, 1800)
-          return () => { window.clearInterval(timer); requestGeneration.current += 1; requestInFlight.current = false }
+          const timer = window.setInterval(refresh, 4000)
+          return () => { window.clearInterval(timer); requestGeneration.current += 1; requestAbort.current?.abort(); requestInFlight.current = false }
         }, [refresh, security])
         const loadMore = async () => {
           if (!security || requestInFlight.current || loading || !hasMore) return
           requestInFlight.current = true
           setLoading(true)
           const generation = requestGeneration.current
-          try { const result = await api(`reports?sessionId=${encodeURIComponent(props.sessionId)}&limit=50${nextCursor ? `&cursor=${encodeURIComponent(nextCursor)}` : ''}`); if (generation !== requestGeneration.current) return; setReports(previous => mergeRows(previous, result.reports || [], 'key')); setHasMore(Boolean(result.hasMore)); setNextCursor(result.nextCursor || null); loadedMore.current = true } catch (cause) { if (generation === requestGeneration.current) setError(cause?.message || String(cause)) } finally { if (generation === requestGeneration.current) { requestInFlight.current = false; setLoading(false) } }
+          const controller = new AbortController()
+          requestAbort.current?.abort()
+          requestAbort.current = controller
+          try { const result = await api(`reports?sessionId=${encodeURIComponent(props.sessionId)}&limit=50${nextCursor ? `&cursor=${encodeURIComponent(nextCursor)}` : ''}`, { signal: controller.signal }); if (generation !== requestGeneration.current) return; setReports(previous => mergeRows(previous, result.reports || [], 'key')); const maxUpdated = (result.reports || []).map(item => String(item.updatedAt || '')).filter(Boolean).sort().at(-1); if (maxUpdated && maxUpdated > latestUpdated.current) latestUpdated.current = maxUpdated; setHasMore(Boolean(result.hasMore)); setNextCursor(result.nextCursor || null); loadedMore.current = true } catch (cause) { if (generation === requestGeneration.current && !isAbortError(cause)) setError(cause?.message || String(cause)) } finally { if (requestAbort.current === controller) requestAbort.current = null; if (generation === requestGeneration.current) { requestInFlight.current = false; setLoading(false) } }
         }
         if (!security) return h('section', { className: 'dsec-view' }, h('header', { className: 'dsec-head' }, h('span', { className: 'dsec-title' }, '报告')), h('div', { className: 'dsec-body' }, h(SecurityOnly)))
         function ReportItem({ report, index }) {
@@ -376,7 +421,7 @@
           )
         }
         return h('section', { className: 'dsec-view' },
-          h('header', { className: 'dsec-head' }, h('span', { className: 'dsec-title' }, '渗透报告'), h('span', { className: 'dsec-meta' }, `${reports.length} 个域名:端口维度`), h('button', { className: 'dsec-btn', onClick: refresh }, '刷新')),
+          h('header', { className: 'dsec-head' }, h('span', { className: 'dsec-title' }, '渗透报告'), h('span', { className: 'dsec-meta' }, `${reports.length} 个域名:端口维度`), h('button', { className: 'dsec-btn', onClick: refresh, disabled: loading }, loading ? '加载中…' : '刷新')),
           h('div', { className: 'dsec-body dsec-report-list' }, error ? h('div', { className: 'dsec-error' }, error) : null, reports.length ? reports.map((report, index) => h(ReportItem, { key: report.key, report, index })) : h('div', { className: 'dsec-empty' }, '尚未提交报告。LLM 可使用 dsh_security_report 按域名:端口持续补充 Markdown 结果。'), hasMore ? h('button', { className: 'dsec-btn', onClick: loadMore, disabled: loading }, loading ? '加载中…' : '加载更多报告') : null),
         )
       }
@@ -393,19 +438,24 @@
         const [totalApis, setTotalApis] = React.useState(0)
         const requestInFlight = React.useRef(false)
         const requestGeneration = React.useRef(0)
+        const requestAbort = React.useRef(null)
         const pageIndexRef = React.useRef(0)
         const pageCursors = React.useRef([''])
         const API_PAGE_SIZE = 20
         const badge = (value, label, tone) => h('span', { className: `dsec-badge dsec-badge-${tone}`, title: value || label }, label)
         const refresh = React.useCallback(async () => {
           if (requestInFlight.current) return
+          if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
           const generation = ++requestGeneration.current
+          const controller = new AbortController()
+          requestAbort.current?.abort()
+          requestAbort.current = controller
           requestInFlight.current = true
           setLoading(true)
           try {
             const [result, state] = await Promise.all([
-              api(`audit/apis?sessionId=${encodeURIComponent(props.sessionId)}&limit=${API_PAGE_SIZE}${pageCursors.current[pageIndexRef.current] ? `&cursor=${encodeURIComponent(pageCursors.current[pageIndexRef.current])}` : ''}`),
-              api(`audit/state?sessionId=${encodeURIComponent(props.sessionId)}`),
+              api(`audit/apis?sessionId=${encodeURIComponent(props.sessionId)}&limit=${API_PAGE_SIZE}${pageCursors.current[pageIndexRef.current] ? `&cursor=${encodeURIComponent(pageCursors.current[pageIndexRef.current])}` : ''}`, { signal: controller.signal }),
+              api(`audit/state?sessionId=${encodeURIComponent(props.sessionId)}`, { signal: controller.signal }),
             ])
             if (generation !== requestGeneration.current) return
             setApis(result.apis || [])
@@ -414,18 +464,18 @@
             setNextCursor(result.nextCursor || null)
             setRun(state.state?.run || null)
             setError('')
-          } catch (cause) { if (generation === requestGeneration.current) setError(cause?.message || String(cause)) } finally { if (generation === requestGeneration.current) { requestInFlight.current = false; setLoading(false) } }
+          } catch (cause) { if (generation === requestGeneration.current && !isAbortError(cause)) setError(cause?.message || String(cause)) } finally { if (requestAbort.current === controller) requestAbort.current = null; if (generation === requestGeneration.current) { requestInFlight.current = false; setLoading(false) } }
         }, [props.sessionId])
         React.useEffect(() => {
           requestGeneration.current += 1; requestInFlight.current = false
           pageIndexRef.current = 0; pageCursors.current = ['']
           setPageIndex(0); setApis([]); setTotalApis(0); setRun(null); setQuery(''); setHasMore(false); setNextCursor(null); setError('')
-          return () => { requestGeneration.current += 1; requestInFlight.current = false }
+          return () => { requestGeneration.current += 1; requestAbort.current?.abort(); requestInFlight.current = false }
         }, [props.sessionId])
         React.useEffect(() => {
           void refresh()
-          const timer = window.setInterval(refresh, 1800)
-          return () => { window.clearInterval(timer); requestGeneration.current += 1; requestInFlight.current = false }
+          const timer = window.setInterval(refresh, 4000)
+          return () => { window.clearInterval(timer); requestGeneration.current += 1; requestAbort.current?.abort(); requestInFlight.current = false }
         }, [refresh, pageIndex])
         const goToPage = nextPage => {
           if (loading || nextPage < 0 || nextPage === pageIndex) return
@@ -433,7 +483,7 @@
             if (!hasMore || !nextCursor) return
             pageCursors.current[nextPage] = nextCursor
           }
-          requestGeneration.current += 1; requestInFlight.current = false
+          requestGeneration.current += 1; requestAbort.current?.abort(); requestInFlight.current = false
           pageIndexRef.current = nextPage; setPageIndex(nextPage); setApis([]); setError('')
         }
         const clear = async () => {
@@ -443,7 +493,7 @@
         const normalizedQuery = query.trim().toLocaleLowerCase()
         const filteredApis = normalizedQuery ? apis.filter(item => [item.method, item.path, item.entryId, item.handler].filter(Boolean).join(' ').toLocaleLowerCase().includes(normalizedQuery)) : apis
         return h('section', { className: 'dsec-view' },
-          h('header', { className: 'dsec-head' }, h('span', { className: 'dsec-title' }, 'API 清单'), h('span', { className: 'dsec-meta' }, `${normalizedQuery ? `${filteredApis.length}/${apis.length} 当前页匹配` : `共 ${totalApis} 个入口`} · 第 ${pageIndex + 1} 页 · 静态提取${run?.language ? ` · ${run.language}` : ''}`), h('button', { className: 'dsec-btn', onClick: refresh }, '刷新'), h('button', { className: 'dsec-btn', onClick: clear, disabled: loading }, '清空')),
+          h('header', { className: 'dsec-head' }, h('span', { className: 'dsec-title' }, 'API 清单'), h('span', { className: 'dsec-meta' }, `${normalizedQuery ? `${filteredApis.length}/${apis.length} 当前页匹配` : `共 ${totalApis} 个入口`} · 第 ${pageIndex + 1} 页 · 静态提取${run?.language ? ` · ${run.language}` : ''}`), h('button', { className: 'dsec-btn', onClick: refresh, disabled: loading }, loading ? '加载中…' : '刷新'), h('button', { className: 'dsec-btn', onClick: clear, disabled: loading }, '清空')),
           h('div', { className: 'dsec-body' }, error ? h('div', { className: 'dsec-error' }, error) : null,
             h('div', { className: 'dsec-api-toolbar' }, h('input', { className: 'dsec-api-search', value: query, onChange: event => setQuery(event.target.value), placeholder: '搜索路径或方法...', 'aria-label': '搜索路径或方法' })),
             filteredApis.length ? h('div', { className: 'dsec-api-scroll' }, h('div', { className: 'dsec-api-grid' },
@@ -474,45 +524,59 @@
         const [loading, setLoading] = React.useState(false)
         const requestInFlight = React.useRef(false)
         const requestGeneration = React.useRef(0)
+        const requestAbort = React.useRef(null)
+        const latestUpdated = React.useRef('')
         const loadedMore = React.useRef(false)
         const refresh = React.useCallback(async () => {
           if (requestInFlight.current) return
+          if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
           const generation = ++requestGeneration.current
+          const controller = new AbortController()
+          requestAbort.current?.abort()
+          requestAbort.current = controller
           requestInFlight.current = true
           setLoading(true)
           try {
             const [result, state] = await Promise.all([
-              api(`audit/reports?sessionId=${encodeURIComponent(props.sessionId)}&limit=50`),
-              api(`audit/state?sessionId=${encodeURIComponent(props.sessionId)}`),
+              api(`audit/reports?sessionId=${encodeURIComponent(props.sessionId)}&limit=50${latestUpdated.current ? `&since=${encodeURIComponent(latestUpdated.current)}` : ''}`, { signal: controller.signal }),
+              api(`audit/state?sessionId=${encodeURIComponent(props.sessionId)}`, { signal: controller.signal }),
             ])
             if (generation !== requestGeneration.current) return
-            setReports(previous => loadedMore.current ? mergeRows(result.reports || [], previous, 'id') : (result.reports || []))
+            const incoming = result.reports || []
+            setReports(previous => latestUpdated.current || loadedMore.current ? mergeRows(incoming, previous, 'id') : incoming)
+            const maxUpdated = incoming.map(item => String(item.updatedAt || '')).filter(Boolean).sort().at(-1)
+            if (maxUpdated && maxUpdated > latestUpdated.current) latestUpdated.current = maxUpdated
             setHasMore(Boolean(result.hasMore))
             setNextCursor(result.nextCursor || null)
             setRun(state.state?.run || null)
             setError('')
-          } catch (cause) { if (generation === requestGeneration.current) setError(cause?.message || String(cause)) } finally { if (generation === requestGeneration.current) { requestInFlight.current = false; setLoading(false) } }
+          } catch (cause) { if (generation === requestGeneration.current && !isAbortError(cause)) setError(cause?.message || String(cause)) } finally { if (requestAbort.current === controller) requestAbort.current = null; if (generation === requestGeneration.current) { requestInFlight.current = false; setLoading(false) } }
         }, [props.sessionId])
         React.useEffect(() => {
-          requestGeneration.current += 1; requestInFlight.current = false
+          requestGeneration.current += 1; requestInFlight.current = false; latestUpdated.current = ''
           setReports([]); setRun(null); setHasMore(false); setNextCursor(null); loadedMore.current = false; setError('')
           void refresh()
-          const timer = window.setInterval(refresh, 2000)
-          return () => { window.clearInterval(timer); requestGeneration.current += 1; requestInFlight.current = false }
+          const timer = window.setInterval(refresh, 4000)
+          return () => { window.clearInterval(timer); requestGeneration.current += 1; requestAbort.current?.abort(); requestInFlight.current = false }
         }, [refresh])
         const loadMore = async () => {
           if (requestInFlight.current || loading || !hasMore || !nextCursor) return
           requestInFlight.current = true
           setLoading(true)
           const generation = requestGeneration.current
+          const controller = new AbortController()
+          requestAbort.current?.abort()
+          requestAbort.current = controller
           try {
-            const result = await api(`audit/reports?sessionId=${encodeURIComponent(props.sessionId)}&limit=50&cursor=${encodeURIComponent(nextCursor)}`)
+            const result = await api(`audit/reports?sessionId=${encodeURIComponent(props.sessionId)}&limit=50&cursor=${encodeURIComponent(nextCursor)}`, { signal: controller.signal })
             if (generation !== requestGeneration.current) return
             setReports(previous => mergeRows(previous, result.reports || [], 'id'))
+            const maxUpdated = (result.reports || []).map(item => String(item.updatedAt || '')).filter(Boolean).sort().at(-1)
+            if (maxUpdated && maxUpdated > latestUpdated.current) latestUpdated.current = maxUpdated
             setHasMore(Boolean(result.hasMore))
             setNextCursor(result.nextCursor || null)
             loadedMore.current = true
-          } catch (cause) { if (generation === requestGeneration.current) setError(cause?.message || String(cause)) } finally { if (generation === requestGeneration.current) { requestInFlight.current = false; setLoading(false) } }
+          } catch (cause) { if (generation === requestGeneration.current && !isAbortError(cause)) setError(cause?.message || String(cause)) } finally { if (requestAbort.current === controller) requestAbort.current = null; if (generation === requestGeneration.current) { requestInFlight.current = false; setLoading(false) } }
         }
         const labels = { critical: 'Critical', high: 'High', medium: 'Medium', low: 'Low', none: 'None', info: 'Info', unknown: 'Unknown' }
         function displayAuditSummary(report) {
@@ -571,7 +635,7 @@
           return `${file}${start}${symbol}`
         }
         return h('section', { className: 'dsec-view' },
-          h('header', { className: 'dsec-head' }, h('span', { className: 'dsec-title' }, '代码审计报告'), h('span', { className: 'dsec-meta' }, `${reports.length} 份结构化报告`), h('button', { className: 'dsec-btn', onClick: refresh, disabled: loading }, '刷新')),
+          h('header', { className: 'dsec-head' }, h('span', { className: 'dsec-title' }, '代码审计报告'), h('span', { className: 'dsec-meta' }, `${reports.length} 份结构化报告`), h('button', { className: 'dsec-btn', onClick: refresh, disabled: loading }, loading ? '加载中…' : '刷新')),
           h('div', { className: 'dsec-body dsec-report-list' }, error ? h('div', { className: 'dsec-error' }, error) : null,
             h(ProductUnderstanding, { understanding: run?.productUnderstanding || reports[0]?.productUnderstanding }),
             reports.length ? reports.map((report, index) => {
@@ -591,8 +655,15 @@
                   return h('div', { id: auditFindingAnchor(report.id, finding.candidateId || finding.id), className: `dsec-finding dsec-finding-${severity}`, key: finding.id || finding.title },
                     h('div', { className: 'dsec-finding-title' }, h('span', { className: `dsec-severity-label dsec-severity-${severity}` }, severity.toUpperCase()), finding.cvssScore == null ? null : h('span', { className: 'dsec-finding-cvss' }, `CVSS ${finding.cvssScore}`), h('span', { className: 'dsec-finding-name' }, finding.title || finding.id)),
                     h('div', { className: 'dsec-finding-api' }, h('span', { className: 'dsec-finding-api-label' }, 'API'), h('code', null, finding.entry || finding.entryId || '未记录'), finding.handler ? h('span', { className: 'dsec-finding-handler' }, `Handler: ${finding.handler}`) : null),
-                    h('div', { className: 'dsec-finding-meta' }, `${finding.status || 'candidate'} · 置信度 ${finding.confidence || 'unknown'}${finding.cvssVector ? ` · ${finding.cvssVector}` : ''}`),
+                    h('div', { className: 'dsec-finding-meta' }, `${finding.status || 'candidate'} · 类型 ${finding.vulnerabilityType || 'other'} · 置信度 ${finding.confidence || 'unknown'}${finding.cvssVector ? ` · ${finding.cvssVector}` : ''}`),
                     finding.impact ? h('div', { className: 'dsec-report-impact' }, h('strong', null, '影响：'), finding.impact) : null,
+                    finding.impactEvidence ? h('div', { className: 'dsec-report-impact' }, h('strong', null, '影响证据：'), finding.impactEvidence) : null,
+                    (finding.secretType || finding.secretExposure || finding.secretValue || finding.exploitation) ? h(FindingDetail, { title: '凭据暴露与安全利用说明' }, h('div', null,
+                      finding.secretType ? h('div', null, h('strong', null, '数据类型：'), finding.secretType) : null,
+                      finding.secretExposure ? h('div', null, h('strong', null, '暴露位置：'), finding.secretExposure) : null,
+                      finding.secretValue ? h('div', null, h('strong', null, '已获得凭据：'), h('pre', { className: 'dsec-pre' }, finding.secretValue)) : null,
+                      finding.exploitation ? h('div', null, h('strong', null, '非破坏性利用方式：'), finding.exploitation) : null,
+                    )) : null,
                     chain.length ? h(FindingDetail, { title: '调用链路' }, h('ol', { className: 'dsec-chain-list' }, chain.map((item, index) => h('li', { key: `${index}-${item}` }, item)))) : null,
                     (affectedFiles.length || evidenceLocations.length) ? h(FindingDetail, { title: '受影响文件' }, h('ul', { className: 'dsec-file-list' }, (affectedFiles.length ? affectedFiles : evidenceLocations.map(evidenceLocationLabel)).map((item, index) => h('li', { key: `${index}-${item}` }, h('code', null, typeof item === 'string' ? item : evidenceLocationLabel(item)))))) : null,
                     (source.length || sink.length) ? h(FindingDetail, { title: '数据流证据' }, h('div', { className: 'dsec-evidence-grid' }, source.length ? h('div', null, h('strong', null, 'Source'), h('ul', null, source.map((item, index) => h('li', { key: `source-${index}` }, item)))) : null, sink.length ? h('div', null, h('strong', null, 'Sink'), h('ul', null, sink.map((item, index) => h('li', { key: `sink-${index}` }, item)))) : null)) : null,

@@ -45,21 +45,43 @@ const messages = z.array(z.object({ direction: z.string(), data: z.string() }))
 const goalSchema = z.object({ id: recordId, sessionId, target: z.string(), objective: z.string(), authorization: z.string(), createdAt: z.string() })
 const assetSchema = z.object({ id: recordId, sessionId, type: z.string(), value: z.string(), parentId: z.string().optional(), meta: z.string(), createdAt: z.string() })
 const factSchema = z.object({ id: recordId, sessionId, kind: z.string(), target: z.string(), detail: z.string(), confidence: z.number().min(0).max(1), createdAt: z.string() })
-const findingSchema = z.object({ id: recordId, sessionId, title: z.string(), severity: z.string(), description: z.string(), reproducibleSteps: z.array(z.string()), affectedAssetId: z.string().optional(), createdAt: z.string() })
+const findingSchema = z.object({
+  id: recordId,
+  sessionId,
+  title: z.string(),
+  severity: z.string(),
+  description: z.string(),
+  reproducibleSteps: z.array(z.string()),
+  evidence: z.array(z.string()).optional(),
+  impact: z.string().optional(),
+  requestPoc: z.string().optional(),
+  cvssVector: z.string().optional(),
+  cvssScore: z.number().nullable().optional(),
+  cvssSeverity: z.string().optional(),
+  confidence: z.string().optional(),
+  vulnerabilityType: z.string().optional(),
+  secretType: z.string().optional(),
+  secretExposure: z.string().optional(),
+  secretValue: z.string().optional(),
+  exploitation: z.string().optional(),
+  affectedAssetId: z.string().optional(),
+  createdAt: z.string(),
+})
 const riskAssessmentSchema = z.object({ action: z.enum(['read', 'create', 'update', 'delete', 'admin', 'unknown']), impact: z.enum(['none', 'low', 'medium', 'high']), confidence: z.number().min(0).max(1), approvalRequired: z.boolean(), reason: z.string().min(1).max(4096) })
-const exchangeSchema = z.object({ id: recordId, sessionId, time: z.string(), protocol: z.string(), target: z.string(), key: z.string(), requestPacket: z.string(), responsePacket: z.string(), request: z.object({ method: z.string(), url: z.string(), headers, body: z.string(), messages }), response: z.object({ status: z.number().nullable(), statusText: z.string(), headers, body: z.string(), messages, truncated: z.boolean().optional() }), riskAssessment: riskAssessmentSchema.optional(), approvalScope: z.string().optional(), requestFingerprint: z.string().optional(), durationMs: z.number(), error: z.string().optional(), callId: z.string() })
+const exchangeSchema = z.object({ id: recordId, sessionId, time: z.string(), protocol: z.string(), target: z.string(), key: z.string(), probePhase: z.string().optional(), requestPacket: z.string(), responsePacket: z.string(), request: z.object({ method: z.string(), url: z.string(), headers, body: z.string(), messages }), response: z.object({ status: z.number().nullable(), statusText: z.string(), headers, body: z.string(), messages, truncated: z.boolean().optional() }), riskAssessment: riskAssessmentSchema.optional(), approvalScope: z.string().optional(), requestFingerprint: z.string().optional(), durationMs: z.number(), error: z.string().optional(), callId: z.string() })
 const reportSchema = z.object({ id: recordId, sessionId, key: z.string(), host: z.string(), port: z.number(), title: z.string(), markdown: z.string(), updatedAt: z.string() })
 const stringList = z.array(z.string())
 const AUDIT_CANDIDATE_STATUSES = ['needs-review', 'confirmed', 'false-positive', 'accepted-risk']
 const AUDIT_COVERAGE_STATUSES = ['extracted', 'in-progress', 'reviewed', 'verified']
 const PRIVATE_TARGET_ACCESS = ['prompt', 'denied', 'once', 'session']
+const REQUEST_PROBE_PHASES = ['engagement', 'reconnaissance', 'discovery', 'authentication', 'authorization', 'input-validation', 'exploitation', 'verification', 'cleanup']
 const policySchema = z.object({ id: recordId, sessionId, requireAllowlist: z.boolean(), allowedHosts: stringList, allowPrivateTargets: z.boolean(), privateTargetAccess: z.enum(PRIVATE_TARGET_ACCESS), updatedAt: z.string() })
 const understandingSchema = z.object({ productSummary: z.string(), productPurpose: z.string(), coreCapabilities: stringList, boundaries: stringList, assumptions: stringList, techStack: z.array(z.record(z.string(), z.any())), status: z.string(), updatedAt: z.string() })
 const auditRunSchema = z.object({ id: recordId, sessionId, targetPath: z.string(), auditMode: z.string(), language: z.string(), scope: z.string(), authorization: z.string(), graphRequired: z.boolean(), graphStatus: z.string(), status: z.string(), productUnderstanding: understandingSchema.optional(), createdAt: z.string(), updatedAt: z.string() })
 const evidenceLocationSchema = z.object({ file: z.string(), lineStart: z.number().int().nullable().optional(), lineEnd: z.number().int().nullable().optional(), symbol: z.string().optional(), role: z.string().optional(), snippet: z.string().optional() })
 const selfCheckSchema = z.object({ reachable: z.string(), authorization: z.string(), inputValidation: z.string(), productionCode: z.string(), sufficientEvidence: z.string() })
 const apiSchema = z.object({ id: recordId, sessionId, runId: recordId, entryId: z.string(), entryType: z.string(), method: z.string(), path: z.string(), handler: z.string(), auth: z.string(), module: z.string(), active: z.string(), featureSummary: z.string(), sourceCandidates: stringList, sinkCandidates: stringList, riskTags: stringList, targetPaths: stringList, graphHints: stringList, contextFiles: stringList.optional(), relatedSymbols: stringList.optional(), authGuards: stringList.optional(), configRefs: stringList.optional(), dataModels: stringList.optional(), errorHandlers: stringList.optional(), middleware: stringList.optional(), priority: z.string(), confidence: z.string(), language: z.string().optional(), sourceConfidence: z.string().optional(), aiAuthConclusion: z.string().optional(), auditCoverage: z.string().optional(), auditSummary: z.string().optional(), auditDomains: stringList.optional(), hasVulnerability: z.boolean().optional(), vulnerabilityIds: stringList.optional(), reportId: recordId.optional(), createdAt: z.string(), updatedAt: z.string() })
-const auditCandidateSchema = z.object({ id: recordId, sessionId, runId: recordId, candidateId: z.string(), domain: z.string(), status: z.enum([...AUDIT_CANDIDATE_STATUSES, 'candidate']), severity: z.string(), title: z.string(), apiId: recordId.optional(), entryId: z.string(), handler: z.string().optional(), entryType: z.string(), entry: z.string(), auth: z.string(), active: z.string(), source: stringList, sink: stringList, chain: stringList, guards: stringList, evidence: stringList.optional(), evidenceLocations: z.array(evidenceLocationSchema).optional(), impact: z.string(), confidence: z.string(), queueItem: z.string(), description: z.string(), remediation: z.string(), requestPoc: z.string().optional(), cvss: z.string(), cvssVector: z.string().optional(), cvssScore: z.number().nullable().optional(), cvssSeverity: z.string().optional(), selfCheck: selfCheckSchema.optional(), reviewNotes: z.string().optional(), reviewedAt: z.string().optional(), createdAt: z.string(), updatedAt: z.string() })
+const auditCandidateSchema = z.object({ id: recordId, sessionId, runId: recordId, candidateId: z.string(), domain: z.string(), vulnerabilityType: z.string().optional(), status: z.enum([...AUDIT_CANDIDATE_STATUSES, 'candidate']), severity: z.string(), title: z.string(), apiId: recordId.optional(), entryId: z.string(), handler: z.string().optional(), entryType: z.string(), entry: z.string(), auth: z.string(), active: z.string(), source: stringList, sink: stringList, chain: stringList, guards: stringList, evidence: stringList.optional(), evidenceLocations: z.array(evidenceLocationSchema).optional(), impact: z.string(), impactEvidence: z.string().optional(), confidence: z.string(), queueItem: z.string(), description: z.string(), remediation: z.string(), requestPoc: z.string().optional(), cvss: z.string(), cvssVector: z.string().optional(), cvssScore: z.number().nullable().optional(), cvssSeverity: z.string().optional(), secretType: z.string().optional(), secretExposure: z.string().optional(), secretValue: z.string().optional(), exploitation: z.string().optional(), selfCheck: selfCheckSchema.optional(), reviewNotes: z.string().optional(), reviewedAt: z.string().optional(), createdAt: z.string(), updatedAt: z.string() })
 const auditReportSchema = z.object({ id: recordId, sessionId, runId: recordId, title: z.string(), status: z.string(), summary: z.string(), markdown: z.string(), counts: z.record(z.string(), z.number()), findings: z.array(z.record(z.string(), z.any())), reviewItems: z.array(z.record(z.string(), z.any())).optional(), excludedItems: z.array(z.record(z.string(), z.any())).optional(), acceptedRiskItems: z.array(z.record(z.string(), z.any())).optional(), coverage: z.record(z.string(), z.any()).optional(), topPriorities: stringList, observations: stringList, productUnderstanding: understandingSchema.optional(), updatedAt: z.string() })
 
 export const securityDomain = defineDomain({
@@ -218,7 +240,7 @@ export async function assertTargetAllowed(url, config) {
   return target.addresses
 }
 
-async function approveRequest({ url, addresses, request, riskAssessment, requestFingerprintValue, exec }) {
+async function approveRequest({ url, addresses, request, riskAssessment, requestFingerprintValue, exec, threshold = 0.85 }) {
   const approval = exec?.approval
   if (!approval || typeof approval.request !== 'function') throw new Error('该请求需要用户审批，但审批服务不可用，已拒绝发送')
   if (!exec?.agent) throw new Error('该请求需要用户审批，但当前调用没有可路由的 agent，已拒绝发送')
@@ -226,7 +248,12 @@ async function approveRequest({ url, addresses, request, riskAssessment, request
   const protectedTarget = addresses.some(isPrivateAddress) || isPrivateHost(url.hostname)
   const scopeKey = requestApprovalScope({ url, method: request.method, action: riskAssessment.action, impact: riskAssessment.impact })
   const alwaysScopeKey = requestApprovalAlwaysScope({ url, method: request.method, action: riskAssessment.action })
-  const scopeDescription = `目标 ${targetKey(url)} · ${request.method} ${requestPathPattern(url)} · 风险 ${riskAssessment.action}/${riskAssessment.impact}`
+  // A classifier failure must remain fail-closed, but it must not become a
+  // durable wildcard approval. The user may explicitly allow this request or
+  // risk family for the session, while `allowed-always` is reserved for a
+  // parsed, sufficiently confident action classification.
+  const canGrantAlways = riskAssessment.action !== 'unknown' && riskAssessment.confidence >= threshold
+  const scopeDescription = `目标 ${targetKey(url)} · 阶段 ${request.probePhase || 'reconnaissance'} · ${request.method} ${requestPathPattern(url)} · 风险 ${riskAssessment.action}/${riskAssessment.impact}`
   const alwaysScopeDescription = `目标 ${targetKey(url)} · HTTP 方法 ${request.method} · 风险动作 ${riskAssessment.action}（覆盖该动作下的路径，不包含其他方法或风险动作）`
   const targetReason = protectedTarget
     ? `目标解析到受保护的私网/内部地址（${shownAddresses}），继续访问可能触达企业内网或本机资源。`
@@ -238,20 +265,23 @@ async function approveRequest({ url, addresses, request, riskAssessment, request
     ...(exec.callId !== undefined ? { callId: exec.callId } : {}),
     reason: [
       `请求审批：${redactUrl(url).toString()}`,
-      `${request.method} ${requestPathPattern(url)} · Content-Type: ${headerValue(request.headers, 'content-type') || '未声明'}`,
+      `探测阶段：${request.probePhase || 'reconnaissance'} · ${request.method} ${requestPathPattern(url)} · Content-Type: ${headerValue(request.headers, 'content-type') || '未声明'}`,
       `风险判断：action=${riskAssessment.action}，impact=${riskAssessment.impact}，confidence=${riskAssessment.confidence.toFixed(2)}。${riskAssessment.reason}`,
       targetReason,
       `请求指纹：${requestFingerprintValue}`,
-      `授权范围：允许一次仅允许当前请求指纹；允许本会话仅允许“${scopeDescription}”；完全允许为“${alwaysScopeDescription}”，不会放行其他方法或风险动作。`,
+      `授权范围：允许一次仅允许当前请求指纹；允许本会话仅允许“${scopeDescription}”；${canGrantAlways ? `完全允许为“${alwaysScopeDescription}”，不会放行其他方法或风险动作。` : '由于风险分类未知或置信度不足，本次不提供完全允许，避免把分类失败持久化为长期放行。'}`,
       'LLM 不能代替用户批准；请确认本次访问已获授权。',
     ].join('\n'),
     ...(exec.signal ? { signal: exec.signal } : {}),
-    grantKeys: { session: scopeKey, always: alwaysScopeKey },
+    grantKeys: { session: scopeKey, ...(canGrantAlways ? { always: alwaysScopeKey } : {}) },
   })
   switch (outcome) {
     case 'allowed-once':
     case 'allowed-session':
-    case 'allowed-always': return
+      return
+    case 'allowed-always':
+      if (!canGrantAlways) throw new Error('风险分类未知或置信度不足，不允许完全授权，已禁止发送')
+      return
     case 'rejected': throw new Error(protectedTarget ? '用户拒绝访问私网/内部地址' : '用户拒绝该请求，已禁止发包')
     case 'cancelled': throw new Error(protectedTarget ? '私网/内部地址访问审批已取消' : '请求审批已取消，已禁止发包')
     case 'unavailable': throw new Error(protectedTarget ? '访问私网/内部地址需要用户审批，但当前没有可用的审批通道' : '当前没有可用的请求审批通道，已禁止发包')
@@ -397,6 +427,14 @@ function scopedId(session, kind, number) { return `${session}:${kind}-${number}`
 export const RISK_ACTIONS = ['read', 'create', 'update', 'delete', 'admin', 'unknown']
 export const RISK_IMPACTS = ['none', 'low', 'medium', 'high']
 
+export const PROBE_PHASES = [...REQUEST_PROBE_PHASES]
+
+export function normalizeProbePhase(value) {
+  const raw = String(value || 'reconnaissance').trim().toLowerCase()
+  if (!REQUEST_PROBE_PHASES.includes(raw)) throw new Error(`探测阶段无效：${raw}，仅支持 ${REQUEST_PROBE_PHASES.join(', ')}`)
+  return raw
+}
+
 function sortedValue(value) {
   if (Array.isArray(value)) return value.map(sortedValue)
   if (!value || typeof value !== 'object') return value
@@ -412,14 +450,27 @@ function requestPathPattern(url) {
   return `${normalized || '/'}${queryKeys.length ? `?${queryKeys.join('&')}` : ''}`
 }
 
+function fingerprintHeaders(inputHeaders = {}) {
+  return Object.fromEntries(Object.entries(inputHeaders || {})
+    .map(([key, value]) => [String(key).toLowerCase(), String(value)])
+    .sort(([left], [right]) => left.localeCompare(right)))
+}
+
+function fingerprintMessages(inputMessages = []) {
+  return (Array.isArray(inputMessages) ? inputMessages : []).map(message => ({
+    direction: String(message?.direction || 'out'),
+    data: String(message?.data || ''),
+  }))
+}
+
 export function requestFingerprint({ url, method, headers: inputHeaders = {}, body = '', messages: inputMessages = [] }) {
   const target = url instanceof URL ? url : normalizeTarget(url)
   const canonical = sortedValue({
     url: target.toString(),
     method: String(method || 'GET').toUpperCase(),
-    headers: inputHeaders,
+    headers: fingerprintHeaders(inputHeaders),
     body: String(body || ''),
-    messages: inputMessages,
+    messages: fingerprintMessages(inputMessages),
   })
   return `sha256:${createHash('sha256').update(JSON.stringify(canonical)).digest('hex')}`
 }
@@ -470,19 +521,38 @@ function fallbackRiskAssessment(reason) {
 }
 
 function parseRiskAssessment(raw) {
+  const text = String(raw || '').replace(/^\uFEFF/, '').trim()
+  const candidates = [text]
+  try { candidates.push(extractJsonObject(text)) } catch { /* report a stable parse error below */ }
   let value
-  try { value = JSON.parse(raw) } catch { throw new Error('LLM 风险评估不是有效 JSON') }
+  let lastError
+  for (const candidate of [...new Set(candidates)]) {
+    try {
+      value = JSON.parse(candidate)
+      break
+    } catch (cause) {
+      lastError = cause
+    }
+  }
+  if (value === undefined) throw new Error(`LLM 风险评估不是有效 JSON${lastError ? `（${lastError.message}）` : ''}`)
   const result = riskAssessmentSchema.safeParse(value)
   if (!result.success) throw new Error('LLM 风险评估缺少有效的 action、impact、confidence、approvalRequired 或 reason')
   return result.data
 }
 
+function isRiskFormatError(error) {
+  return /LLM 风险评估(?:不是有效 JSON|未返回 JSON 对象|缺少有效的)/.test(String(error?.message || error || ''))
+}
+
 function enforceRiskPolicy(result, threshold) {
-  const highConfidenceRead = result.action === 'read' && result.impact === 'none' && result.confidence >= threshold
-  return {
-    ...result,
-    approvalRequired: result.approvalRequired === true || !highConfidenceRead,
-  }
+  // A high-confidence read is non-mutating even when the model describes a
+  // small disclosure/operational impact (for example GET /robots.txt). The
+  // approval policy is based on action + confidence, not on requiring the
+  // model to also emit the narrowest possible impact label.
+  const highConfidenceRead = result.action === 'read'
+    && result.confidence >= threshold
+    && (result.impact === 'none' || result.impact === 'low')
+  return { ...result, approvalRequired: !highConfidenceRead }
 }
 
 function extractJsonObject(text) {
@@ -527,27 +597,44 @@ export async function assessRequestRisk({ llm, exec, request, target, context, t
       contentType: headerValue(request.headers, 'content-type') || '未声明',
       body: riskBody(request.body, request.headers, 12 * 1024),
       messages: riskMessages(request.messages, 4 * 1024),
+      probePhase: request.probePhase,
     }, null, 2),
     '',
     '=== 当前会话授权与历史上下文 ===',
     context || '没有已声明的 engagement 或可用历史；没有上下文时不得假定已授权。',
   ].join('\n')
-  try {
+  const runClassification = async (formatRetry = false) => {
+    const retryInstruction = formatRetry ? [
+      '',
+      '=== 格式纠正 ===',
+      '上一次风险分类结果无法解析。请重新判断，但这一次必须只返回一个完整、严格合法的 JSON 对象。',
+      '不要输出 Markdown、代码围栏、解释、前缀、后缀、注释或多个 JSON。reason 必须是非空字符串；confidence 必须是 0 到 1 的数字。',
+    ].join('\n') : ''
     const assembler = new BlockAssembler()
     for await (const chunk of llm.stream({
       provider,
       model,
-      messages: [createUserMessage({ content: [{ type: 'text', text: prompt }], source: { kind: 'plugin', plugin: 'dsh-security' } })],
+      messages: [createUserMessage({ content: [{ type: 'text', text: `${prompt}${retryInstruction}` }], source: { kind: 'plugin', plugin: 'dsh-security' } })],
       system: '严格执行 JSON 输出要求。LLM 只做风险分类，用户审批才是唯一授权来源。',
       maxTokens: 512,
       ...(exec.signal ? { signal: exec.signal } : {}),
       ...(exec.agent?.session?.id ? { sessionId: exec.agent.session.id } : {}),
     })) assembler.push(chunk)
     const text = assembler.blocks().filter(block => block.type === 'text').map(block => block.text).join('')
-    return enforceRiskPolicy(parseRiskAssessment(extractJsonObject(text)), threshold)
-  } catch (cause) {
-    return fallbackRiskAssessment(`LLM 风险评估失败（${cause?.message || String(cause)}），默认要求用户审批后才可发送请求。`)
+    return enforceRiskPolicy(parseRiskAssessment(text), threshold)
   }
+  let firstCause
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return await runClassification(attempt === 1)
+    } catch (cause) {
+      firstCause ||= cause
+      if (attempt === 0 && isRiskFormatError(cause)) continue
+      const suffix = attempt === 1 && isRiskFormatError(cause) ? '，格式纠正重试 1 次后仍失败' : ''
+      return fallbackRiskAssessment(`LLM 风险评估失败（${cause?.message || String(cause)}${suffix}），默认要求用户审批后才可发送请求。`)
+    }
+  }
+  return fallbackRiskAssessment(`LLM 风险评估失败（${firstCause?.message || '未知错误'}），默认要求用户审批后才可发送请求。`)
 }
 
 function boundedMessages(input, config) {
@@ -605,6 +692,37 @@ function paginateRows(rows, options, keyOf, direction = 'asc') {
     ? encodeCursor({ key: String(keyOf(last)), id: String(last.id) })
     : null
   return { items, total: rows.length, hasMore: nextCursor !== null, nextCursor }
+}
+
+function historySummary(row) {
+  const response = row?.response || {}
+  const risk = row?.riskAssessment
+  return {
+    id: row.id,
+    sessionId: row.sessionId,
+    time: row.time,
+    protocol: row.protocol,
+    target: row.target,
+    key: row.key,
+    probePhase: row.probePhase || row.request?.probePhase || 'reconnaissance',
+    status: response.status ?? null,
+    statusText: response.statusText || '',
+    truncated: response.truncated === true,
+    error: row.error || null,
+    durationMs: row.durationMs || 0,
+    callId: row.callId || null,
+    approvalScope: row.approvalScope || null,
+    requestFingerprint: row.requestFingerprint || null,
+    ...(risk ? {
+      riskAssessment: {
+        action: risk.action || 'unknown',
+        impact: risk.impact || 'unknown',
+        confidence: Number.isFinite(Number(risk.confidence)) ? Number(risk.confidence) : 0,
+        approvalRequired: risk.approvalRequired === true,
+        reason: limitedText(String(risk.reason || ''), 1000),
+      },
+    } : {}),
+  }
 }
 
 function policyFromConfig(config) {
@@ -768,6 +886,13 @@ function candidateEvidenceList(value, label) {
   return result
 }
 
+function normalizeVulnerabilityType(value, fallback = 'other') {
+  const raw = String(value || fallback).trim().toLowerCase()
+  if (!raw) return fallback
+  if (/[;,，、|/]/u.test(raw)) throw new Error('每个候选只能包含一个漏洞类型；请将不同漏洞拆成独立候选分别记录')
+  return limitedText(raw.replace(/\s+/g, '-'), 128)
+}
+
 function normalizeEvidenceLocations(value, maxBytes) {
   if (!Array.isArray(value)) return []
   return value.slice(0, 100).map(item => {
@@ -798,10 +923,40 @@ function selfCheckComplete(check) {
   return Object.values(check || {}).every(value => !unresolved.has(String(value).trim().toLowerCase()))
 }
 
-function requestPocComplete(value) {
+function normalizeConfidence(value, fallback = 'unknown') {
+  const raw = String(value || fallback).trim().toLowerCase()
+  if (['high', 'medium', 'low', 'unknown'].includes(raw)) return raw
+  return limitedText(raw || fallback, 64)
+}
+
+function confidenceComplete(value) {
+  return ['high', 'medium'].includes(normalizeConfidence(value))
+}
+
+function evidenceComplete(item = {}) {
+  const evidence = Array.isArray(item.evidence) ? item.evidence.filter(Boolean) : []
+  const locations = Array.isArray(item.evidenceLocations) ? item.evidenceLocations.filter(Boolean) : []
+  return evidence.length > 0 && locations.length > 0 && Boolean(String(item.impact || '').trim())
+}
+
+// A report PoC is a review artifact, never an execution command. Keep the
+// accepted shape deliberately narrow so a confirmed alert always has a
+// concrete, replayable HTTP request rather than a vague curl/snippet claim.
+function httpRequestPocComplete(value) {
   const text = String(value || '').trim()
   if (!text) return false
-  return /^(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|CONNECT|TRACE)\s+\S+\s+HTTP\/\d(?:\.\d)?(?:\s|$)/m.test(text) || /^(?:curl|grpcurl|rpc)\s+\S+/mi.test(text)
+  return /^(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|CONNECT|TRACE)\s+\S+\s+HTTP\/1(?:\.\d)?(?:\s|$)/m.test(text)
+}
+
+function requestPocComplete(value) {
+  return httpRequestPocComplete(value)
+}
+
+function confirmedCandidateReady(item, maxBytes = 256 * 1024) {
+  if (candidateStatus(item) !== 'confirmed') return false
+  const cvss = safeCvssForInput(item)
+  const evidenceLocations = normalizeEvidenceLocations(item.evidenceLocations, maxBytes)
+  return cvss.score != null && requestPocComplete(item.requestPoc) && confidenceComplete(item.confidence) && evidenceComplete({ evidence: item.evidence, evidenceLocations, impact: item.impactEvidence || item.impact })
 }
 
 function auditCoverageFor(apis = []) {
@@ -840,9 +995,11 @@ function auditMarkdown(findings = [], run, sections = {}) {
   for (const item of findings) {
     const severity = severityForFinding(item)
     const affectedFiles = Array.isArray(item.affectedFiles) && item.affectedFiles.length ? item.affectedFiles : [...new Set((item.evidenceLocations || []).map(location => location.file).filter(Boolean))]
-    lines.push(`### ${severity.toUpperCase()} · ${item.candidateId || item.title || '未命名发现'}`, '', `- CVSS：${item.cvssScore == null ? '未评分' : item.cvssScore}${item.cvssVector ? `（${item.cvssVector}）` : ''}`, `- 置信度：${item.confidence || 'unknown'}`, `- 状态：${item.status || 'confirmed'}`, `- API：${item.entry || item.entryId || '未记录'}${item.handler ? ` · Handler：${item.handler}` : ''}`, `- 影响：${item.impact || '未记录'}`)
+    lines.push(`### ${severity.toUpperCase()} · ${item.candidateId || item.title || '未命名发现'}`, '', `- 漏洞类型：${item.vulnerabilityType || 'other'}`, `- CVSS 3.1：${item.cvssScore == null ? '未评分' : item.cvssScore}${item.cvssVector ? `（${item.cvssVector}）` : ''}`, `- 置信度：${item.confidence || 'unknown'}`, `- 状态：${item.status || 'confirmed'}`, `- API：${item.entry || item.entryId || '未记录'}${item.handler ? ` · Handler：${item.handler}` : ''}`, `- 影响：${item.impact || '未记录'}`, `- 影响证据：${item.impactEvidence || item.impact || '未记录'}`)
     if (item.chain?.length) lines.push(`- 调用链路：${item.chain.join(' → ')}`)
     if (affectedFiles.length) lines.push(`- 受影响文件：${affectedFiles.join('、')}`)
+    if (item.secretType || item.secretExposure || item.exploitation) lines.push(`- 凭据暴露：${item.secretType || '未分类'}${item.secretExposure ? ` · ${item.secretExposure}` : ''}`, `- 非破坏性利用方式：${item.exploitation || '未记录；请先轮换凭据并在授权环境验证权限'}`)
+    if (item.secretValue) lines.push('', '#### 已获得凭据（原始值）', '', '```text', String(item.secretValue).replaceAll('```', '` ` `'), '```')
     if (item.requestPoc) lines.push('', '#### Request PoC（未执行，仅供复核）', '', '```http', String(item.requestPoc).replaceAll('```', '` ` `'), '```')
     if (item.remediation) lines.push(`- 修复建议：${item.remediation}`)
     lines.push('')
@@ -857,7 +1014,7 @@ function structuredReportMarkdown(state) {
   if (goal) lines.push(`- Target: \`${goal.target}\``, `- Objective: ${goal.objective}`, `- Authorization: ${goal.authorization}`)
   if (state.assets?.length) lines.push('', '#### Assets', ...state.assets.map(item => `- **${item.type}** \`${item.value}\`${item.parentId ? ` (parent: ${item.parentId})` : ''}`))
   if (state.facts?.length) lines.push('', '#### Facts', ...state.facts.map(item => `- [${Math.round(item.confidence * 100)}%] ${item.target ? `\`${item.target}\`: ` : ''}${item.detail}`))
-  if (state.findings?.length) lines.push('', '#### Findings', ...state.findings.flatMap(item => [`- **${item.severity}** ${item.title}: ${item.description}`, ...item.reproducibleSteps.map(step => `  1. ${step}`)]))
+  if (state.findings?.length) lines.push('', '#### Findings', ...state.findings.flatMap(item => [`- **${item.severity}** ${item.title}: ${item.description}`, ...item.reproducibleSteps.map(step => `  1. ${step}`), ...(item.secretValue ? ['', '  **已获得凭据（原始值）：**', '  ```text', `  ${String(item.secretValue).replaceAll('```', '` ` `')}`, '  ```'] : [])]))
   return lines.length > 1 ? lines.join('\n') : ''
 }
 
@@ -1079,23 +1236,24 @@ export function createRuntime(rawConfig = {}, suppliedStore, sessions, services 
     if (!Number.isFinite(waitMs) || waitMs < 0 || waitMs > 120000) throw new Error('waitMs 必须在 0 到 120000 之间')
     if (Buffer.byteLength(body) > config.maxPacketBytes) throw new Error(`请求体超过上限 ${config.maxPacketBytes} bytes`)
     const rawHeaders = boundedHeaders(input.headers, config.maxPacketBytes)
-    const request = { method, url: url.toString(), headers: normalHeaders(rawHeaders, config.redactSensitiveHeaders), rawHeaders, body, messages: boundedMessages(input.messages, config).map(data => ({ direction: 'out', data })), timeoutMs, waitMs }
+    const probePhase = normalizeProbePhase(input.probePhase || input.phase)
+    const request = { method, url: url.toString(), headers: normalHeaders(rawHeaders, config.redactSensitiveHeaders), rawHeaders, body, messages: boundedMessages(input.messages, config).map(data => ({ direction: 'out', data })), probePhase, timeoutMs, waitMs }
     const policy = await policyFor(sid)
     const target = await inspectTarget(url, policy)
     const riskAssessment = await assessRequestRisk({ llm, exec, request, target: url, context: await riskContextFor(sid), threshold: config.riskConfidenceThreshold })
     await authorizePrivateTarget(sid, url, target, guardedExec)
     const fingerprint = requestFingerprint({ url, method, headers: rawHeaders, body, messages: request.messages })
     const approvalScope = requestApprovalScope({ url, method, action: riskAssessment.action, impact: riskAssessment.impact })
-    if (riskAssessment.approvalRequired) await approveRequest({ url, addresses: target.addresses, request, riskAssessment, requestFingerprintValue: fingerprint, exec: guardedExec })
+    if (riskAssessment.approvalRequired) await approveRequest({ url, addresses: target.addresses, request, riskAssessment, requestFingerprintValue: fingerprint, exec: guardedExec, threshold: config.riskConfidenceThreshold })
     const addresses = target.addresses
-    const exchange = { id: `${started}-${Math.random().toString(36).slice(2, 8)}`, sessionId: sid, time: new Date(started).toISOString(), protocol, target: redactUrl(url).toString(), key: targetKey(url), requestPacket: requestPacket(request, config.maxPacketBytes), responsePacket: '', request, response: { status: null, statusText: '', headers: {}, body: '', messages: [] }, riskAssessment, approvalScope, requestFingerprint: fingerprint, durationMs: 0, callId: getCallId(exec) }
+    const exchange = { id: `${started}-${Math.random().toString(36).slice(2, 8)}`, sessionId: sid, time: new Date(started).toISOString(), protocol, target: redactUrl(url).toString(), key: targetKey(url), probePhase, requestPacket: requestPacket(request, config.maxPacketBytes), responsePacket: '', request, response: { status: null, statusText: '', headers: {}, body: '', messages: [] }, riskAssessment, approvalScope, requestFingerprint: fingerprint, durationMs: 0, callId: getCallId(exec) }
     try { exchange.response = protocol === 'http' || protocol === 'https' ? await fetchHttp(url, request, config, exec.signal, addresses) : await fetchWebSocket(url, request, config, exec.signal, addresses); exchange.responsePacket = responsePacket(exchange.response, config.maxPacketBytes) } catch (cause) { exchange.error = cause?.message || String(cause) }
     request.url = redactUrl(url).toString(); delete request.rawHeaders; delete request.timeoutMs; delete request.waitMs; exchange.durationMs = Date.now() - started
     await withLock(locks, `session:${sid}`, async () => {
       const key = `${sid}:exchange-${exchange.id}`; await store.put('exchanges', key, exchange)
       const history = await store.list('exchanges', sid); if (history.length > config.maxHistory) for (const old of history.sort((a, b) => a.time.localeCompare(b.time)).slice(0, history.length - config.maxHistory)) await store.delete('exchanges', `${sid}:exchange-${old.id}`)
     })
-    return { id: exchange.id, protocol, target: exchange.target, key: exchange.key, status: exchange.response.status, durationMs: exchange.durationMs, error: exchange.error || null, riskAssessment, approvalScope, requestFingerprint: fingerprint, requestPacket: exchange.requestPacket, responsePacket: exchange.responsePacket }
+    return { id: exchange.id, protocol, target: exchange.target, key: exchange.key, probePhase, status: exchange.response.status, durationMs: exchange.durationMs, error: exchange.error || null, riskAssessment, approvalScope, requestFingerprint: fingerprint, requestPacket: exchange.requestPacket, responsePacket: exchange.responsePacket }
   }
   // Starting an engagement only records the declared scope. It must remain
   // usable when the target is temporarily unresolved or intentionally offline;
@@ -1130,8 +1288,48 @@ export function createRuntime(rawConfig = {}, suppliedStore, sessions, services 
     return withLock(locks, `session:${sid}`, async () => {
       const existing = await store.list(table, sid); const id = scopedId(sid, kind, existing.length + 1); const now = new Date().toISOString()
       const confidence = Number(input.confidence ?? 1)
-      const row = table === 'assets' ? { id, sessionId: sid, type: String(input.type || 'endpoint'), value: limitedText(String(input.value || ''), config.maxPacketBytes), ...(input.parentId ? { parentId: String(input.parentId) } : {}), meta: limitedText(String(input.meta || ''), config.maxPacketBytes), createdAt: now } : table === 'facts' ? { id, sessionId: sid, kind: String(input.kind || 'info'), target: limitedText(String(input.target || ''), config.maxPacketBytes), detail: limitedText(String(input.detail || ''), config.maxPacketBytes), confidence: Number.isFinite(confidence) ? Math.max(0, Math.min(1, confidence)) : 1, createdAt: now } : { id, sessionId: sid, title: limitedText(String(input.title || ''), config.maxPacketBytes), severity: String(input.severity || 'info'), description: limitedText(String(input.description || ''), config.maxPacketBytes), reproducibleSteps: Array.isArray(input.reproducibleSteps) ? input.reproducibleSteps.slice(0, 1000).map(step => limitedText(String(step), config.maxPacketBytes)) : [], ...(input.affectedAssetId ? { affectedAssetId: String(input.affectedAssetId) } : {}), createdAt: now }
-      if (table === 'assets' && !row.value) throw new Error('资产 value 不能为空'); if (table === 'facts' && !row.detail) throw new Error('事实 detail 不能为空'); if (table === 'findings' && (!row.title || row.reproducibleSteps.length === 0)) throw new Error('漏洞必须包含 title 和可复现步骤')
+      let row
+      if (table === 'assets') {
+        row = { id, sessionId: sid, type: String(input.type || 'endpoint'), value: limitedText(String(input.value || ''), config.maxPacketBytes), ...(input.parentId ? { parentId: String(input.parentId) } : {}), meta: limitedText(String(input.meta || ''), config.maxPacketBytes), createdAt: now }
+        if (!row.value) throw new Error('资产 value 不能为空')
+      } else if (table === 'facts') {
+        row = { id, sessionId: sid, kind: String(input.kind || 'info'), target: limitedText(String(input.target || ''), config.maxPacketBytes), detail: limitedText(String(input.detail || ''), config.maxPacketBytes), confidence: Number.isFinite(confidence) ? Math.max(0, Math.min(1, confidence)) : 1, createdAt: now }
+        if (!row.detail) throw new Error('事实 detail 不能为空')
+      } else {
+        const evidence = candidateEvidenceList(input.evidence, '漏洞证据')
+        const impact = limitedText(String(input.impact || ''), config.maxPacketBytes)
+        const requestPoc = limitedText(String(input.requestPoc || input.poc || ''), config.maxPacketBytes)
+        const cvss = safeCvssForInput(input)
+        const vulnerabilityType = normalizeVulnerabilityType(input.vulnerabilityType, '')
+        if (!String(input.title || '').trim() || !String(input.description || '').trim()) throw new Error('漏洞必须包含 title 和 description')
+        if (!vulnerabilityType) throw new Error('漏洞必须包含单一 vulnerabilityType')
+        if (!impact) throw new Error('漏洞必须说明真实影响')
+        if (!httpRequestPocComplete(requestPoc)) throw new Error('漏洞必须提供 HTTP/1.x 格式的 Request PoC；仅允许占位符和非破坏性请求')
+        if (cvss.score == null) throw new Error('漏洞必须提供有效的 CVSS:3.1 向量')
+        if (!confidenceComplete(input.confidence)) throw new Error('漏洞必须提供 high 或 medium 置信度')
+        row = {
+          id,
+          sessionId: sid,
+          title: limitedText(String(input.title || ''), config.maxPacketBytes),
+          severity: String(cvss.severity || 'unknown').toLowerCase(),
+          description: limitedText(String(input.description || ''), config.maxPacketBytes),
+          reproducibleSteps: Array.isArray(input.reproducibleSteps) ? input.reproducibleSteps.slice(0, 1000).map(step => limitedText(String(step), config.maxPacketBytes)) : [],
+          evidence,
+          impact,
+          requestPoc,
+          cvssVector: cvss.vector,
+          cvssScore: cvss.score,
+          cvssSeverity: cvss.severity,
+          confidence: normalizeConfidence(input.confidence),
+          vulnerabilityType,
+          ...(input.secretType ? { secretType: limitedText(String(input.secretType), 128) } : {}),
+          ...(input.secretExposure ? { secretExposure: limitedText(String(input.secretExposure), config.maxPacketBytes) } : {}),
+          ...(input.secretValue ? { secretValue: limitedText(String(input.secretValue), config.maxPacketBytes) } : {}),
+          ...(input.exploitation ? { exploitation: limitedText(String(input.exploitation), config.maxPacketBytes) } : {}),
+          ...(input.affectedAssetId ? { affectedAssetId: String(input.affectedAssetId) } : {}),
+          createdAt: now,
+        }
+      }
       await store.put(table, id, row); return row
     })
   }
@@ -1239,8 +1437,9 @@ export function createRuntime(rawConfig = {}, suppliedStore, sessions, services 
       if (!existing.some(item => item.id === id) && existing.length >= config.maxAuditCandidates) throw new Error(`审计候选超过上限 ${config.maxAuditCandidates}`)
       const now = new Date().toISOString()
       normalizeAuditCandidateStatus(input.status)
+      const vulnerabilityType = normalizeVulnerabilityType(input.vulnerabilityType || input.domain)
       const cvss = safeCvssForInput(input)
-      const row = { id, sessionId: sid, runId: run.id, candidateId, domain: String(input.domain || 'unknown'), status: 'needs-review', severity: String(input.severity || cvss.severity || 'unknown').toLowerCase(), title: limitedText(String(input.title || candidateId), config.maxPacketBytes), apiId: api.id, entryId, handler: api.handler, entryType: String(input.entryType || api.entryType || 'unknown'), entry, auth: String(input.auth || 'unknown'), active: String(input.active || 'unknown'), source, sink, chain: textList(input.chain, config.maxPacketBytes), guards: textList(input.guards, config.maxPacketBytes), evidence, evidenceLocations, impact, confidence: String(input.confidence || 'unknown'), queueItem: limitedText(String(input.queueItem || ''), 1024), description: limitedText(String(input.description || ''), config.maxPacketBytes), remediation: limitedText(String(input.remediation || ''), config.maxPacketBytes), requestPoc: limitedText(String(input.requestPoc || input.poc || ''), config.maxPacketBytes), cvss: limitedText(String(input.cvss || ''), 128), cvssVector: cvss.vector, cvssScore: cvss.score, cvssSeverity: cvss.severity, reviewNotes: '', createdAt: now, updatedAt: now }
+      const row = { id, sessionId: sid, runId: run.id, candidateId, domain: String(input.domain || vulnerabilityType), vulnerabilityType, status: 'needs-review', severity: String(cvss.severity || input.severity || 'unknown').toLowerCase(), title: limitedText(String(input.title || candidateId), config.maxPacketBytes), apiId: api.id, entryId, handler: api.handler, entryType: String(input.entryType || api.entryType || 'unknown'), entry, auth: String(input.auth || 'unknown'), active: String(input.active || 'unknown'), source, sink, chain: textList(input.chain, config.maxPacketBytes), guards: textList(input.guards, config.maxPacketBytes), evidence, evidenceLocations, impact, impactEvidence: limitedText(String(input.impactEvidence || ''), config.maxPacketBytes), confidence: normalizeConfidence(input.confidence), queueItem: limitedText(String(input.queueItem || ''), 1024), description: limitedText(String(input.description || ''), config.maxPacketBytes), remediation: limitedText(String(input.remediation || ''), config.maxPacketBytes), requestPoc: limitedText(String(input.requestPoc || input.poc || ''), config.maxPacketBytes), cvss: limitedText(String(input.cvss || ''), 128), cvssVector: cvss.vector, cvssScore: cvss.score, cvssSeverity: cvss.severity, ...(input.secretType ? { secretType: limitedText(String(input.secretType), 128) } : {}), ...(input.secretExposure ? { secretExposure: limitedText(String(input.secretExposure), config.maxPacketBytes) } : {}), ...(input.secretValue ? { secretValue: limitedText(String(input.secretValue), config.maxPacketBytes) } : {}), ...(input.exploitation ? { exploitation: limitedText(String(input.exploitation), config.maxPacketBytes) } : {}), reviewNotes: '', createdAt: now, updatedAt: now }
       await store.put('audit_candidates', id, row); await store.put('audit_runs', run.id, { ...run, updatedAt: now, status: 'reviewing' }); return row
     })
   }
@@ -1257,9 +1456,12 @@ export function createRuntime(rawConfig = {}, suppliedStore, sessions, services 
       const evidenceLocations = input.evidenceLocations === undefined ? normalizeEvidenceLocations(candidate.evidenceLocations, config.maxPacketBytes) : normalizeEvidenceLocations(input.evidenceLocations, config.maxPacketBytes)
       if (!evidenceLocations.length) throw new Error('复核缺少证据位置，至少提供一个文件和行号/代码位置')
       const requestPoc = input.requestPoc === undefined ? String(candidate.requestPoc || '') : limitedText(String(input.requestPoc || input.poc || ''), config.maxPacketBytes)
-      const status = requestedStatus !== 'needs-review' && (cvss.score == null || !selfCheckComplete(selfCheck) || (requestedStatus === 'confirmed' && !requestPocComplete(requestPoc))) ? 'needs-review' : requestedStatus
+      const impactEvidence = limitedText(String(input.impactEvidence || candidate.impactEvidence || candidate.impact || ''), config.maxPacketBytes)
+      const evidence = Array.isArray(candidate.evidence) ? candidate.evidence : []
+      const evidenceReady = evidenceComplete({ evidence, evidenceLocations, impact: impactEvidence })
+      const status = requestedStatus !== 'needs-review' && (cvss.score == null || !selfCheckComplete(selfCheck) || (requestedStatus === 'confirmed' && (!requestPocComplete(requestPoc) || !evidenceReady || !confidenceComplete(input.confidence ?? candidate.confidence)))) ? 'needs-review' : requestedStatus
       const now = new Date().toISOString()
-      const updated = { ...candidate, status, evidenceLocations, selfCheck, confidence: String(input.confidence || candidate.confidence || 'unknown'), reviewNotes: limitedText(String(input.reviewNotes || candidate.reviewNotes || ''), config.maxPacketBytes), remediation: limitedText(String(input.remediation || candidate.remediation || ''), config.maxPacketBytes), requestPoc, cvss: limitedText(String(input.cvss || candidate.cvss || ''), 128), cvssVector: cvss.vector || candidate.cvssVector, cvssScore: cvss.score == null ? candidate.cvssScore ?? null : cvss.score, cvssSeverity: cvss.severity || candidate.cvssSeverity || '', reviewedAt: now, updatedAt: now }
+      const updated = { ...candidate, vulnerabilityType: normalizeVulnerabilityType(input.vulnerabilityType || candidate.vulnerabilityType || candidate.domain), status, severity: String(cvss.severity || candidate.cvssSeverity || candidate.severity || 'unknown').toLowerCase(), evidenceLocations, impactEvidence, selfCheck, confidence: normalizeConfidence(input.confidence ?? candidate.confidence), reviewNotes: limitedText(String(input.reviewNotes || candidate.reviewNotes || ''), config.maxPacketBytes), remediation: limitedText(String(input.remediation || candidate.remediation || ''), config.maxPacketBytes), requestPoc, cvss: limitedText(String(input.cvss || candidate.cvss || ''), 128), cvssVector: cvss.vector || candidate.cvssVector, cvssScore: cvss.score == null ? candidate.cvssScore ?? null : cvss.score, cvssSeverity: cvss.severity || candidate.cvssSeverity || '', ...(input.secretType ? { secretType: limitedText(String(input.secretType), 128) } : {}), ...(input.secretExposure ? { secretExposure: limitedText(String(input.secretExposure), config.maxPacketBytes) } : {}), ...(input.secretValue ? { secretValue: limitedText(String(input.secretValue), config.maxPacketBytes) } : {}), ...(input.exploitation ? { exploitation: limitedText(String(input.exploitation), config.maxPacketBytes) } : {}), reviewedAt: now, updatedAt: now }
       await store.put('audit_candidates', candidate.id, updated)
       if (['confirmed', 'false-positive', 'accepted-risk'].includes(status)) {
         const apis = (await store.list('apis', sid)).filter(item => item.runId === run.id)
@@ -1284,10 +1486,11 @@ export function createRuntime(rawConfig = {}, suppliedStore, sessions, services 
         const cvssSeverity = cvss.severity || String(item.cvssSeverity || '')
         const requestPoc = limitedText(String(item.requestPoc || ''), config.maxPacketBytes)
         const rawStatus = candidateStatus(item)
-        const status = rawStatus === 'confirmed' && !requestPocComplete(requestPoc) ? 'needs-review' : rawStatus
         const evidenceLocations = normalizeEvidenceLocations(item.evidenceLocations, config.maxPacketBytes)
+        const impactEvidence = limitedText(String(item.impactEvidence || item.impact || ''), config.maxPacketBytes)
+        const status = rawStatus === 'confirmed' && (!requestPocComplete(requestPoc) || score == null || !evidenceComplete({ evidence: item.evidence, evidenceLocations, impact: impactEvidence }) || !confidenceComplete(item.confidence)) ? 'needs-review' : rawStatus
         const affectedFiles = [...new Set(evidenceLocations.map(location => location.file).filter(Boolean))]
-        return { id: limitedText(String(item.id || item.candidateId || ''), 256), candidateId: limitedText(String(item.candidateId || ''), 256), title: limitedText(String(item.title || item.candidateId || ''), config.maxPacketBytes), severity: String(item.severity || cvssSeverity || 'unknown').toLowerCase(), cvssVector: cvss.vector || limitedText(String(item.cvssVector || ''), 256), cvssScore: score, cvssSeverity, status, apiId: item.apiId, entryId: limitedText(String(item.entryId || ''), 256), handler: limitedText(String(item.handler || ''), 1024), entry: limitedText(String(item.entry || item.entryId || ''), config.maxPacketBytes), impact: limitedText(String(item.impact || ''), config.maxPacketBytes), remediation: limitedText(String(item.remediation || ''), config.maxPacketBytes), requestPoc, confidence: limitedText(String(item.confidence || 'unknown'), 64), source: textList(item.source, config.maxPacketBytes), sink: textList(item.sink, config.maxPacketBytes), chain: textList(item.chain, config.maxPacketBytes, 100), guards: textList(item.guards, config.maxPacketBytes, 100), evidence: textList(item.evidence, config.maxPacketBytes), evidenceLocations, affectedFiles, selfCheck: item.selfCheck ? normalizeSelfCheck(item.selfCheck) : null, reviewNotes: limitedText(String(item.reviewNotes || ''), config.maxPacketBytes) }
+        return { id: limitedText(String(item.id || item.candidateId || ''), 256), candidateId: limitedText(String(item.candidateId || ''), 256), title: limitedText(String(item.title || item.candidateId || ''), config.maxPacketBytes), vulnerabilityType: normalizeVulnerabilityType(item.vulnerabilityType || item.domain), severity: String(cvssSeverity || item.severity || 'unknown').toLowerCase(), cvssVector: cvss.vector || limitedText(String(item.cvssVector || ''), 256), cvssScore: score, cvssSeverity, status, apiId: item.apiId, entryId: limitedText(String(item.entryId || ''), 256), handler: limitedText(String(item.handler || ''), 1024), entry: limitedText(String(item.entry || item.entryId || ''), config.maxPacketBytes), impact: limitedText(String(item.impact || ''), config.maxPacketBytes), impactEvidence, remediation: limitedText(String(item.remediation || ''), config.maxPacketBytes), requestPoc, confidence: normalizeConfidence(item.confidence), source: textList(item.source, config.maxPacketBytes), sink: textList(item.sink, config.maxPacketBytes), chain: textList(item.chain, config.maxPacketBytes, 100), guards: textList(item.guards, config.maxPacketBytes, 100), evidence: textList(item.evidence, config.maxPacketBytes), evidenceLocations, affectedFiles, secretType: limitedText(String(item.secretType || ''), 128), secretExposure: limitedText(String(item.secretExposure || ''), config.maxPacketBytes), secretValue: limitedText(String(item.secretValue || ''), config.maxPacketBytes), exploitation: limitedText(String(item.exploitation || ''), config.maxPacketBytes), selfCheck: item.selfCheck ? normalizeSelfCheck(item.selfCheck) : null, reviewNotes: limitedText(String(item.reviewNotes || ''), config.maxPacketBytes) }
       }
       const reportItems = candidates.map(toReportItem)
       const findings = sortAuditFindings(reportItems.filter(item => item.status === 'confirmed' && item.cvssScore != null))
@@ -1305,8 +1508,14 @@ export function createRuntime(rawConfig = {}, suppliedStore, sessions, services 
   }
   async function state(sid, options = {}) { const result = {}; const includeHistory = options.includeHistory !== false; const includeReports = options.includeReports !== false; for (const table of TABLES.filter(item => item !== 'policies')) if ((table !== 'exchanges' || includeHistory) && (table !== 'reports' || includeReports)) result[table] = await store.list(table, String(sid)); return result }
   async function stateSummary(sid) { const result = await state(sid, { includeHistory: false, includeReports: false }); result.exchanges = { count: (await store.list('exchanges', String(sid))).length }; result.reports = { count: (await store.list('reports', String(sid))).length }; return result }
-  async function history(sid, options) { const rows = (await store.list('exchanges', String(sid))).sort((a, b) => b.time.localeCompare(a.time) || b.id.localeCompare(a.id)); if (!options) return rows; return paginateRows(rows, options, row => row.time, 'desc') }
-  async function reports(sid, options) { const rows = (await store.list('reports', String(sid))).sort((a, b) => a.key.localeCompare(b.key) || a.id.localeCompare(b.id)); if (!options) return rows; return paginateRows(rows, options, row => row.key, 'asc') }
+  async function history(sid, options) { const rows = (await store.list('exchanges', String(sid))).sort((a, b) => b.time.localeCompare(a.time) || b.id.localeCompare(a.id)); if (!options) return rows; const page = paginateRows(rows, options, row => row.time, 'desc'); return options.summary ? { ...page, items: page.items.map(historySummary) } : page }
+  async function historyDetail(sid, id) {
+    const exchangeId = String(id || '').trim()
+    if (!exchangeId || exchangeId.length > 256) throw new Error('历史记录 id 无效')
+    const row = await store.get('exchanges', `${String(sid)}:exchange-${exchangeId}`)
+    return row && String(row.sessionId) === String(sid) ? row : null
+  }
+  async function reports(sid, options) { let rows = (await store.list('reports', String(sid))).sort((a, b) => a.key.localeCompare(b.key) || a.id.localeCompare(b.id)); if (!options) return rows; const since = String(options.since || '').trim(); if (since) rows = rows.filter(row => String(row.updatedAt || '') > since); return paginateRows(rows, options, row => row.key, 'asc') }
   async function auditApis(sid, options) {
     const sessionId = String(sid)
     const rows = (await store.list('apis', sessionId)).sort((a, b) => String(a.entryId || '').localeCompare(String(b.entryId || '')) || String(a.handler || '').localeCompare(String(b.handler || '')) || a.id.localeCompare(b.id))
@@ -1318,7 +1527,7 @@ export function createRuntime(rawConfig = {}, suppliedStore, sessions, services 
     }
     const confirmedByApi = new Map()
     for (const candidate of await store.list('audit_candidates', sessionId)) {
-      if (candidateStatus(candidate) !== 'confirmed' || safeCvssForInput(candidate).score == null || !requestPocComplete(candidate.requestPoc)) continue
+      if (!confirmedCandidateReady(candidate)) continue
       let api = candidate.apiId ? rows.find(item => item.id === candidate.apiId) : null
       if (!api && candidate.handler) api = rows.find(item => item.entryId === candidate.entryId && item.handler === candidate.handler)
       if (!api) {
@@ -1334,7 +1543,7 @@ export function createRuntime(rawConfig = {}, suppliedStore, sessions, services 
     if (!options) return projected
     return paginateRows(projected, options, row => row.id, 'asc')
   }
-  async function auditReports(sid, options) { const rows = (await store.list('audit_reports', String(sid))).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || b.id.localeCompare(a.id)); if (!options) return rows; return paginateRows(rows, options, row => row.updatedAt, 'desc') }
+  async function auditReports(sid, options) { let rows = (await store.list('audit_reports', String(sid))).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || b.id.localeCompare(a.id)); if (!options) return rows; const since = String(options.since || '').trim(); if (since) rows = rows.filter(row => String(row.updatedAt || '') > since); return paginateRows(rows, options, row => row.updatedAt, 'desc') }
   async function auditState(sid, options = {}) { const run = await auditRunFor(String(sid)); if (options.summaryOnly) return { run: run || null }; return { run: run || null, apis: await auditApis(sid), candidates: (await store.list('audit_candidates', String(sid))).filter(item => !run || item.runId === run.id), reports: await auditReports(sid) } }
   function referenceSessionTitle(session, sid) {
     const header = session?.header || {}
@@ -1407,7 +1616,7 @@ export function createRuntime(rawConfig = {}, suppliedStore, sessions, services 
     return limitedText(text, config.maxReferenceBytes)
   }
   async function clear(sid) { return withLock(locks, `session:${String(sid)}`, () => store.clear(String(sid))) }
-  return { config, sessions, store, request, start, addAsset: (input, exec) => addStructured('assets', input, exec, 'asset'), addFact: (input, exec) => addStructured('facts', input, exec, 'fact'), addFinding: (input, exec) => addStructured('findings', input, exec, 'finding'), report, auditStart, auditUpdateUnderstanding, auditAddApi, auditMarkApiReviewed, auditAddCandidate, auditReviewCandidate, auditReport, auditApis, auditReports, auditState, auditReferenceCandidates, auditReferenceContent, state, stateSummary, history, reports, clear, policy: policyFor, updatePolicy: (sid, input) => updatePolicy(sid, input) }
+  return { config, sessions, store, request, start, addAsset: (input, exec) => addStructured('assets', input, exec, 'asset'), addFact: (input, exec) => addStructured('facts', input, exec, 'fact'), addFinding: (input, exec) => addStructured('findings', input, exec, 'finding'), report, auditStart, auditUpdateUnderstanding, auditAddApi, auditMarkApiReviewed, auditAddCandidate, auditReviewCandidate, auditReport, auditApis, auditReports, auditState, auditReferenceCandidates, auditReferenceContent, state, stateSummary, history, historyDetail, reports, clear, policy: policyFor, updatePolicy: (sid, input) => updatePolicy(sid, input) }
 }
 
 function sendJson(res, status, body) { res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', vary: 'Origin' }); res.end(JSON.stringify(body)) }
@@ -1523,11 +1732,19 @@ export function apply(ctx, config) {
         const limit = pageNumber(url.searchParams.get('limit'), 100, 200)
         const cursor = String(url.searchParams.get('cursor') || '')
         if (cursor.length > 2048) throw new Error('分页 cursor 过长')
+        const since = String(url.searchParams.get('since') || '')
+        if (since.length > 128) throw new Error('since 参数过长')
         if (mode === 'code-audit' && req.method === 'GET' && path === 'audit/apis') { const page = await runtime.auditApis(sid, { limit, cursor }); return sendJson(res, 200, { ok: true, mode, apis: page.items, total: page.total, hasMore: page.hasMore, nextCursor: page.nextCursor }) }
-        if (mode === 'code-audit' && req.method === 'GET' && path === 'audit/reports') { const page = await runtime.auditReports(sid, { limit: Math.min(limit, 100), cursor }); return sendJson(res, 200, { ok: true, mode, reports: page.items, hasMore: page.hasMore, nextCursor: page.nextCursor }) }
+        if (mode === 'code-audit' && req.method === 'GET' && path === 'audit/reports') { const page = await runtime.auditReports(sid, { limit: Math.min(limit, 100), cursor, since }); return sendJson(res, 200, { ok: true, mode, reports: page.items, hasMore: page.hasMore, nextCursor: page.nextCursor }) }
         if (mode === 'code-audit' && req.method === 'GET' && path === 'audit/state') return sendJson(res, 200, { ok: true, mode, state: await runtime.auditState(sid, { summaryOnly: true }) })
-        if (req.method === 'GET' && path === 'history') { const page = await runtime.history(sid, { limit, cursor }); return sendJson(res, 200, { ok: true, history: page.items, hasMore: page.hasMore, nextCursor: page.nextCursor }) }
-        if (req.method === 'GET' && path === 'reports') { const page = await runtime.reports(sid, { limit: Math.min(limit, 100), cursor }); return sendJson(res, 200, { ok: true, reports: page.items, hasMore: page.hasMore, nextCursor: page.nextCursor }) }
+        if (req.method === 'GET' && path === 'history/detail') {
+          const id = String(url.searchParams.get('id') || '')
+          const detail = await runtime.historyDetail(sid, id)
+          if (!detail) return sendJson(res, 404, { ok: false, error: '历史记录不存在或不属于当前会话' })
+          return sendJson(res, 200, { ok: true, history: detail })
+        }
+        if (req.method === 'GET' && path === 'history') { const page = await runtime.history(sid, { limit, cursor, summary: url.searchParams.get('summary') !== '0' }); return sendJson(res, 200, { ok: true, history: page.items, hasMore: page.hasMore, nextCursor: page.nextCursor }) }
+        if (req.method === 'GET' && path === 'reports') { const page = await runtime.reports(sid, { limit: Math.min(limit, 100), cursor, since }); return sendJson(res, 200, { ok: true, reports: page.items, hasMore: page.hasMore, nextCursor: page.nextCursor }) }
         if (req.method === 'GET' && path === 'state') return sendJson(res, 200, { ok: true, state: await runtime.stateSummary(sid) })
         if (req.method === 'POST' && path === 'clear') { await runtime.clear(sid); return sendJson(res, 200, { ok: true }) }
         return sendJson(res, 404, { ok: false, error: 'Not Found' })

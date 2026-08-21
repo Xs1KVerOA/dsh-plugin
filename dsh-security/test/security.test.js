@@ -23,6 +23,17 @@ function fakeRiskLlm(value, calls = []) {
   }
 }
 
+function fakeRiskLlmTexts(texts, calls = []) {
+  return {
+    async *stream(options) {
+      const text = texts[Math.min(calls.length, texts.length - 1)]
+      calls.push(options)
+      yield { type: 'block-end', index: 0, block: { type: 'text', text } }
+      yield { type: 'finish', reason: { kind: 'stop' } }
+    },
+  }
+}
+
 test('accepts only safe public GitHub repository URLs for direct code-audit pulls', () => {
   assert.deepEqual(normalizeAuditRepository('https://github.com/labring/aiproxy'), {
     url: 'https://github.com/labring/aiproxy.git', owner: 'labring', repo: 'aiproxy',
@@ -111,21 +122,80 @@ test('LLM cannot bypass low-confidence approval and read-only policy', async () 
   assert.match(calls[0].messages[0].content[0].text, /当前会话授权与历史上下文/)
 })
 
-test('LLM failure falls back to unknown/high-risk approval instead of sending', async () => {
+test('high-confidence low-impact reads do not trigger a second request approval', async () => {
   const result = await assessRequestRisk({
-    llm: { stream() { throw new Error('provider unavailable') } },
+    llm: fakeRiskLlm({ action: 'read', impact: 'low', confidence: 0.97, approvalRequired: true, reason: '公开 robots.txt 读取' }),
+    exec: { agent: { options: { provider: 'test', model: 'risk' }, session: { id: 'read-session' } } },
+    request: { method: 'GET', headers: {}, body: '', messages: [] },
+    target: normalizeTarget('https://example.com/robots.txt'),
+    context: 'engagement declared for https://example.com',
+  })
+  assert.equal(result.approvalRequired, false)
+})
+
+test('accepts a valid JSON object wrapped in a model explanation or code fence', async () => {
+  const calls = []
+  const result = await assessRequestRisk({
+    llm: fakeRiskLlmTexts(['判断如下：\n```json\n{"action":"read","impact":"none","confidence":0.97,"approvalRequired":true,"reason":"仅读取公开资源"}\n```'], calls),
+    exec: { agent: { options: { provider: 'test', model: 'risk' }, session: { id: 'risk-fenced' } } },
+    request: { method: 'GET', headers: {}, body: '', messages: [] },
+    target: normalizeTarget('https://example.com/robots.txt'),
+    context: 'engagement declared for https://example.com',
+  })
+  assert.equal(result.action, 'read')
+  assert.equal(result.approvalRequired, false)
+  assert.equal(calls.length, 1)
+})
+
+test('retries once when the risk model returns non-JSON text, then applies policy', async () => {
+  const calls = []
+  const result = await assessRequestRisk({
+    llm: fakeRiskLlmTexts([
+      '我认为这是一个只读请求。',
+      '{"action":"read","impact":"low","confidence":0.96,"approvalRequired":true,"reason":"GET 只读取公开资源"}',
+    ], calls),
+    exec: { agent: { options: { provider: 'test', model: 'risk' }, session: { id: 'risk-retry' } } },
+    request: { method: 'GET', headers: {}, body: '', messages: [] },
+    target: normalizeTarget('https://example.com/health'),
+    context: 'engagement declared for https://example.com',
+  })
+  assert.equal(result.action, 'read')
+  assert.equal(result.approvalRequired, false)
+  assert.equal(calls.length, 2)
+  assert.match(calls[1].messages[0].content[0].text, /格式纠正/)
+})
+
+test('LLM failure falls back to unknown/high-risk approval instead of sending', async () => {
+  let calls = 0
+  const result = await assessRequestRisk({
+    llm: { stream() { calls += 1; throw new Error('provider unavailable') } },
     exec: { agent: { options: { provider: 'test', model: 'risk' }, session: { id: 'risk-failure' } } },
     request: { method: 'GET', headers: {}, body: '', messages: [] },
     target: normalizeTarget('https://example.com/health'),
     context: 'no prior context',
   })
   assert.deepEqual(result, { action: 'unknown', impact: 'high', confidence: 0, approvalRequired: true, reason: 'LLM 风险评估失败（provider unavailable），默认要求用户审批后才可发送请求。' })
+  assert.equal(calls, 1)
+})
+
+test('unknown risk does not expose a durable always-allow grant', async () => {
+  let approvalRequest
+  const runtime = createRuntime({}, undefined, undefined, { llm: { stream() { throw new Error('malformed risk response') } } })
+  const exec = securityExec('unknown-scope', {
+    agent: { options: { provider: 'test', model: 'risk' }, session: { id: 'unknown-scope', header: { agentPreset: 'security' } } },
+    approval: { request: async value => { approvalRequest = value; return 'allowed-always' } },
+  })
+  await runtime.start({ target: 'https://example.com', objective: 'unknown risk scope', authorization: 'written scope' }, exec)
+  await assert.rejects(() => runtime.request({ url: 'https://example.com/health' }, exec), /不允许完全授权/)
+  assert.equal(approvalRequest.grantKeys.always, undefined)
+  assert.match(approvalRequest.reason, /不提供完全允许/)
 })
 
 test('approval scopes distinguish exact fingerprints from session risk families', () => {
   const first = normalizeTarget('https://example.com/users?id=1')
   const second = normalizeTarget('https://example.com/users?id=2')
   assert.notEqual(requestFingerprint({ url: first, method: 'GET', headers: {}, body: '' }), requestFingerprint({ url: second, method: 'GET', headers: {}, body: '' }))
+  assert.equal(requestFingerprint({ url: first, method: 'GET', headers: { Accept: 'application/json', 'X-Test': '1' }, body: '' }), requestFingerprint({ url: first, method: 'GET', headers: { 'x-test': '1', accept: 'application/json' }, body: '' }))
   assert.equal(requestApprovalScope({ url: first, method: 'GET', action: 'read', impact: 'none' }), requestApprovalScope({ url: second, method: 'GET', action: 'read', impact: 'none' }))
   assert.notEqual(requestApprovalScope({ url: first, method: 'GET', action: 'read', impact: 'none' }), requestApprovalScope({ url: first, method: 'PATCH', action: 'update', impact: 'high' }))
   assert.equal(requestApprovalAlwaysScope({ url: first, method: 'GET', action: 'read' }), requestApprovalAlwaysScope({ url: second, method: 'GET', action: 'read' }))
@@ -201,14 +271,23 @@ test('records HTTP request and response packets', async t => {
   t.after(() => server.close())
   const port = server.address().port
   const runtime = createRuntime({ allowedHosts: ['127.0.0.1'], allowPrivateTargets: true, requireAllowlist: true })
-  const result = await runtime.request({ url: `http://127.0.0.1:${port}/health?token=should-not-persist`, method: 'GET' }, securityExec())
+  const result = await runtime.request({ url: `http://127.0.0.1:${port}/health?token=should-not-persist`, method: 'GET', probePhase: 'discovery' }, securityExec())
   assert.equal(result.status, 200)
   assert.match(result.target, /token=%5BREDACTED%5D/)
   assert.doesNotMatch(result.requestPacket, /should-not-persist/)
   const history = await runtime.history('session-1')
   assert.equal(history.length, 1)
+  assert.equal(history[0].probePhase, 'discovery')
+  assert.equal(history[0].request.probePhase, 'discovery')
+  assert.equal(history[0].requestFingerprint, result.requestFingerprint)
   assert.match(history[0].requestPacket, /GET \/health\?token=%5BREDACTED%5D HTTP\/1\.1/)
   assert.match(history[0].responsePacket, /HTTP\/1\.1 200/)
+})
+
+test('records a normalized probe phase and rejects unknown phases', async () => {
+  const runtime = createRuntime({ allowedHosts: ['example.com'], requireAllowlist: true })
+  const exec = securityExec('phase-validation')
+  await assert.rejects(() => runtime.request({ url: 'https://example.com/health', probePhase: 'not-a-phase' }, exec), /探测阶段无效/)
 })
 
 test('honors per-request timeout and rejects oversized request bodies', async t => {
@@ -281,7 +360,7 @@ test('stores structured engagement data and renders it into the Markdown report'
   await runtime.start({ target: 'https://example.com', objective: '验证认证边界', authorization: 'written scope' }, exec)
   await runtime.addAsset({ type: 'web', value: 'https://example.com/login', meta: '登录入口' }, exec)
   await runtime.addFact({ target: 'https://example.com', detail: '登录接口返回 401', kind: 'HTTP response', confidence: 0.9 }, exec)
-  await runtime.addFinding({ target: 'https://example.com', title: '缺少安全响应头', severity: 'low', description: '响应缺少 CSP', reproducibleSteps: ['GET /'] }, exec)
+  await runtime.addFinding({ target: 'https://example.com', title: '缺少安全响应头', vulnerabilityType: 'security-header-misconfiguration', severity: 'low', description: '响应缺少 CSP', evidence: ['HTTPS 响应缺少 Content-Security-Policy'], impact: '允许未受约束的脚本执行边界扩大，影响页面内容完整性', requestPoc: 'GET / HTTP/1.1\nHost: example.com\n\n', cvssVector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:L/A:N', confidence: 'medium', secretType: 'test-api-key', secretExposure: '响应头 X-Test-Key', secretValue: 'sk-test-example-123', exploitation: '在授权测试环境使用占位权限接口验证，不执行写操作', reproducibleSteps: ['GET /'] }, exec)
   const report = await runtime.report({ target: 'https://example.com', title: '认证边界报告', markdown: '需要进一步验证。' }, exec)
   const state = await runtime.state('session-3')
   assert.equal(state.goals.length, 1)
@@ -291,6 +370,16 @@ test('stores structured engagement data and renders it into the Markdown report'
   assert.match(report.markdown, /Structured engagement record/)
   assert.match(report.markdown, /缺少安全响应头/)
   assert.match(report.markdown, /登录接口返回 401/)
+  assert.match(report.markdown, /sk-test-example-123/)
+})
+
+test('requires concrete impact, CVSS, confidence, and an HTTP PoC for pentest findings', async () => {
+  const runtime = createRuntime({ allowedHosts: ['example.com'] })
+  const exec = securityExec('finding-contract')
+  await runtime.start({ target: 'https://example.com', objective: '验证授权边界', authorization: 'written scope' }, exec)
+  await assert.rejects(() => runtime.addFinding({ title: '疑似问题', description: '只有描述，没有证据链。', reproducibleSteps: ['GET /'] }, exec), /漏洞证据 不能为空/)
+  await assert.rejects(() => runtime.addFinding({ title: '未授权访问', vulnerabilityType: 'authorization-bypass', description: '缺少授权校验。', evidence: ['handler.go:42'], impact: '可访问其他用户资源', requestPoc: 'curl https://example.com/users', cvssVector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N', confidence: 'high', reproducibleSteps: ['GET /users'] }, exec), /HTTP\/1\.x 格式/)
+  await assert.rejects(() => runtime.addFinding({ title: '未授权访问', vulnerabilityType: 'authorization-bypass', description: '缺少授权校验。', evidence: ['handler.go:42'], impact: '可访问其他用户资源', requestPoc: 'GET /users HTTP/1.1\nHost: example.com\n\n', cvssVector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N', confidence: 'low', reproducibleSteps: ['GET /users'] }, exec), /high 或 medium/)
 })
 
 test('asks for protected-target capability when a pentest engagement starts and reuses the session decision', async t => {
@@ -380,7 +469,7 @@ test('stores code-audit API inventory, candidates, and structured reports separa
   assert.equal(run.graphRequired, false)
   assert.equal(run.graphStatus, 'not-applicable')
   await runtime.auditAddApi({ runId: run.id, entryId: 'http:POST:/api/v1/login', entryType: 'http', method: 'POST', path: '/api/v1/login', handler: 'internal/auth.go:42', auth: 'public', active: 'yes', riskTags: ['auth'], targetPaths: ['internal/web'], contextFiles: ['internal/auth.go', 'internal/middleware/auth.go'], relatedSymbols: ['LoginHandler', 'SessionStore.Lookup'], authGuards: ['RequireUser'], configRefs: ['config.auth.rateLimit'], dataModels: ['User', 'Session'], errorHandlers: ['writeAuthError'], middleware: ['requestID', 'recover'] }, exec)
-  await runtime.auditAddCandidate({ runId: run.id, candidateId: 'AUTH-001', domain: 'auth', severity: 'medium', status: 'confirmed', entryId: 'http:POST:/api/v1/login', entryType: 'http', entry: 'POST /api/v1/login', active: 'yes', source: ['internal/auth.go:42 body.token'], sink: ['internal/auth.go:88 session lookup'], evidence: ['internal/auth.go:42-88'], evidenceLocations: [{ file: 'internal/auth.go', lineStart: 42, lineEnd: 88, role: 'flow' }], chain: ['internal/auth.go:42 -> internal/auth.go:88'], guards: ['No rate limit'], impact: '认证接口缺少限流', remediation: '增加认证限流并记录失败次数', confidence: 'medium', requestPoc: 'POST /api/v1/login HTTP/1.1\nHost: example.test\nContent-Type: application/json\n\n{"token":"{{token}}"}', cvssVector: 'CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:L/A:N' }, exec)
+  await runtime.auditAddCandidate({ runId: run.id, candidateId: 'AUTH-001', domain: 'auth', severity: 'medium', status: 'confirmed', entryId: 'http:POST:/api/v1/login', entryType: 'http', entry: 'POST /api/v1/login', active: 'yes', source: ['internal/auth.go:42 body.token'], sink: ['internal/auth.go:88 session lookup'], evidence: ['internal/auth.go:42-88'], evidenceLocations: [{ file: 'internal/auth.go', lineStart: 42, lineEnd: 88, role: 'flow' }], chain: ['internal/auth.go:42 -> internal/auth.go:88'], guards: ['No rate limit'], impact: '认证接口缺少限流', remediation: '增加认证限流并记录失败次数', confidence: 'medium', secretType: 'test-token', secretExposure: '测试响应中的 token 字段', secretValue: 'token-test-example-456', exploitation: '仅在授权测试环境调用只读身份接口验证权限边界', requestPoc: 'POST /api/v1/login HTTP/1.1\nHost: example.test\nContent-Type: application/json\n\n{"token":"{{token}}"}', cvssVector: 'CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:L/A:N' }, exec)
   await runtime.auditReviewCandidate({ runId: run.id, candidateId: 'AUTH-001', status: 'confirmed', reachable: 'yes', authorization: 'public endpoint; no account requirement', inputValidation: 'token is not rate-limited', productionCode: 'production handler', sufficientEvidence: 'yes', reviewNotes: '入口和处理链已复核' }, exec)
   const report = await runtime.auditReport({ runId: run.id, title: 'PAM 代码审计', summary: '完成入口与认证队列复核', topPriorities: ['补充登录限流'], observations: ['API 清单已结构化'], markdown: '# PAM 代码审计\n\n## 结论\n需要修复。' }, exec)
   assert.equal(report.counts.medium, 1)
@@ -390,6 +479,7 @@ test('stores code-audit API inventory, candidates, and structured reports separa
   assert.match(report.markdown, /调用链路/u)
   assert.match(report.markdown, /受影响文件/u)
   assert.match(report.markdown, /修复建议/u)
+  assert.match(report.markdown, /token-test-example-456/u)
   assert.doesNotMatch(report.markdown, /# PAM 代码审计/u)
   const apis = await runtime.auditApis('audit-session')
   assert.equal(apis.length, 1)
@@ -448,6 +538,23 @@ test('keeps APIs with different handlers separate and requires exact candidate a
   assert.equal((await runtime.auditApis('handler-split-session')).find(item => item.handler === 'Admin.Users.List').auditCoverage, 'extracted')
 })
 
+test('keeps independent vulnerabilities split instead of merging them into one finding', async () => {
+  const runtime = createRuntime({ maxReportBytes: 8192 })
+  const exec = auditExec('finding-split-session')
+  const run = await runtime.auditStart({ targetPath: '/repo' }, exec)
+  await runtime.auditAddApi({ runId: run.id, entryId: 'GET:/public', method: 'GET', path: '/public', handler: 'PublicHandler' }, exec)
+  const base = { runId: run.id, entryId: 'GET:/public', entry: 'GET /public', source: ['handler input'], sink: ['response writer'], evidence: ['public.go:10'], evidenceLocations: [{ file: 'public.go', line: 10 }], impact: '独立安全影响', impactEvidence: 'public.go:10 的响应路径可被未授权请求实际到达', requestPoc: 'GET /public HTTP/1.1\nHost: example.test\n\n', confidence: 'high', status: 'confirmed' }
+  await runtime.auditAddCandidate({ ...base, candidateId: 'CORS-001', vulnerabilityType: 'cors', title: 'CORS 允许任意来源' }, exec)
+  await runtime.auditAddCandidate({ ...base, candidateId: 'ERR-001', vulnerabilityType: 'information-disclosure', title: '错误响应泄露内部信息' }, exec)
+  await assert.rejects(() => runtime.auditAddCandidate({ ...base, candidateId: 'BAD-001', vulnerabilityType: 'cors,information-disclosure' }, exec), /只能包含一个漏洞类型/)
+  for (const candidateId of ['CORS-001', 'ERR-001']) await runtime.auditReviewCandidate({ runId: run.id, candidateId, status: 'confirmed', reachable: 'yes', authorization: 'public route', inputValidation: 'not applicable', productionCode: 'production handler', sufficientEvidence: 'yes', cvssVector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N' }, exec)
+  const report = await runtime.auditReport({ runId: run.id }, exec)
+  assert.deepEqual(report.findings.map(item => item.candidateId), ['CORS-001', 'ERR-001'])
+  assert.deepEqual(report.findings.map(item => item.vulnerabilityType), ['cors', 'information-disclosure'])
+  assert.match(report.markdown, /漏洞类型：cors/u)
+  assert.match(report.markdown, /漏洞类型：information-disclosure/u)
+})
+
 test('scores CVSS 3.1 base vectors and orders findings by score', async () => {
   assert.deepEqual(scoreCvss31('CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H'), { vector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H', score: 9.8, severity: 'Critical' })
   assert.deepEqual(scoreCvss31('CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H').severity, 'High')
@@ -458,16 +565,17 @@ test('scores CVSS 3.1 base vectors and orders findings by score', async () => {
   const run = await runtime.auditStart({ targetPath: '/repo/service', language: 'go' }, exec)
   await runtime.auditAddApi({ runId: run.id, entryId: 'LOWER', path: '/low' }, exec)
   await runtime.auditAddApi({ runId: run.id, entryId: 'CRITICAL', path: '/admin' }, exec)
-  const candidateBase = { status: 'confirmed', source: ['source'], sink: ['sink'], evidence: ['service.go:10'], evidenceLocations: [{ file: 'service.go', line: 10 }], impact: '影响服务安全性', requestPoc: 'GET /{{path}} HTTP/1.1\nHost: example.test\n\n' }
+  const candidateBase = { status: 'confirmed', severity: 'low', source: ['source'], sink: ['service sink'], evidence: ['service.go:10'], evidenceLocations: [{ file: 'service.go', line: 10 }], impact: '影响服务安全性', impactEvidence: 'service.go:10 的入口到 sink 链路可达并影响服务状态', confidence: 'high', requestPoc: 'GET /{{path}} HTTP/1.1\nHost: example.test\n\n' }
   await runtime.auditAddCandidate({ ...candidateBase, runId: run.id, candidateId: 'LOWER', title: '低优先级问题', entryId: 'LOWER', entry: 'GET /low', cvssVector: 'CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H' }, exec)
   await runtime.auditAddCandidate({ ...candidateBase, runId: run.id, candidateId: 'CRITICAL', title: '高优先级问题', entryId: 'CRITICAL', entry: 'POST /admin', cvssVector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H' }, exec)
   for (const candidateId of ['LOWER', 'CRITICAL']) await runtime.auditReviewCandidate({ runId: run.id, candidateId, status: 'confirmed', reachable: 'yes', authorization: 'authorization reviewed', inputValidation: 'validation reviewed', productionCode: 'production path', sufficientEvidence: 'yes' }, exec)
   const report = await runtime.auditReport({ runId: run.id }, exec)
   assert.deepEqual(report.findings.map(item => item.candidateId), ['CRITICAL', 'LOWER'])
+  assert.equal(report.findings[0].severity, 'critical')
   assert.equal(report.findings[0].cvssScore, 9.8)
   assert.equal(report.counts.critical, 1)
   assert.equal(report.counts.high, 1)
-  assert.match(report.markdown, /CVSS：9\.8/)
+  assert.match(report.markdown, /CVSS 3\.1：9\.8/)
 })
 
 test('keeps an unscored candidate out of confirmed findings', async () => {
@@ -496,12 +604,14 @@ test('requires a Request PoC before confirming a finding', async () => {
   const exec = auditExec('poc-session')
   const run = await runtime.auditStart({ targetPath: '/repo/service' }, exec)
   await runtime.auditAddApi({ runId: run.id, entryId: 'POC-1', method: 'POST', path: '/admin/update' }, exec)
-  const base = { runId: run.id, candidateId: 'POC-1', entryId: 'POC-1', entry: 'POST /admin/update', source: ['handler input'], sink: ['update query'], evidence: ['admin.go:20'], evidenceLocations: [{ file: 'admin.go', line: 20 }], impact: '可能修改服务配置', cvssVector: 'CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H' }
+  const base = { runId: run.id, candidateId: 'POC-1', entryId: 'POC-1', entry: 'POST /admin/update', source: ['handler input'], sink: ['update query'], evidence: ['admin.go:20'], evidenceLocations: [{ file: 'admin.go', line: 20 }], impact: '可能修改服务配置', impactEvidence: 'admin.go:20 的输入进入更新 sink，调用链位于生产 handler', confidence: 'high', cvssVector: 'CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H' }
   await runtime.auditAddCandidate(base, exec)
   const withoutPoc = await runtime.auditReviewCandidate({ ...base, status: 'confirmed', reachable: 'yes', authorization: 'missing guard', inputValidation: 'validated as absent', productionCode: 'production path', sufficientEvidence: 'yes' }, exec)
   assert.equal(withoutPoc.status, 'needs-review')
   const invalidPoc = await runtime.auditReviewCandidate({ runId: run.id, candidateId: 'POC-1', status: 'confirmed', requestPoc: 'not a request', reachable: 'yes', authorization: 'missing guard', inputValidation: 'validated as absent', productionCode: 'production path', sufficientEvidence: 'yes' }, exec)
   assert.equal(invalidPoc.status, 'needs-review')
+  const curlPoc = await runtime.auditReviewCandidate({ runId: run.id, candidateId: 'POC-1', status: 'confirmed', requestPoc: 'curl https://example.test/admin/update', reachable: 'yes', authorization: 'missing guard', inputValidation: 'validated as absent', productionCode: 'production path', sufficientEvidence: 'yes' }, exec)
+  assert.equal(curlPoc.status, 'needs-review')
   const withPoc = await runtime.auditReviewCandidate({ runId: run.id, candidateId: 'POC-1', status: 'confirmed', requestPoc: 'POST /admin/update HTTP/1.1\nHost: example.test\nContent-Type: application/json\n\n{"name":"{{safe-placeholder}}"}', reachable: 'yes', authorization: 'missing guard', inputValidation: 'validated as absent', productionCode: 'production path', sufficientEvidence: 'yes' }, exec)
   assert.equal(withPoc.status, 'confirmed')
   const report = await runtime.auditReport({ runId: run.id }, exec)
@@ -519,7 +629,7 @@ test('reviews candidates, excludes false positives, and reports API coverage', a
   await runtime.auditAddApi({ runId: run.id, entryId: 'UNTOUCHED', method: 'GET', path: '/untouched' }, exec)
   await runtime.auditAddApi({ runId: run.id, entryId: 'NO-CANDIDATE', method: 'GET', path: '/no-candidate' }, exec)
   await assert.rejects(() => runtime.auditAddCandidate({ runId: run.id, candidateId: 'ORPHAN', entryId: 'MISSING', entry: 'GET /missing', source: ['source'], sink: ['sink'], evidence: ['service.go:1'], evidenceLocations: [{ file: 'service.go', line: 1 }], impact: '影响' }, exec), /必须关联当前运行中的 API/)
-  const base = { entry: 'GET /candidate', source: ['handler input'], sink: ['database query'], evidence: ['service.go:10'], evidenceLocations: [{ file: 'service.go', line: 10 }], impact: '影响服务安全性', requestPoc: 'GET /candidate HTTP/1.1\nHost: example.test\n\n' }
+  const base = { entry: 'GET /candidate', source: ['handler input'], sink: ['database query'], evidence: ['service.go:10'], evidenceLocations: [{ file: 'service.go', line: 10 }], impact: '影响服务安全性', impactEvidence: 'service.go:10 的输入可达数据库查询并造成越权数据访问', confidence: 'high', requestPoc: 'GET /candidate HTTP/1.1\nHost: example.test\n\n' }
   const confirmed = await runtime.auditAddCandidate({ ...base, runId: run.id, candidateId: 'CONFIRMED', entryId: 'CONFIRMED', status: 'confirmed', cvssVector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H' }, exec)
   assert.equal(confirmed.status, 'needs-review')
   const confirmedReview = await runtime.auditReviewCandidate({ runId: run.id, candidateId: 'CONFIRMED', status: 'confirmed', reachable: 'yes', authorization: 'missing guard', inputValidation: 'validated as absent', productionCode: 'production path', sufficientEvidence: 'yes' }, exec)
@@ -551,7 +661,7 @@ test('reviews candidates, excludes false positives, and reports API coverage', a
   assert.doesNotMatch(report.markdown, /已排除项/)
   assert.doesNotMatch(report.markdown, /接受风险/)
   assert.match(report.markdown, /未覆盖入口/)
-  assert.match(report.markdown, /置信度：unknown/)
+  assert.match(report.markdown, /置信度：(?:high|medium)/u)
 })
 
 test('stores structured product understanding in the audit run', async () => {

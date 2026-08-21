@@ -77,6 +77,25 @@ test('protects browser API routes with a page token and same-origin check', asyn
   await route.handler({ method: 'GET', url: '/api/dsh-security/history?sessionId=secret', headers: { 'x-dsh-security-token': token, 'x-dsh-security-session-id': 'secret' } }, allowedResponse)
   assert.equal(allowedResponse.status, 200, allowedResponse.body)
 
+  const largePacket = `GET /large HTTP/1.1\r\nHost: example.test\r\n\r\n${'x'.repeat(20000)}`
+  await runtime.store.put('exchanges', 'secret:exchange-large', {
+    id: 'large', sessionId: 'secret', time: '2026-08-21T00:00:00.000Z', protocol: 'https', target: 'https://example.test/large', key: 'example.test:443',
+    probePhase: 'reconnaissance', requestPacket: largePacket, responsePacket: 'HTTP/1.1 200 OK', durationMs: 12,
+    request: { method: 'GET' }, response: { status: 200, statusText: 'OK', headers: {}, body: 'x'.repeat(20000), messages: [] },
+  })
+  const historySummaryResponse = responseCapture()
+  await route.handler({ method: 'GET', url: '/api/dsh-security/history?sessionId=secret&limit=10', headers: { 'x-dsh-security-token': token, 'x-dsh-security-session-id': 'secret' } }, historySummaryResponse)
+  assert.equal(historySummaryResponse.status, 200, historySummaryResponse.body)
+  const historySummary = JSON.parse(historySummaryResponse.body)
+  assert.equal(historySummary.history[0].id, 'large')
+  assert.equal(historySummary.history[0].requestPacket, undefined)
+  assert.ok(!historySummaryResponse.body.includes('x'.repeat(1000)))
+
+  const historyDetailResponse = responseCapture()
+  await route.handler({ method: 'GET', url: '/api/dsh-security/history/detail?sessionId=secret&id=large', headers: { 'x-dsh-security-token': token, 'x-dsh-security-session-id': 'secret' } }, historyDetailResponse)
+  assert.equal(historyDetailResponse.status, 200, historyDetailResponse.body)
+  assert.match(JSON.parse(historyDetailResponse.body).history.requestPacket, /GET \/large/)
+
   const statusResponse = responseCapture()
   await route.handler({ method: 'GET', url: '/api/dsh-security/status?sessionId=child', headers: { 'x-dsh-security-token': token } }, statusResponse)
   assert.equal(statusResponse.status, 200)
