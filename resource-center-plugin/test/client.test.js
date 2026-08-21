@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import vm from 'node:vm'
 
-test('single resource-center bundle registers workspace, service-management, Test, and usage Activities', async () => {
+test('single resource-center bundle registers workspace, service-management, Test, Hunter, and usage Activities', async () => {
   const source = await readFile(new URL('../client.js', import.meta.url), 'utf8')
   assert.match(source, /key: pane\.id/, 'service panes must remount when switching connections')
   assert.match(source, /__dshResourceCenterServiceManagerRegistered/, 'service-manager registration must be idempotent during HMR')
@@ -19,6 +19,24 @@ test('single resource-center bundle registers workspace, service-management, Tes
   assert.doesNotMatch(source, /panelObserver\.observe\(panel, \{[^}]*subtree: true/, 'right-sidebar panel observer must not watch its own nested control mutations')
   assert.match(source, /registerRightSidebar/, 'resource center must expose a right-sidebar bridge without adding a left Activity')
   assert.match(source, /dsh-resource-center-right-sidebar-core/, 'the migrated right-sidebar core must be shipped independently')
+  assert.match(source, /dsh-resource-center-hunter/, 'Hunter must be shipped as an independent client module')
+  assert.match(source, /Hunter 网络空间搜索/, 'Hunter must expose a central search workbench')
+  assert.match(source, /保存并验证/, 'Hunter ApiKey configuration must be verified before storage')
+  assert.match(source, /批量查询/, 'Hunter must expose asynchronous batch search')
+  assert.match(source, /whois/, 'Hunter must expose Whois as a selectable response field')
+  assert.match(source, /vul_list/, 'Hunter must expose historical vulnerabilities as a selectable response field')
+  assert.match(source, /全部字段/, 'Hunter must provide a full-field preset')
+  assert.match(source, /QUERY_TEMPLATES/, 'Hunter should offer reusable syntax templates')
+  assert.match(source, /preflightWarning/, 'Hunter should warn before costly time ranges or large fields')
+  assert.match(source, /validateBatchCsv/, 'Hunter should validate CSV input before submitting batch work')
+  assert.match(source, /工作区持久化/, 'Hunter should disclose workspace persistence state')
+  assert.match(source, /操作审计/, 'Hunter should expose an auditable activity view')
+  assert.match(source, /发送所选到 Fuzzer/, 'Hunter should support batch handoff to Fuzzer')
+  assert.match(source, /dsh-resource-center:open-fuzzer/, 'Hunter should use the shared Fuzzer handoff event')
+  assert.match(source, /dsh-resource-center:open-browser/, 'Hunter assets should be openable in the shared right browser')
+  assert.match(source, /右侧浏览器打开/, 'Hunter result details should expose the right-browser action')
+  assert.match(source, /openBrowser\(rawTarget, scope\)/, 'right-sidebar bridge should open a browser tab through its service instead of simulating DOM input')
+  assert.match(source, /name: 'Hunter 资产'/, 'Hunter assets should be available to the @ reference menu')
   assert.match(source, /\/dsh-resource-center\/sidebar\//, 'the migrated right-sidebar must use resource-center-owned routes')
   assert.match(source, /DSH_CENTER_TITLE = 'DSH Center'/, 'the host document title must use the fixed DSH Center brand')
   assert.match(source, /data-dsh-resource-center-branding/, 'the resource center must own a dedicated favicon link')

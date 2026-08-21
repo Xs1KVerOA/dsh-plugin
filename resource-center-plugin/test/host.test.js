@@ -7,8 +7,9 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { apply } from '../index.js'
+import { applyHunter, hunterApiPath, hunterApiPrefix } from '../hunter-host.js'
 import { applyUsageStats, getOwnedSessionEvents, usageStatsPath } from '../usage-stats-host.js'
-import { parseSshInspectOutput } from '../service-manager-host.js'
+import { localEndpoint, parseSshInspectOutput } from '../service-manager-host.js'
 import { isPrivateAddress, isPrivateTarget, makeRuntime, normalizeConfig, normalizeNetwork, resolveTargetAddresses } from '../test-host.js'
 
 async function callRuntimeApi(runtime, method, url, value) {
@@ -70,6 +71,13 @@ test('SSH inspect output is normalized into a compact server snapshot', () => {
   assert.deepEqual(snapshot.ports, ['22', '8080'])
 })
 
+test('S3 local endpoint keeps the parsed URL protocol for direct and proxied connections', () => {
+  const connection = { type: 's3', options: { scheme: 'https' } }
+  const endpoint = { url: new URL('http://172.20.0.2:9000/minio') }
+  assert.equal(localEndpoint({ host: '172.20.0.2', port: 9000, endpoint }, connection), 'http://172.20.0.2:9000/minio')
+  assert.equal(localEndpoint({ host: '127.0.0.1', port: 44567, endpoint }, connection), 'http://127.0.0.1:44567/minio')
+})
+
 test('combined Host plugin keeps workspace routes and service-management Tool', () => {
   const routes = []
   const upgrades = []
@@ -114,8 +122,11 @@ test('combined Host plugin keeps workspace routes and service-management Tool', 
     '/api/dsh-resource-center/search-sessions',
     '/api/dsh-resource-center/session-reference',
     '/api/dsh-service-manage',
+    '/api/dsh-service-manage/upload',
     '/api/dsh-web-testing',
     '/api/dsh-resource-center/usage-stats',
+    '/api/dsh-resource-center/hunter',
+    '/api/dsh-resource-center/hunter/',
     '/dsh-resource-center/sidebar/api',
     '/dsh-resource-center/sidebar/bundle',
     '/dsh-resource-center/sidebar/file',
@@ -128,7 +139,113 @@ test('combined Host plugin keeps workspace routes and service-management Tool', 
   assert.match(String(guards[1]({ name: 'dsh_web_fuzzer', agent: { session: { header: { agentPreset: 'code-audit' } } } })), /代码审计模式不提供/)
   assert.equal(guards[1]({ name: 'dsh_web_fuzzer', agent: { session: { header: { agentPreset: 'standard' } } } }), undefined)
   assert.equal(upgrades.length, 2)
-  assert.equal(effects.length, 16)
+  assert.equal(effects.length, 19)
+})
+
+test('Hunter stores ApiKey server-side and keeps it out of search responses', async () => {
+  const routes = []
+  const secrets = new Map()
+  const calls = []
+  const persisted = []
+  const apiKey = ['hunter', 'test', 'key', '1234'].join('-')
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (input, options = {}) => {
+    const url = new URL(String(input))
+    calls.push({ url, options })
+    if (url.pathname === '/openApi/userInfo') {
+      return new Response(JSON.stringify({ code: 200, message: 'success', data: { type: '个人账号', rest_equity_point: 99, rest_free_point: 8, personal_info: { username: 'tester', phone: '13800000000', is_charge: true } } }), { status: 200, headers: { 'content-type': 'application/json' } })
+    }
+    if (url.pathname === '/openApi/search') {
+      return new Response(JSON.stringify({ code: 200, message: 'success', data: { total: 1, arr: [{ ip: '127.0.0.1', port: 443 }] } }), { status: 200, headers: { 'content-type': 'application/json' } })
+    }
+    if (url.pathname === '/openApi/search/batch/42') {
+      return new Response(JSON.stringify({ code: 200, message: 'success', data: { status: '已完成', progress: '100%', rest_time: '0s' } }), { status: 200, headers: { 'content-type': 'application/json' } })
+    }
+    if (url.pathname === '/openApi/search/download/42') {
+      return new Response('ip,domain\n127.0.0.1,example.test\n', { status: 200, headers: { 'content-type': 'text/csv; charset=utf-8' } })
+    }
+    throw new Error(`unexpected Hunter path: ${url.pathname}`)
+  }
+  const credentials = {
+    async resolve(ref) { return secrets.has(ref) ? { value: secrets.get(ref) } : undefined },
+    async set(ref, value) { secrets.set(ref, value) },
+    async unset(ref) { secrets.delete(ref) },
+  }
+  const fs = {
+    async resolve() { return { displayPath: '/workspace/.dsh-resource-center-hunter.json' } },
+    async readText() { throw new Error('missing') },
+    async writeText(_target, text) { persisted.push(JSON.parse(text)) },
+  }
+  const ctx = {
+    get(name) {
+      if (name === 'webServer') return { register(route) { routes.push(route); return () => {} } }
+      if (name === 'credentials') return credentials
+      if (name === 'fs') return fs
+      if (name === 'sandboxPolicy') return { workspaceRoot: '/workspace', resolve() { return { workspaceRoot: '/workspace' } } }
+      return undefined
+    },
+    effect(factory) { factory() },
+  }
+  const responseOf = () => {
+    let body
+    return {
+      writeHead() {},
+      end(value) { body = value ? JSON.parse(value) : undefined },
+      get body() { return body },
+    }
+  }
+  const request = (method, url, value) => ({
+    method,
+    url,
+    async *[Symbol.asyncIterator]() {
+      if (value !== undefined) yield Buffer.from(JSON.stringify(value))
+    },
+  })
+  try {
+    applyHunter(ctx)
+    const exact = routes.find(route => route.path === hunterApiPath)
+    const prefix = routes.find(route => route.path === hunterApiPrefix)
+    assert.ok(exact)
+    assert.ok(prefix)
+
+    const savedResponse = responseOf()
+    await exact.handler(request('POST', hunterApiPath, { action: 'save', apiKey }), savedResponse)
+    assert.equal(savedResponse.body.ok, true)
+    assert.equal(savedResponse.body.apiKeyMasked, 'hunt••••1234')
+    assert.equal(savedResponse.body.userInfo.personalInfo.phone, undefined)
+
+    const searchResponse = responseOf()
+    await exact.handler(request('POST', hunterApiPath, { action: 'search', search: 'title="登录"', pageSize: 1, fields: 'ip,whois,body,vul_list' }), searchResponse)
+    assert.equal(searchResponse.body.ok, true)
+    assert.equal(searchResponse.body.result.data.arr[0].ip, '127.0.0.1')
+    assert.equal(calls.at(-1).url.searchParams.get('api-key'), apiKey)
+    assert.equal(calls.at(-1).url.searchParams.get('search'), 'dGl0bGU9IueZu-W9lSI')
+    assert.equal(calls.at(-1).url.searchParams.get('fields'), 'ip,whois,body,vul_list')
+    assert.equal(searchResponse.body.state.queries.length, 1)
+    assert.equal(searchResponse.body.state.assets.length, 1)
+    assert.ok(persisted.length > 0)
+    assert.doesNotMatch(JSON.stringify(persisted), new RegExp(apiKey))
+
+    const taskResponse = responseOf()
+    await prefix.handler(request('GET', `${hunterApiPrefix}batch/42`), taskResponse)
+    assert.equal(taskResponse.body.result.data.status, '已完成')
+    assert.equal(calls.at(-1).url.searchParams.get('api-key'), apiKey)
+
+    let downloadBody = ''
+    await prefix.handler(request('GET', `${hunterApiPrefix}download/42`), {
+      writeHead() {},
+      end(value) { downloadBody = String(value || '') },
+    })
+    assert.match(downloadBody, /example\.test/)
+    assert.equal(persisted.at(-1).scopes[Object.keys(persisted.at(-1).scopes)[0]].audits[0].action, 'task-download')
+
+    const configResponse = responseOf()
+    await exact.handler(request('GET', hunterApiPath), configResponse)
+    assert.equal(configResponse.body.configured, true)
+    assert.doesNotMatch(JSON.stringify(configResponse.body), new RegExp(apiKey))
+  } finally {
+    globalThis.fetch = originalFetch
+  }
 })
 
 test('resource center owns an independent usage-stats route and records model/session tokens', async () => {
@@ -370,6 +487,7 @@ test('resource center provisions one global MinIO connection per Dex user root',
     const routes = []
     const files = new Map()
     const secrets = new Map()
+    const writePolicies = []
     const fs = {
       async resolve(name, options = {}) { return `${options.cwd || '/tmp'}/${name}` },
       async stat(target) {
@@ -377,7 +495,7 @@ test('resource center provisions one global MinIO connection per Dex user root',
         return { size: files.get(target).length }
       },
       async readText(target) { return files.get(target) },
-      async writeText(target, text) { files.set(target, text) },
+      async writeText(target, text, _expected, _signal, policy) { writePolicies.push(policy); files.set(target, text) },
     }
     const credentials = {
       async resolve(ref) { return secrets.has(ref) ? { value: secrets.get(ref) } : undefined },
@@ -422,6 +540,7 @@ test('resource center provisions one global MinIO connection per Dex user root',
     assert.equal(first.connections[0].secrets.accessKey, true)
     assert.equal(second.connections.length, 1)
     assert.deepEqual(JSON.parse(files.get('/home/dsh/alice/.dsh-servers.json')).connections.map(item => item.name), ['CodeSentry MinIO'])
+    assert.deepEqual(writePolicies[0], { mode: 'workspace-write', workspaceRoot: '/home/dsh/alice' })
     assert.ok([...secrets.keys()].every(ref => /^DSH_SERVER_V2_[0-9a-f]{64}_/.test(ref)))
   } finally {
     for (const key of envKeys) {
@@ -468,6 +587,26 @@ test('SSH host exposes SFTP file-management operations', async () => {
   assert.match(source, /SSH_SFTP_CACHE_TTL = 30_000/, 'SSH SFTP sessions should have a bounded reuse window')
   assert.match(source, /getCachedSshSftpSession/, 'SSH SFTP operations should reuse one connection')
   assert.match(source, /if \(params\.op === 'inspect'\)/, 'SSH inspect should use the same cleanup path as other operations')
+})
+
+test('S3 host exposes authenticated 1 GiB streaming browser uploads', async () => {
+  const source = await (await import('node:fs/promises')).readFile(new URL('../service-manager-host.js', import.meta.url), 'utf8')
+  assert.match(source, /'uploadObject'/, 'S3 must expose a dedicated upload operation')
+  assert.match(source, /params\.op === 'uploadObject'/, 'S3 upload must write the decoded object body')
+  assert.match(source, /S3_BROWSER_UPLOAD_MAX_BYTES = 1024 \* 1024 \* 1024/, 'browser uploads must have a 1 GiB server-side limit')
+  assert.match(source, /function boundedUploadStream/, 'browser uploads must be streamed instead of buffered as JSON')
+  assert.match(source, /path: '\/api\/dsh-service-manage\/upload'/, 'browser uploads need a dedicated authenticated route')
+  assert.match(source, /dshAuth\?\.authenticateRequest \? await dshAuth\.authenticateRequest\(req\)/, 'streaming uploads must authenticate the browser principal')
+  assert.match(source, /readConfig\(cwd, principal\)/, 'streaming uploads must resolve the user-owned MinIO connection')
+})
+
+test('S3 host serializes owner-scoped MinIO object references with a bounded text body', async () => {
+  const source = await (await import('node:fs/promises')).readFile(new URL('../service-manager-host.js', import.meta.url), 'utf8')
+  assert.match(source, /if \(op === 's3Reference'\)/, 'service API must expose a dedicated MinIO reference operation')
+  assert.match(source, /connection\.type !== 's3'/, 'the reference operation must reject non-S3 connections')
+  assert.match(source, /S3_REFERENCE_MAX_BYTES = 128 \* 1024/, 'MinIO text references must have a bounded server-side body size')
+  assert.match(source, /streamToBufferLimited\(response\.Body, S3_REFERENCE_MAX_BYTES\)/, 'MinIO text references must not read unbounded remote objects')
+  assert.match(source, /readConfig\(cwd, principal\)/, 'MinIO object references must use the authenticated user connection catalog')
 })
 
 test('resource center carries the Web Testing status API', async () => {

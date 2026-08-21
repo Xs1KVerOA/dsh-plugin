@@ -1326,6 +1326,29 @@
           setTab('fuzzer')
           fuzzer.restore({ raw: mitmRequestToRaw(flow), payloads: '{}', result: null, selectedIndex: null, selectedFlow: null })
         }
+        React.useEffect(() => {
+          const openHunterAsset = event => {
+            const detail = event?.detail || global.__dshResourceCenterFuzzerHandoff
+            const requests = Array.isArray(detail?.requests) ? detail.requests : detail?.request ? [detail] : []
+            if (!requests.length) return
+            global.__dshResourceCenterFuzzerHandoff = undefined
+            const saved = saveActiveFuzzer()
+            const startNumber = Math.max(0, ...saved.map(item => Number(item.label) || 0)) + 1
+            const created = requests.slice(0, 30).map((item, index) => ({
+              id: `fuzzer-${Date.now().toString(36)}-${index}-${Math.random().toString(36).slice(2, 7)}`,
+              label: String(startNumber + index),
+              snapshot: { raw: item.request, payloads: '{}', result: null, selectedIndex: null, selectedFlow: null },
+            }))
+            const next = created[0]
+            setFuzzerTabs([...saved, ...created])
+            setActiveFuzzerId(next.id)
+            setTab('fuzzer')
+            fuzzer.restore(next.snapshot)
+          }
+          global.addEventListener?.('dsh-resource-center:open-fuzzer', openHunterAsset)
+          if (global.__dshResourceCenterFuzzerHandoff) openHunterAsset()
+          return () => global.removeEventListener?.('dsh-resource-center:open-fuzzer', openHunterAsset)
+        }, [activeFuzzerId, fuzzer, fuzzerTabs])
         return h(React.Fragment, null,
           h('section', { className: 'dwt-sidebar-panel' },
             h('header', { className: 'dwt-sidebar-head' }, h('span', { className: 'dwt-sidebar-title' }, 'Test')),

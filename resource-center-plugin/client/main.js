@@ -13,6 +13,10 @@
       registryKey: 'test',
       dependencies: ['workspace'],
     },
+    hunter: {
+      registryKey: 'hunter',
+      dependencies: ['workspace'],
+    },
     usageStats: {
       registryKey: 'usageStats',
       dependencies: ['workspace'],

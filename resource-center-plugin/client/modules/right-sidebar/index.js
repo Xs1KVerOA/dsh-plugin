@@ -180,6 +180,7 @@
           let mitmRefreshController
           let mitmBusy = false
           let mitmError = ''
+          let browserOpenEventHandler
 
           const notify = () => {
             if (disposed) return
@@ -490,6 +491,16 @@
               service.openTab(seed, scope)
               return true
             },
+            openBrowser(rawTarget, scope) {
+              const target = browserTarget(rawTarget)
+              const service = bridge.getService()
+              if (!target || !service || typeof service.openTab !== 'function') return false
+              let title = target
+              try { title = new URL(target).hostname || target } catch { /* use normalized URL */ }
+              service.openTab({ type: 'browser', url: target, title }, scope)
+              observePanel()
+              return true
+            },
             openFile(scope, path, title) {
               const service = bridge.getService()
               if (!service || typeof service.openFile !== 'function') return false
@@ -547,8 +558,18 @@
               browserControlPanelButton = undefined
               browserControlPanelTitle = undefined
               browserControlPanelMeta = undefined
+              if (browserOpenEventHandler && typeof window !== 'undefined') window.removeEventListener('dsh-resource-center:open-browser', browserOpenEventHandler)
+              browserOpenEventHandler = undefined
               uninstallBrowserCompatibilityHook()
             },
+          }
+
+          if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+            browserOpenEventHandler = event => {
+              const target = event?.detail?.url
+              if (!bridge.openBrowser(target, event?.detail?.scope)) console.warn('[dsh-resource-center] unable to open Hunter asset in the right browser')
+            }
+            window.addEventListener('dsh-resource-center:open-browser', browserOpenEventHandler)
           }
 
           if (typeof document !== 'undefined' && document.body && typeof MutationObserver === 'function') {

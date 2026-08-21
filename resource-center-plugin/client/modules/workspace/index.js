@@ -27,6 +27,14 @@
         // without the test sidebar module.
         testModule = undefined
       }
+      let hunterModule
+      try {
+        hunterModule = require('dsh-resource-center-hunter')
+      } catch {
+        // Hunter is optional so the workspace can still be loaded while the
+        // network-search module is developed or explicitly excluded.
+        hunterModule = undefined
+      }
       let usageStatsModule
       try {
         usageStatsModule = require('dsh-resource-center-usage-stats')
@@ -1064,6 +1072,9 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         }
         if (testModule && typeof testModule.apply === 'function') {
           testModule.apply(ctx, { sidebar })
+        }
+        if (hunterModule && typeof hunterModule.apply === 'function') {
+          hunterModule.apply(ctx, { sidebar })
         }
         if (usageStatsModule && typeof usageStatsModule.apply === 'function') {
           usageStatsModule.apply(ctx, { sidebar })

@@ -21,6 +21,7 @@ test('client entry loads the default sidebar modules', async () => {
     'dsh-resource-center',
     'dsh-resource-center-service-manager',
     'dsh-resource-center-test',
+    'dsh-resource-center-hunter',
     'dsh-resource-center-usage-stats',
     'dsh-resource-center-right-sidebar',
   ])
@@ -44,6 +45,14 @@ test('client entry loads workspace as a dependency of the Test module', async ()
   assert.deepEqual([...definitions.keys()], [
     'dsh-resource-center',
     'dsh-resource-center-test',
+  ])
+})
+
+test('client entry loads workspace as a dependency of Hunter', async () => {
+  const definitions = await loadDefinitions(['hunter'])
+  assert.deepEqual([...definitions.keys()], [
+    'dsh-resource-center',
+    'dsh-resource-center-hunter',
   ])
 })
 

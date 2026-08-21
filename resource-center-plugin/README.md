@@ -37,6 +37,21 @@
 
 用量接口使用资源中心专属命名空间 `/api/dsh-resource-center/usage-stats`，不依赖 `dsh-usage-billing`。因此卸载 `dsh-usage-billing` 后，资源中心仍能独立采集和展示用量；如果 Host 模块未加载，面板会明确提示 Host 服务不可用。
 
+### Hunter 网络空间搜索
+
+资源中心内置 Hunter 辅助模块，侧栏只负责 ApiKey 配置和账号额度，中间区域负责检索工作流：
+
+- ApiKey 通过 Harness `credentials` 服务按认证主体保存，界面只显示脱敏值，不写入工作区文件或前端请求参数。
+- 支持 `/openApi/userInfo` 账号信息与剩余权益查询，以及语法检索 `/openApi/search`；搜索语法由 Host 侧按 RFC 4648 编码，避免客户端拼接认证参数。
+- 支持模板化语法、Web/非 Web 资产、时间范围、状态码、分组多选返回字段和分页数量配置；超出近 30 天的时间范围、反向日期范围及大字段会在请求前明确提示额度与体积影响。
+- 资产返回字段支持 `is_risk`、IP/端口/域名、URL/标题、协议/状态码、系统/备案、地理位置、运营商/注册机构、证书、组件/资产标签、更新时间、Header、Banner、Whois、Body 和历史漏洞 `vul_list`；其中 `whois`、`body`、`banner`、`header` 和 `vul_list` 可能较大，界面默认使用轻量字段，可按需切换全部字段。
+- 查询历史、收藏资产、批量任务、下载记录和操作审计按当前工作区隔离持久化；保存内容不包含 ApiKey，响应的大字段会被边界截断。
+- 资产详情提供概览、风险/组件/漏洞/证书和原始数据视图，可按列排序、筛选、批量保存，并可发送到 Web Fuzzer、右侧浏览器或会话 `@Hunter 资产` 引用。右侧浏览器复用资源中心当前 MITM 监听，不会创建第二套代理。
+- 支持按语法或 CSV 文件提交批量检索任务，CSV 会在上传前检查格式、大小与目标数量；任务状态、刷新、下载次数和下载请求均由 Host 侧记录并携带 ApiKey。
+- Hunter 上游请求有超时、请求体大小和字段白名单限制；搜索结果只返回接口本身的资产字段，不回传 ApiKey。
+
+Hunter 模块使用资源中心自己的 `/api/dsh-resource-center/hunter` 和 `/api/dsh-resource-center/hunter/*` 路由，不依赖额外的 Hunter SDK。请只在已获授权的资产范围内使用网络空间搜索服务，并遵守 Hunter 账户、积分和导出额度规则。
+
 ## 快速安装
 
 要求 Node.js `>=22.19.0`，以及与当前发布包一致的 DeepSeek Harness release；当前源码验证目标为 `0.1.0-rc.8`。
@@ -198,6 +213,7 @@ client/
     ├── workspace/index.js          # 工作区侧栏
     ├── service-manager/index.js    # 服务管理侧栏
     ├── test/index.js               # Test 侧栏（MITM / Web Fuzzer）
+    ├── hunter/index.js             # Hunter 网络空间搜索侧栏
     ├── right-sidebar/vendor/core.js # 独立迁移的右侧工作台客户端核心
     ├── right-sidebar/index.js      # 资源中心自己的浏览器/MITM 联动层
     └── usage-stats/index.js        # 用量统计侧栏

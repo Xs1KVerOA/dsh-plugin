@@ -2,6 +2,7 @@ import { apply as applyServiceManager } from './service-manager-host.js'
 import { applyWebTesting, TestConfig } from './test-host.js'
 import { applyUsageStats } from './usage-stats-host.js'
 import { apply as applyRightSidebar, inject as rightSidebarInject } from './right-sidebar-host.js'
+import { applyHunter } from './hunter-host.js'
 
 export const name = 'dsh-resource-center'
 
@@ -164,6 +165,7 @@ export function apply(ctx, config = {}) {
   applyServiceManager(ctx)
   applyWebTesting(ctx, config)
   applyUsageStats(ctx)
+  applyHunter(ctx)
   // The right workbench is part of the resource center now. Its routes use a
   // namespaced prefix owned entirely by this plugin.
   applyRightSidebar(ctx, {})
