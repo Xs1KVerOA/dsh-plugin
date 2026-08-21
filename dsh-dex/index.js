@@ -8,7 +8,7 @@ import { z } from 'zod'
 import { readSignedCookie, signCookiePayload } from './cookie.js'
 
 export const name = 'dsh-dex'
-export const inject = ['webServer', 'credentials', 'storageDomain']
+export const inject = ['webServer', 'credentials', 'storageDomain', 'apiProxy']
 
 export const Config = Schema.object({
   issuer: Schema.string().required(),
@@ -41,14 +41,11 @@ const PUBLIC_PATHS = new Set([
   '/manifest.webmanifest',
 ])
 const PRIVILEGED_ENDPOINTS = new Set([
-  'host.pickDirectory',
   'host.openPath',
-  'settings.describe',
   'settings.openDocument',
   'settings.update',
   'settings.replace',
   'settings.mutate',
-  'credentials.describe',
   'credentials.set',
   'credentials.unset',
   'llm.discoverModels',
@@ -57,10 +54,36 @@ const PRIVILEGED_ENDPOINTS = new Set([
   'agentPreset.openDocument',
   'agentPreset.remove',
 ])
+const RESPONSE_BODY_ENDPOINTS = new Set([
+  'settings.describe',
+  'session.create',
+  'session.fork',
+  'session.list',
+  'session.search',
+  'workspace.create',
+  'workspace.list',
+  'subagent.list',
+  'host.listDirectory',
+  'host.pickDirectory',
+])
+const USER_SCOPED_HOST_ENDPOINTS = new Set([
+  'host.describe',
+  'host.pickDirectory',
+  'host.listDirectory',
+  'host.createDirectory',
+])
+const MODEL_SETTINGS_NAMESPACES = new Set(['llm-deepseek', 'llm-pi-ai'])
+const EXPOSED_CREDENTIAL_REFS = new Set(['DEEPSEEK_API_KEY', 'DEEPSEEK_OFFICIAL_API_KEY'])
 
 const OWNER_RECORD = z.object({
   id: z.string().min(1),
   owner: z.string().min(1),
+  createdAt: z.number().int().nonnegative(),
+})
+
+const DEFAULT_WORKSPACE_RECORD = z.object({
+  id: z.string().min(1),
+  workspaceId: z.string().min(1),
   createdAt: z.number().int().nonnegative(),
 })
 
@@ -70,6 +93,7 @@ export const dexDomain = defineDomain({
   tables: {
     session_owners: domainTable(OWNER_RECORD),
     workspace_owners: domainTable(OWNER_RECORD),
+    default_workspaces: domainTable(DEFAULT_WORKSPACE_RECORD),
   },
 })
 
@@ -227,7 +251,8 @@ function pathInside(root, target) {
 
 function userHostPath(config, principal, rawPath) {
   const root = userRootFor(config, principal)
-  const target = rawPath === undefined ? root : resolve(String(rawPath))
+  const value = typeof rawPath === 'string' ? rawPath.trim() : ''
+  const target = value === '' ? root : resolve(value)
   return pathInside(root, target) ? { root, target } : undefined
 }
 
@@ -235,14 +260,17 @@ class OwnerStore {
   constructor(ctx) {
     this.ctx = ctx
     this.domainPromise = undefined
-    this.cache = { session: new Map(), workspace: new Map() }
+    this.tables = { session: undefined, workspace: undefined, defaultWorkspace: undefined }
+    this.pending = new Map()
+    this.pendingOwners = new Map()
     this.ready = this.load()
   }
 
   async load() {
     const domain = await this.domain()
-    for (const [id, record] of domain.table('session_owners').entries()) this.cache.session.set(id, record.owner)
-    for (const [id, record] of domain.table('workspace_owners').entries()) this.cache.workspace.set(id, record.owner)
+    this.tables.session = domain.table('session_owners')
+    this.tables.workspace = domain.table('workspace_owners')
+    this.tables.defaultWorkspace = domain.table('default_workspaces')
   }
 
   domain() {
@@ -251,27 +279,67 @@ class OwnerStore {
 
   async owner(kind, id) {
     await this.ready
-    return this.cache[kind].get(ownerKey(id))
+    const key = ownerKey(id)
+    return this.pendingOwners.get(`${kind}:${key}`) ?? this.tables[kind].get(key)?.owner
   }
 
   ownerSync(kind, id) {
-    return this.cache[kind].get(ownerKey(id))
+    const key = ownerKey(id)
+    return this.pendingOwners.get(`${kind}:${key}`) ?? this.tables[kind]?.get(key)?.owner
   }
 
-  async remember(kind, id, owner) {
+  async defaultWorkspace(owner) {
+    await this.ready
+    return this.tables.defaultWorkspace.get(ownerKey(owner))?.workspaceId
+  }
+
+  remember(kind, id, owner) {
     const key = ownerKey(id)
     const subject = ownerKey(owner)
-    if (!key || !subject) return false
-    await this.ready
-    const current = this.cache[kind].get(key)
-    if (current !== undefined) return current === subject
+    if (!key || !subject) return Promise.resolve(false)
+    const pendingKey = `${kind}:${key}`
+    const pending = this.pending.get(pendingKey)
+    if (pending !== undefined) return pending.then(() => this.ownerSync(kind, key) === subject)
+    const current = this.ownerSync(kind, key)
+    if (current !== undefined) return Promise.resolve(current === subject)
     const record = { id: key, owner: subject, createdAt: Date.now() }
-    await (await this.domain()).table(kind === 'session' ? 'session_owners' : 'workspace_owners').put(key, record)
-    this.cache[kind].set(key, subject)
+    this.pendingOwners.set(pendingKey, subject)
+    const operation = (async () => {
+      try {
+        await this.ready
+        await this.tables[kind].put(key, record)
+        return true
+      } catch (error) {
+        if (this.pendingOwners.get(pendingKey) === subject) this.pendingOwners.delete(pendingKey)
+        throw error
+      } finally {
+        if (this.pendingOwners.get(pendingKey) === subject) this.pendingOwners.delete(pendingKey)
+        this.pending.delete(pendingKey)
+      }
+    })()
+    this.pending.set(pendingKey, operation)
+    return operation
+  }
+
+  rememberSoon(kind, id, owner) {
+    void this.remember(kind, id, owner).catch(error => {
+      this.ctx.logger.warn(`dsh-dex: failed to persist ${kind} ownership: ${error instanceof Error ? error.message : String(error)}`)
+    })
+  }
+
+  async rememberDefault(owner, workspaceId) {
+    const key = ownerKey(owner)
+    const value = ownerKey(workspaceId)
+    if (!key || !value) return false
+    await this.ready
+    const current = this.tables.defaultWorkspace.get(key)?.workspaceId
+    if (current !== undefined) return current === value
+    await this.tables.defaultWorkspace.put(key, { id: key, workspaceId: value, createdAt: Date.now() })
     return true
   }
 
   async close() {
+    await Promise.allSettled([...this.pending.values()])
     if (this.domainPromise) {
       const domain = await this.domainPromise
       this.domainPromise = undefined
@@ -336,29 +404,49 @@ class OidcClient {
     this.credentials = credentials
     this.discoveryValue = undefined
     this.discoveryAt = 0
+    this.discoveryPromise = undefined
     this.jwksValue = undefined
     this.jwksAt = 0
+    this.jwksPromise = undefined
   }
 
   async discovery() {
     if (this.discoveryValue !== undefined && Date.now() - this.discoveryAt < this.config.discoveryCacheMs) return this.discoveryValue
-    const value = await fetchJson(`${this.config.issuer}/.well-known/openid-configuration`)
-    if (value.issuer !== this.config.issuer) throw new Error('OIDC discovery issuer does not match configured issuer')
-    for (const key of ['authorization_endpoint', 'token_endpoint', 'jwks_uri']) {
-      if (typeof value[key] !== 'string') throw new Error(`OIDC discovery is missing ${key}`)
+    if (this.discoveryPromise !== undefined) return this.discoveryPromise
+    const promise = (async () => {
+      const value = await fetchJson(`${this.config.issuer}/.well-known/openid-configuration`)
+      if (value.issuer !== this.config.issuer) throw new Error('OIDC discovery issuer does not match configured issuer')
+      for (const key of ['authorization_endpoint', 'token_endpoint', 'jwks_uri']) {
+        if (typeof value[key] !== 'string') throw new Error(`OIDC discovery is missing ${key}`)
+      }
+      this.discoveryValue = value
+      this.discoveryAt = Date.now()
+      return value
+    })()
+    this.discoveryPromise = promise
+    try {
+      return await promise
+    } finally {
+      if (this.discoveryPromise === promise) this.discoveryPromise = undefined
     }
-    this.discoveryValue = value
-    this.discoveryAt = Date.now()
-    return value
   }
 
   async jwks(uri) {
     if (this.jwksValue !== undefined && Date.now() - this.jwksAt < this.config.discoveryCacheMs) return this.jwksValue
-    const value = await fetchJson(uri)
-    if (!Array.isArray(value.keys)) throw new Error('OIDC JWKS response has no keys')
-    this.jwksValue = value.keys
-    this.jwksAt = Date.now()
-    return this.jwksValue
+    if (this.jwksPromise !== undefined) return this.jwksPromise
+    const promise = (async () => {
+      const value = await fetchJson(uri)
+      if (!Array.isArray(value.keys)) throw new Error('OIDC JWKS response has no keys')
+      this.jwksValue = value.keys
+      this.jwksAt = Date.now()
+      return this.jwksValue
+    })()
+    this.jwksPromise = promise
+    try {
+      return await promise
+    } finally {
+      if (this.jwksPromise === promise) this.jwksPromise = undefined
+    }
   }
 
   async clientSecret() {
@@ -422,6 +510,7 @@ class OidcClient {
     const jwk = keys.find(key => key?.kid === header.kid && key?.kty === 'RSA' && key?.n && key?.e)
     if (!jwk) {
       this.jwksValue = undefined
+      this.jwksAt = 0
       throw new Error('OIDC id_token signing key is not published')
     }
     const key = createPublicKey({ key: jwk, format: 'jwk' })
@@ -475,42 +564,72 @@ function responseWithJson(response, body) {
   })
 }
 
-async function filterSessionList(body, principal, config, owners) {
+function responseWithJsonIfChanged(response, original, body) {
+  return body === original ? response : responseWithJson(response, body)
+}
+
+function filterModelSettings(body, principal, config) {
+  if (!body?.result?.ok || isAdmin(config, principal)) return body
+  const value = body.result.value
+  return {
+    ...body,
+    result: {
+      ...body.result,
+      value: {
+        ...value,
+        writable: false,
+        hasDocument: false,
+        namespaces: Array.isArray(value?.namespaces)
+          ? value.namespaces.filter(item => MODEL_SETTINGS_NAMESPACES.has(item?.ns))
+          : [],
+      },
+    },
+  }
+}
+
+function filterSessionList(body, principal, config, owners) {
   if (!body?.result?.ok || !Array.isArray(body.result.value?.items) || isAdmin(config, principal)) return body
   const items = []
   for (const item of body.result.value.items) {
-    if (await owners.owner('session', item.sessionId) === principal.sub) items.push(item)
+    if (owners.ownerSync('session', item.sessionId) === principal.sub) items.push(item)
   }
   return { ...body, result: { ...body.result, value: { ...body.result.value, items } } }
 }
 
-async function filterSearch(body, principal, config, owners) {
+function filterSearch(body, principal, config, owners) {
   if (!body?.result?.ok || !Array.isArray(body.result.value?.items) || isAdmin(config, principal)) return body
   const items = []
   for (const item of body.result.value.items) {
-    if (await owners.owner('session', item.sessionId) === principal.sub) items.push(item)
+    if (owners.ownerSync('session', item.sessionId) === principal.sub) items.push(item)
   }
   return { ...body, result: { ...body.result, value: { ...body.result.value, items } } }
 }
 
-async function filterWorkspace(body, principal, config, owners) {
+function filterWorkspace(body, principal, config, owners) {
   if (!body?.result?.ok || !Array.isArray(body.result.value?.items) || isAdmin(config, principal)) return body
+  const root = userRootFor(config, principal)
   const items = []
   for (const item of body.result.value.items) {
-    const workspaceOwner = await owners.owner('workspace', item.workspaceId)
-    const owned = workspaceOwner === principal.sub || pathInside(userRootFor(config, principal), item.path)
+    const workspaceOwner = owners.ownerSync('workspace', item.workspaceId)
+    const underUserRoot = pathInside(root, item.path)
+    const owned = workspaceOwner === principal.sub || underUserRoot
     if (!owned) continue
+    // Workspaces created before the Dex ownership index was introduced are
+    // still valid when their canonical path is inside this user's root.  Heal
+    // the index while serving the baseline so a later session.create can use
+    // the same workspaceId instead of snapping the picker back to empty.
+    if (underUserRoot && workspaceOwner !== principal.sub) owners.rememberSoon('workspace', item.workspaceId, principal.sub)
     items.push({ ...item, sessionIds: (item.sessionIds ?? []).filter(id => owners.ownerSync('session', id) === principal.sub) })
   }
   const archivedSessionIds = (body.result.value.archivedSessionIds ?? []).filter(id => owners.ownerSync('session', id) === principal.sub)
   return { ...body, result: { ...body.result, value: { ...body.result.value, items, archivedSessionIds } } }
 }
 
-async function filterSubagentList(body, principal, config, owners) {
+function filterSubagentList(body, principal, config, owners) {
   if (!body?.result?.ok || !Array.isArray(body.result.value?.entries) || isAdmin(config, principal)) return body
   const entries = []
   for (const item of body.result.value.entries) {
-    if (await owners.owner('session', item.id) === principal.sub) entries.push(item)
+    if (owners.ownerSync('session', item.id) === principal.sub) entries.push(item)
   }
   return { ...body, result: { ...body.result, value: { ...body.result.value, entries } } }
 }
@@ -529,6 +648,19 @@ function filterDirectoryListing(body, principal, config) {
       ...body.result,
       value: { ...value, home: root, crumbs },
     },
+  }
+}
+
+function filterDirectoryPick(body, principal, config) {
+  if (!body?.result?.ok || !body.result.value || isAdmin(config, principal)) return body
+  const value = body.result.value
+  if (typeof value.path !== 'string' || value.path === '' || pathInside(userRootFor(config, principal), value.path)) return body
+  // The native picker has no root argument in the wire contract.  Treat an
+  // outside-root selection as cancellation rather than exposing or adopting
+  // a path the authenticated user is not allowed to use.
+  return {
+    ...body,
+    result: { ...body.result, value: { ...value, path: null } },
   }
 }
 
@@ -583,42 +715,152 @@ function clientScript() {
   const originalFetch = window.fetch.bind(window);
   window.fetch = async (...args) => { const response = await originalFetch(...args); if (response.status === 401 && location.pathname.indexOf('/auth/') !== 0) login(); return response; };
   let sessionState;
+  let userCard;
+  let renderQueued = false;
+  let observerStarted = false;
+  const findSettingsAnchor = () => {
+    const marked = document.querySelector('button[data-dsh-settings-trigger="true"]');
+    if (marked) {
+      const rect = marked.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) return marked;
+    }
+    const candidates = Array.from(document.querySelectorAll('button')).filter(button => {
+      const label = [button.textContent || '', button.getAttribute('aria-label') || '', button.title || ''].join(' ');
+      const rect = button.getBoundingClientRect();
+      return button.getAttribute('aria-haspopup') === 'dialog' && /设置|settings/i.test(label) && rect.width > 0 && rect.height > 0;
+    });
+    return candidates.sort((left, right) => {
+      const leftText = /^\s*(设置|settings)\s*$/i.test(left.textContent || '') ? 2 : (/设置|settings/i.test(left.textContent || '') ? 1 : 0);
+      const rightText = /^\s*(设置|settings)\s*$/i.test(right.textContent || '') ? 2 : (/设置|settings/i.test(right.textContent || '') ? 1 : 0);
+      if (leftText !== rightText) return rightText - leftText;
+      return right.getBoundingClientRect().width - left.getBoundingClientRect().width;
+    })[0];
+  };
+  const closeUserPopover = () => document.getElementById('dsh-dex-user-popover')?.remove();
+  const normalizeSettingsLayout = (settingsButton, settingsParent) => {
+    if (!settingsButton || !settingsParent) return;
+    settingsParent.style.display = 'flex';
+    settingsParent.style.alignItems = 'center';
+    settingsParent.style.justifyContent = 'space-between';
+    settingsParent.style.gap = '6px';
+    settingsParent.style.width = '100%';
+    settingsParent.style.minWidth = '0';
+    settingsParent.style.boxSizing = 'border-box';
+    settingsButton.style.flex = '1 1 auto';
+    settingsButton.style.minWidth = '0';
+    settingsButton.style.width = 'auto';
+    settingsButton.style.boxSizing = 'border-box';
+  };
   const renderUserInfo = () => {
-    const settingsButton = document.querySelector('button[aria-haspopup="dialog"]');
-    const parent = settingsButton?.parentElement;
-    if (!parent || !sessionState?.authenticated) return;
+    if (!sessionState?.authenticated || !document.body) return;
+    const settingsButton = findSettingsAnchor();
+    const settingsParent = settingsButton?.parentElement;
+    // Never float the account card over the application while the shell is
+    // still mounting or while an incompatible client lacks the stable
+    // settings marker. Waiting for the real settings seat is safer than a
+    // fixed fallback that can cover the composer and conversation content.
+    if (!settingsButton || !settingsParent) {
+      closeUserPopover();
+      document.getElementById('dsh-dex-user-info')?.remove();
+      userCard = undefined;
+      return;
+    }
+    normalizeSettingsLayout(settingsButton, settingsParent);
     let card = document.getElementById('dsh-dex-user-info');
-    if (!card || card.parentElement !== parent) {
+    const target = settingsParent;
+    if (!card || card.parentElement !== target) {
       card?.remove();
-      card = document.createElement('div');
+      closeUserPopover();
+      card = document.createElement('button');
+      card.type = 'button';
       card.id = 'dsh-dex-user-info';
       card.setAttribute('data-dsh-user-info', 'true');
-      card.style.cssText = 'margin:0 12px 8px;padding:9px 11px;border:1px solid rgba(0,0,0,.10);border-radius:10px;background:rgba(255,255,255,.72);font:12px/1.45 system-ui,sans-serif;overflow:hidden;';
-      parent.insertBefore(card, settingsButton);
+      card.style.cssText = 'appearance:none;display:flex;align-items:center;gap:6px;flex:0 0 128px;width:128px;min-width:128px;max-width:128px;box-sizing:border-box;margin:0 8px 0 0;padding:5px 7px;border:1px solid #e5e7eb;border-radius:8px;background:transparent;color:inherit;font:12px/1.35 system-ui,sans-serif;white-space:nowrap;text-align:left;overflow:hidden;cursor:pointer;';
+      settingsParent.insertBefore(card, settingsButton);
+      card.addEventListener('click', event => {
+        event.stopPropagation();
+        const existing = document.getElementById('dsh-dex-user-popover');
+        if (existing) { existing.remove(); return; }
+        const popup = document.createElement('div');
+        popup.id = 'dsh-dex-user-popover';
+        popup.style.cssText = 'position:fixed;z-index:2000;width:220px;box-sizing:border-box;padding:10px 11px;border:1px solid #e5e7eb;border-radius:10px;background:#fff;box-shadow:0 10px 28px rgba(15,23,42,.16);font:12px/1.4 system-ui,sans-serif;color:#111827;';
+        const rect = card.getBoundingClientRect();
+        popup.style.left = Math.max(8, Math.min(window.innerWidth - 228, rect.right - 220)) + 'px';
+        popup.style.top = Math.max(8, rect.top - 106) + 'px';
+        const nameRow = document.createElement('div');
+        nameRow.style.cssText = 'font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+        const detailRow = document.createElement('div');
+        detailRow.style.cssText = 'margin-top:3px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+        const logout = document.createElement('button');
+        logout.type = 'button';
+        logout.textContent = '退出登录';
+        logout.style.cssText = 'display:block;width:100%;margin-top:9px;padding:6px 8px;border:0;border-radius:6px;background:#f3f4f6;color:#374151;cursor:pointer;font:inherit;text-align:left;';
+        logout.addEventListener('click', () => location.assign('/auth/logout'));
+        popup.append(nameRow, detailRow, logout);
+        document.body.appendChild(popup);
+        const user = sessionState.user || {};
+        const workspaceRoot = typeof user.workspaceRoot === 'string' ? user.workspaceRoot : '';
+        const workspaceName = workspaceRoot.split('/').filter(Boolean).pop() || '';
+        nameRow.textContent = user.name || user.username || user.email || '当前用户';
+        detailRow.textContent = user.email || (workspaceName ? '工作区 · ' + workspaceName : '已登录');
+      });
     }
     const user = sessionState.user || {};
     const name = user.name || user.username || user.email || '当前用户';
     const detail = user.email && user.email !== name ? user.email : (user.username && user.username !== name ? user.username : '');
-    const key = [name, detail, ...(Array.isArray(user.groups) ? user.groups : [])].join('\u0001');
+    const workspaceRoot = typeof user.workspaceRoot === 'string' ? user.workspaceRoot : '';
+    const workspaceName = workspaceRoot.split('/').filter(Boolean).pop() || '';
+    const key = [name, detail, workspaceName, ...(Array.isArray(user.groups) ? user.groups : [])].join('\u0001');
     if (card.dataset.userKey === key) return;
     card.dataset.userKey = key;
     card.replaceChildren();
+    const avatar = document.createElement('div');
+    avatar.textContent = Array.from(name.trim())[0]?.toUpperCase() || 'U';
+    avatar.style.cssText = 'display:grid;place-items:center;flex:none;width:22px;height:22px;border-radius:50%;background:#eef2ff;color:#4f46e5;font-weight:700;font-size:11px;';
+    card.appendChild(avatar);
+    const content = document.createElement('div');
+    content.style.cssText = 'min-width:0;flex:1;text-align:left;';
     const title = document.createElement('div');
     title.textContent = name;
-    title.style.cssText = 'font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
-    card.appendChild(title);
-    if (detail) {
-      const subtitle = document.createElement('div');
-      subtitle.textContent = detail;
-      subtitle.style.cssText = 'color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
-      card.appendChild(subtitle);
-    }
-    card.title = [name, detail, ...(Array.isArray(user.groups) ? user.groups : [])].filter(Boolean).join(' · ');
+    title.style.cssText = 'font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:inherit;';
+    content.appendChild(title);
+    card.appendChild(content);
+    card.title = [name, detail, workspaceRoot, ...(Array.isArray(user.groups) ? user.groups : [])].filter(Boolean).join(' · ');
+    card.setAttribute('aria-label', '用户：' + name);
+    userCard = card;
   };
-  const observeShell = new MutationObserver(renderUserInfo);
-  const startShellObserver = () => { if (document.body) observeShell.observe(document.body, { childList: true, subtree: true }); renderUserInfo(); };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startShellObserver, { once: true }); else startShellObserver();
-  originalFetch('/auth/session', { credentials: 'same-origin' }).then(response => response.json()).then(state => { sessionState = state; if (!state.authenticated) login(); else renderUserInfo(); }).catch(() => login());
+  const queueRender = () => {
+    if (renderQueued || !sessionState?.authenticated) return;
+    renderQueued = true;
+    const run = () => { renderQueued = false; if (!userCard?.isConnected) userCard = undefined; renderUserInfo(); };
+    if (typeof window.requestAnimationFrame === 'function') window.requestAnimationFrame(run);
+    else window.setTimeout(run, 0);
+  };
+  const observeShell = new MutationObserver(() => {
+    if (!sessionState?.authenticated) return;
+    const card = document.getElementById('dsh-dex-user-info');
+    // Streaming conversation updates can mutate the body frequently.  Once
+    // the card is attached, let the app keep rendering without rescanning all
+    // buttons and forcing layout measurements on every mutation.  If the app
+    // replaces the shell, the card disconnects and the next animation frame
+    // repairs it.
+    if (!card || !card.isConnected) queueRender();
+  });
+  const startShellObserver = () => {
+    if (!document.body || observerStarted) return;
+    observerStarted = true;
+    observeShell.observe(document.body, { childList: true, subtree: true });
+    queueRender();
+  };
+  const startAfterBody = () => {
+    if (document.body) startShellObserver();
+    else document.addEventListener('DOMContentLoaded', startShellObserver, { once: true });
+  };
+  originalFetch('/auth/session', { credentials: 'same-origin' }).then(response => response.json()).then(state => {
+    sessionState = state;
+    if (!state.authenticated) login();
+    else { startAfterBody(); queueRender(); }
+  }).catch(() => login());
 })();`
 }
 
@@ -631,22 +873,73 @@ export function apply(ctx, rawConfig) {
   const owners = new OwnerStore(ctx)
   const oidc = new OidcClient(config, ctx.credentials)
   const states = new Map()
+  const defaultWorkspacePromises = new Map()
   const secureCookie = config.cookieSecure || config.publicBaseUrl.startsWith('https:')
+  const clientScriptText = clientScript()
 
-  const rememberSessionFromResponse = async (principal, endpoint, response) => {
-    if (!principal || !['session.create', 'session.fork'].includes(endpoint)) return
-    const body = await responseBody(response)
-    const id = body?.result?.value?.sessionId
-    if (body?.result?.ok && typeof id === 'string') await owners.remember('session', id, principal.sub)
+  const ensureDefaultWorkspace = async (principal) => {
+    const key = principal.sub
+    const saved = await owners.defaultWorkspace(key)
+    if (saved !== undefined) {
+      await owners.remember('workspace', saved, key)
+      return saved
+    }
+    const existing = defaultWorkspacePromises.get(key)
+    if (existing !== undefined) return existing
+    const promise = (async () => {
+      const current = await owners.defaultWorkspace(key)
+      if (current !== undefined) {
+        await owners.remember('workspace', current, key)
+        return current
+      }
+      const root = userRootFor(config, principal)
+      await mkdir(root, { recursive: true, mode: 0o700 })
+      const result = await ctx.apiProxy.workspace.create({
+        type: 'client-request',
+        rpcId: `dsh-dex-default-${createHash('sha256').update(key).digest('hex').slice(0, 24)}`,
+        method: 'workspace.create',
+        payload: { path: root },
+      })
+      if (result?.result?.ok && typeof result.result.value?.workspace?.workspaceId === 'string') {
+        const workspaceId = result.result.value.workspace.workspaceId
+        await owners.remember('workspace', workspaceId, principal.sub)
+        await owners.rememberDefault(key, workspaceId)
+        return workspaceId
+      }
+      return undefined
+    })()
+    defaultWorkspacePromises.set(key, promise)
+    try {
+      return await promise
+    } finally {
+      if (defaultWorkspacePromises.get(key) === promise) defaultWorkspacePromises.delete(key)
+    }
   }
+
+  // Expose the same verified Dex identity to host-side plugins.  Custom host
+  // routes do not go through apiProxy, so they must use this boundary instead
+  // of parsing the signed cookie or trusting a forwarded username themselves.
+  const authenticateRequest = async (request) => {
+    await owners.ready
+    const normalized = request?.headers && typeof request.headers.get === 'function'
+      ? request
+      : requestFromNode(request)
+    const principal = await sessionPrincipal(normalized, oidc)
+    if (!principal || !hasAllowedGroup(config, principal)) return undefined
+    return {
+      ...principal,
+      admin: isAdmin(config, principal),
+      workspaceRoot: userRootFor(config, principal),
+    }
+  }
+
+  ctx.provide('dshAuth', { authenticateRequest })
 
   const policy = {
     async authenticate(request) {
       try {
-        await owners.ready
-        const principal = await sessionPrincipal(request, oidc)
-        if (!principal || !hasAllowedGroup(config, principal)) return { response: unauthorizedResponse() }
-        await mkdir(userRootFor(config, principal), { recursive: true, mode: 0o700 })
+        const principal = await authenticateRequest(request)
+        if (!principal) return { response: unauthorizedResponse() }
         return { principal }
       } catch (error) {
         ctx.logger.warn(`dsh-dex: authentication failed: ${error instanceof Error ? error.message : String(error)}`)
@@ -665,10 +958,25 @@ export function apply(ctx, rawConfig) {
       if (!admin && endpoint === 'host.createDirectory') {
         const scoped = userHostPath(config, principal, payload?.path)
         if (!scoped) return reject('directory is outside the authenticated user workspace')
+        const name = typeof payload?.name === 'string' ? payload.name : ''
+        const target = resolve(scoped.target, name)
+        if (!name.trim() || name === '.' || name === '..' || /[/\\]/.test(name) || !pathInside(scoped.root, target)) {
+          return reject('directory is outside the authenticated user workspace')
+        }
         await mkdir(scoped.root, { recursive: true, mode: 0o700 })
         return { payload: { ...(payload ?? {}), path: scoped.target } }
       }
-      if (PRIVILEGED_ENDPOINTS.has(endpoint) || (endpoint.startsWith('host.') && !['host.describe', 'host.listDirectory', 'host.createDirectory'].includes(endpoint))) {
+      if (!admin && endpoint === 'settings.describe') return undefined
+      if (!admin && endpoint === 'credentials.describe') {
+        const refs = Array.isArray(payload?.refs) ? payload.refs : []
+        return {
+          payload: {
+            ...(payload ?? {}),
+            refs: refs.filter(ref => EXPOSED_CREDENTIAL_REFS.has(ref)),
+          },
+        }
+      }
+      if (PRIVILEGED_ENDPOINTS.has(endpoint) || (endpoint.startsWith('host.') && !USER_SCOPED_HOST_ENDPOINTS.has(endpoint))) {
         if (!admin) return reject('this operation requires a Dex admin')
       }
       if (endpoint.startsWith('settings.') || endpoint.startsWith('credentials.')) {
@@ -680,15 +988,19 @@ export function apply(ctx, rawConfig) {
       }
       if (endpoint === 'session.create') {
         await mkdir(userRootFor(config, principal), { recursive: true, mode: 0o700 })
-        const next = { ...(payload ?? {}), cwd: userRootFor(config, principal) }
+        const next = { ...(payload ?? {}) }
         if (next.workspaceId !== undefined && !admin && await owners.owner('workspace', next.workspaceId) !== principal.sub) {
           return reject('workspace does not belong to the authenticated user')
         }
+        if (next.workspaceId === undefined) next.cwd = userRootFor(config, principal)
         return { payload: next }
       }
       if (endpoint === 'workspace.create') {
+        if (admin) return undefined
+        const scoped = userHostPath(config, principal, payload?.path)
+        if (!scoped) return reject('workspace is outside the authenticated user workspace')
         await mkdir(userRootFor(config, principal), { recursive: true, mode: 0o700 })
-        return { payload: { path: userRootFor(config, principal) } }
+        return { payload: { ...(payload ?? {}), path: scoped.target } }
       }
       if (endpoint.startsWith('workspace.') && endpoint !== 'workspace.list' && !admin) {
         const workspaceId = payload?.workspaceId
@@ -705,14 +1017,19 @@ export function apply(ctx, rawConfig) {
 
     async transformResponse({ endpoint, principal, response }) {
       if (response.status < 200 || response.status >= 300) return response
-      await rememberSessionFromResponse(principal, endpoint, response)
-      const body = await responseBody(response)
+      const body = RESPONSE_BODY_ENDPOINTS.has(endpoint) ? await responseBody(response) : undefined
+      if (endpoint === 'session.create' || endpoint === 'session.fork') {
+        const id = body?.result?.value?.sessionId
+        if (body?.result?.ok && typeof id === 'string') await owners.remember('session', id, principal.sub)
+      }
       if (body === undefined) return response
-      if (endpoint === 'session.list') return responseWithJson(response, await filterSessionList(body, principal, config, owners))
-      if (endpoint === 'session.search') return responseWithJson(response, await filterSearch(body, principal, config, owners))
-      if (endpoint === 'workspace.list') return responseWithJson(response, await filterWorkspace(body, principal, config, owners))
-      if (endpoint === 'subagent.list') return responseWithJson(response, await filterSubagentList(body, principal, config, owners))
-      if (endpoint === 'host.listDirectory') return responseWithJson(response, filterDirectoryListing(body, principal, config))
+      if (endpoint === 'settings.describe') return responseWithJsonIfChanged(response, body, filterModelSettings(body, principal, config))
+      if (endpoint === 'session.list') return responseWithJsonIfChanged(response, body, filterSessionList(body, principal, config, owners))
+      if (endpoint === 'session.search') return responseWithJsonIfChanged(response, body, filterSearch(body, principal, config, owners))
+      if (endpoint === 'workspace.list') return responseWithJsonIfChanged(response, body, filterWorkspace(body, principal, config, owners))
+      if (endpoint === 'subagent.list') return responseWithJsonIfChanged(response, body, filterSubagentList(body, principal, config, owners))
+      if (endpoint === 'host.listDirectory') return responseWithJsonIfChanged(response, body, filterDirectoryListing(body, principal, config))
+      if (endpoint === 'host.pickDirectory') return responseWithJsonIfChanged(response, body, filterDirectoryPick(body, principal, config))
       if (endpoint === 'workspace.create' && body?.result?.ok && typeof body.result.value?.workspace?.workspaceId === 'string') {
         await owners.remember('workspace', body.result.value.workspace.workspaceId, principal.sub)
       }
@@ -728,10 +1045,11 @@ export function apply(ctx, rawConfig) {
 
   ctx.effect(() => ctx.webServer.registerRequestGuard(async (req, res) => {
     const pathname = new URL(req.url ?? '/', 'http://dsh.invalid').pathname
-    if (isPublicPath(pathname) || pathname.startsWith('/api/')) return false
+    // The API carrier invokes apiRequestPolicy itself.  Avoid authenticating
+    // the same HTTP request once here and once again inside the carrier.
+    if (isPublicPath(pathname) || pathname === '/api' || pathname.startsWith('/api/')) return false
     try {
-      const principal = await sessionPrincipal(requestFromNode(req), oidc)
-      if (principal && hasAllowedGroup(config, principal)) return false
+      if (await authenticateRequest(req)) return false
     } catch {
       // The API policy and login callback still produce the user-visible error.
     }
@@ -744,19 +1062,6 @@ export function apply(ctx, rawConfig) {
     }
     return true
   }), 'dsh-dex: request guard')
-
-  ctx.effect(() => ctx.webServer.registerUpgradeGuard(async (req, socket) => {
-    const pathname = new URL(req.url ?? '/', 'http://dsh.invalid').pathname
-    if (!pathname.startsWith('/api/')) return false
-    try {
-      const authentication = await policy.authenticate(requestFromNode(req))
-      if ('principal' in authentication) return false
-    } catch {
-      // Reject below without disclosing the validation failure.
-    }
-    socket.end('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\nContent-Length: 12\r\n\r\nunauthorized')
-    return true
-  }), 'dsh-dex: upgrade guard')
 
   const routes = [
     {
@@ -821,16 +1126,21 @@ export function apply(ctx, rawConfig) {
         if (req.method !== 'GET') return jsonResponse(res, 405, { error: 'method not allowed' })
         const principal = await sessionPrincipal(requestFromNode(req), oidc).catch(() => undefined)
         if (!principal || !hasAllowedGroup(config, principal)) return jsonResponse(res, 200, { authenticated: false })
-        return jsonResponse(res, 200, { authenticated: true, user: { username: principal.username, email: principal.email, name: principal.name, groups: principal.groups } })
+        try {
+          await ensureDefaultWorkspace(principal)
+        } catch (error) {
+          ctx.logger.warn(`dsh-dex: default workspace initialization failed: ${error instanceof Error ? error.message : String(error)}`)
+          return jsonResponse(res, 503, { authenticated: true, error: 'default workspace initialization failed' })
+        }
+        return jsonResponse(res, 200, { authenticated: true, user: { username: principal.username, email: principal.email, name: principal.name, groups: principal.groups, workspaceRoot: userRootFor(config, principal) } })
       },
     },
     {
       path: '/auth/client.js',
       handler: (req, res) => {
         if (req.method !== 'GET') return jsonResponse(res, 405, { error: 'method not allowed' })
-        const body = clientScript()
-        res.writeHead(200, { 'content-type': 'application/javascript; charset=utf-8', 'cache-control': 'no-store', 'content-length': Buffer.byteLength(body) })
-        res.end(body)
+        res.writeHead(200, { 'content-type': 'application/javascript; charset=utf-8', 'cache-control': 'no-store', 'content-length': Buffer.byteLength(clientScriptText) })
+        res.end(clientScriptText)
       },
     },
     {

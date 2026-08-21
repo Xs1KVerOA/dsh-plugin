@@ -18,12 +18,20 @@
           'as_org', 'cert_sha256', 'ssl_certificate', 'component', 'asset_tag', 'updated_at', 'header', 'header_server',
           'banner', 'whois', 'body', 'vul_list',
         ]
+        const LARGE_FIELDS = new Set(['header', 'banner', 'body', 'whois', 'ssl_certificate', 'vul_list'])
+        const FIELD_LABELS = {
+          ip: 'IP', port: '端口', domain: '域名', url: 'URL', protocol: '协议', base_protocol: '传输协议', is_web: 'Web 资产',
+          web_title: '网站标题', status_code: '状态码', header_server: 'Server', component: '组件', asset_tag: '资产标签', updated_at: '探查时间',
+          country: '国家', province: '省份', city: '城市', company: '备案单位', isp: '运营商', as_org: '注册机构', number: '备案号',
+          is_risk: '风险资产', is_risk_protocol: '高危协议', vul_list: '历史漏洞', cert_sha256: '证书 SHA256', ssl_certificate: '证书',
+          header: '响应头', banner: 'Banner', body: '响应正文', whois: 'WHOIS', ip_tag: 'IP 标签', icp_exception: '备案异常', os: '操作系统',
+        }
         const FIELD_GROUPS = [
-          { id: 'asset', label: '资产定位', fields: ['ip', 'port', 'domain', 'url', 'protocol', 'base_protocol', 'is_web'] },
-          { id: 'web', label: 'Web 指纹', fields: ['web_title', 'status_code', 'header_server', 'component', 'asset_tag', 'updated_at'] },
-          { id: 'org', label: '归属位置', fields: ['country', 'province', 'city', 'company', 'isp', 'as_org', 'number'] },
-          { id: 'risk', label: '风险研判', fields: ['is_risk', 'is_risk_protocol', 'vul_list', 'cert_sha256', 'ssl_certificate'] },
-          { id: 'raw', label: '原始大字段', fields: ['header', 'banner', 'body', 'whois', 'ip_tag', 'icp_exception', 'os'] },
+          { id: 'asset', label: '资产定位', description: 'IP、域名与访问入口', fields: ['ip', 'port', 'domain', 'url', 'protocol', 'base_protocol', 'is_web'] },
+          { id: 'web', label: 'Web 指纹', description: '标题、组件与状态信息', fields: ['web_title', 'status_code', 'header_server', 'component', 'asset_tag', 'updated_at'] },
+          { id: 'org', label: '归属位置', description: '地域、单位与运营商', fields: ['country', 'province', 'city', 'company', 'isp', 'as_org', 'number'] },
+          { id: 'risk', label: '风险研判', description: '风险协议、漏洞与证书', fields: ['is_risk', 'is_risk_protocol', 'vul_list', 'cert_sha256', 'ssl_certificate'] },
+          { id: 'raw', label: '原始响应', description: '响应正文与原始数据', fields: ['header', 'banner', 'body', 'whois', 'ip_tag', 'icp_exception', 'os'] },
         ]
         const QUERY_TEMPLATES = [
           { label: '登录页', value: 'title="登录"' },
@@ -39,18 +47,19 @@
           '.dhunter-section{margin-bottom:8px;padding:10px;border:1px solid #dfe7f2;border-radius:10px;background:#fff;box-shadow:0 2px 10px rgba(45,77,120,.035)}.dhunter-section-title{display:flex;align-items:center;gap:5px;margin-bottom:8px;font-weight:700;font-size:11px}.dhunter-section-title small{margin-left:auto;color:#8b98aa;font-size:9px;font-weight:400}' +
           '.dhunter-label{display:block;margin:7px 0 4px;color:#69778a;font-size:10px}.dhunter-input,.dhunter-select,.dhunter-textarea{width:100%;min-width:0;border:1px solid #d8e1ec;border-radius:6px;padding:7px 8px;background:#fbfcfe;color:inherit;font:inherit;font-size:11px;outline:0}.dhunter-input:focus,.dhunter-select:focus,.dhunter-textarea:focus{border-color:#75a8f5;box-shadow:0 0 0 3px rgba(53,120,229,.1);background:#fff}.dhunter-textarea{min-height:84px;resize:vertical;line-height:1.45;font:10px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}' +
           '.dhunter-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.dhunter-btn{border:1px solid #d6dfeb;border-radius:6px;padding:6px 9px;background:#fff;color:inherit;font:inherit;font-size:10.5px;cursor:pointer}.dhunter-btn:hover{background:#f4f7fb}.dhunter-btn.primary{border-color:#3578e5;background:linear-gradient(180deg,#438cf2,#3578e5);color:#fff;box-shadow:0 4px 10px rgba(53,120,229,.18)}.dhunter-btn.danger{color:#bd4b4b}.dhunter-btn:disabled{opacity:.5;cursor:default}' +
-          '.dhunter-error{margin:8px 10px;padding:8px;border-radius:7px;background:#fff0f0;color:#be4848;font-size:10px;line-height:1.45}.dhunter-notice{margin:8px 10px;padding:8px;border-radius:7px;background:#eefaf2;color:#37844d;font-size:10px;line-height:1.45}' +
+          '.dhunter-feedback{margin:0 0 8px;padding:7px 8px;border:1px solid #f2d4d4;border-radius:8px;background:#fff8f8;color:#a85050;font-size:10px;line-height:1.45}.dhunter-feedback.notice,.dhunter-notice{border-color:#d6ebdc;background:#f4fbf6;color:#37844d}.dhunter-notice{margin:7px 0 0;padding:7px 8px;border:1px solid #d6ebdc;border-radius:8px;font-size:10px;line-height:1.45}' +
           '.dhunter-status{display:flex;align-items:center;gap:6px;margin-bottom:8px;padding:8px;border:1px solid #dfe7f2;border-radius:8px;background:#f7faff}.dhunter-status-dot{width:7px;height:7px;border-radius:50%;background:#b1bbc8}.dhunter-status-dot.live{background:#35bd72}.dhunter-status-copy{min-width:0;flex:1}.dhunter-status-title{display:block;font-weight:650;font-size:11px}.dhunter-status-meta{display:block;margin-top:2px;color:#8a95a5;font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
           '.dhunter-quota{display:grid;grid-template-columns:1fr 1fr;gap:6px}.dhunter-quota-card{padding:7px;border:1px solid #e5ebf3;border-radius:7px;background:#fbfcfe}.dhunter-quota-card span{display:block;color:#8491a3;font-size:9px}.dhunter-quota-card strong{display:block;margin-top:3px;font-size:13px}.dhunter-quota-trend{display:flex;gap:7px;align-items:center;padding:5px 0;border-bottom:1px solid #edf1f6;font-size:9.5px}.dhunter-quota-trend:last-child{border-bottom:0}.dhunter-quota-trend span{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#738196}.dhunter-quota-trend strong{color:#3578e5;font-weight:650;white-space:nowrap}.dhunter-hint{margin-top:7px;color:#8995a5;font-size:9.5px;line-height:1.45}' +
           '.dhunter-center-layer{position:fixed;left:var(--dsh-resource-center-left-width,280px);right:var(--dsh-resource-center-right-width,0px);top:var(--dsh-resource-center-top,0px);bottom:var(--dsh-resource-center-bottom,0px);z-index:24;display:flex;pointer-events:none}.dhunter-center{display:flex;width:100%;height:100%;min-width:0;min-height:0;flex-direction:column;border-left:1px solid #e3e8ef;background:#fff;box-shadow:-12px 0 30px rgba(15,23,42,.04);pointer-events:auto}' +
           '.dhunter-center-head{display:flex;align-items:center;gap:8px;min-height:50px;padding:0 14px;border-bottom:1px solid #e5eaf1;background:#fff}.dhunter-center-title{min-width:0;flex:1;font-size:14px;font-weight:700}.dhunter-center-sub{color:#8a95a5;font-size:10px}.dhunter-close{width:26px;height:26px;border:0;border-radius:6px;background:transparent;color:#8a95a5;font-size:17px;cursor:pointer}.dhunter-close:hover{background:#f1f4f8;color:#26303d}' +
           '.dhunter-toolbar{display:flex;align-items:center;gap:7px;min-height:45px;padding:0 14px;border-bottom:1px solid #e8edf3;background:#fff}.dhunter-tabs{display:flex;gap:3px}.dhunter-tab{border:0;border-radius:6px;padding:6px 10px;background:transparent;color:#788698;font:inherit;font-size:11px;cursor:pointer}.dhunter-tab.active{background:#edf4ff;color:#3578e5;font-weight:650}.dhunter-spacer{flex:1}.dhunter-content{display:flex;flex:1;min-height:0;flex-direction:column;overflow:auto;background:#f6f8fb}' +
-          '.dhunter-workbench{display:flex;min-height:100%;flex-direction:column;gap:10px;padding:12px}.dhunter-card{min-width:0;border:1px solid #dde6f0;border-radius:10px;background:#fff;box-shadow:0 2px 12px rgba(35,63,97,.035)}.dhunter-card-head{display:flex;align-items:center;gap:7px;padding:10px 12px;border-bottom:1px solid #e9eef4}.dhunter-card-title{font-weight:700;font-size:12px}.dhunter-card-meta{color:#8a95a5;font-size:9px}.dhunter-card-body{padding:11px 12px}' +
+          '.dhunter-workbench{display:flex;min-height:100%;flex-direction:column;gap:10px;padding:12px}.dhunter-card{min-width:0;border:1px solid #dde6f0;border-radius:10px;background:#fff;box-shadow:0 2px 12px rgba(35,63,97,.035)}.dhunter-card-head{display:flex;align-items:center;gap:7px;min-width:0;padding:10px 12px;border-bottom:1px solid #e9eef4}.dhunter-card-title{flex:0 0 auto;white-space:nowrap;font-weight:700;font-size:12px}.dhunter-card-meta{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#8a95a5;font-size:9px}.dhunter-card-body{padding:11px 12px}.dhunter-ai-assist{margin-bottom:10px;padding:9px 10px;border:1px solid #d6e6ff;border-radius:8px;background:linear-gradient(135deg,#f4f8ff,#fbfdff)}.dhunter-ai-assist-head{display:flex;align-items:center;gap:7px}.dhunter-ai-assist-mark{display:inline-flex;width:19px;height:19px;align-items:center;justify-content:center;border-radius:6px;background:#e2efff;color:#3578e5;font-size:12px}.dhunter-ai-assist-copy{min-width:0;flex:1}.dhunter-ai-assist-title{display:block;color:#35445a;font-size:10.5px;font-weight:700}.dhunter-ai-assist-sub{display:block;margin-top:1px;color:#8090a4;font-size:9px}.dhunter-ai-assist-form{display:flex;gap:7px;margin-top:8px}.dhunter-ai-assist-form .dhunter-input{flex:1;background:#fff}.dhunter-ai-assist-note{margin-top:6px;color:#8290a1;font-size:9px;line-height:1.4}@media (max-width:700px){.dhunter-ai-assist-form{flex-direction:column}.dhunter-ai-assist-form .dhunter-btn{width:100%}}' +
           '.dhunter-form-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(130px,180px) minmax(130px,180px);gap:8px}.dhunter-form-grid.two{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.dhunter-form-actions{display:flex;align-items:center;gap:7px;margin-top:9px}.dhunter-result-card{display:flex;min-height:300px;flex:1;flex-direction:column}.dhunter-result-scroll{min-height:0;flex:1;overflow:auto}' +
           '.dhunter-table{width:100%;border-collapse:collapse;font-size:10px}.dhunter-table th,.dhunter-table td{padding:8px 9px;border-bottom:1px solid #edf0f4;text-align:left;vertical-align:top;white-space:nowrap}.dhunter-table th{position:sticky;top:0;background:#f7f9fc;color:#738196;font-weight:650;z-index:1}.dhunter-table tbody tr{cursor:pointer}.dhunter-table tbody tr:hover,.dhunter-table tbody tr.active{background:#f3f7ff}.dhunter-table td.wrap{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dhunter-table td.status-ok{color:#269354}.dhunter-table td.status-fail{color:#c14d4d}' +
           '.dhunter-empty{display:flex;min-height:220px;align-items:center;justify-content:center;flex-direction:column;gap:7px;color:#95a0ae}.dhunter-empty strong{color:#667386;font-size:12px}.dhunter-empty span{font-size:10px}.dhunter-detail{margin:0 12px 12px;padding:10px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc}.dhunter-detail pre{max-height:250px;margin:0;overflow:auto;white-space:pre-wrap;word-break:break-word;color:#536174;font:10px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}' +
           '.dhunter-batch-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(250px,360px);gap:10px}.dhunter-task-row{display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid #edf0f4}.dhunter-task-row:last-child{border-bottom:0}.dhunter-task-id{font:10px ui-monospace,SFMono-Regular,Menlo,monospace;color:#3578e5}.dhunter-task-meta{min-width:0;flex:1;color:#6f7d90;font-size:10px}.dhunter-task-actions{display:flex;gap:5px}.dhunter-download{color:#3578e5;text-decoration:none;font-size:10px}.dhunter-file{font-size:10px;color:#748196}.dhunter-select-check{width:14px;height:14px;accent-color:#3578e5}.dhunter-footer-note{padding:8px 12px;color:#8b97a6;font-size:9.5px;line-height:1.45}' +
-          '.dhunter-config{margin-bottom:8px;border:1px solid #dfe7f2;border-radius:10px;background:#fff;box-shadow:0 2px 10px rgba(45,77,120,.035)}.dhunter-config summary{display:flex;align-items:center;gap:6px;padding:10px;cursor:pointer;list-style:none;font-weight:700;font-size:11px}.dhunter-config summary::-webkit-details-marker{display:none}.dhunter-config summary:before{content:"›";color:#7e91aa}.dhunter-config[open] summary:before{content:"⌄"}.dhunter-config-body{padding:0 10px 10px;border-top:1px solid #edf0f4}.dhunter-field-groups{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}.dhunter-chip{border:1px solid #d6e2f0;border-radius:999px;padding:4px 7px;background:#fff;color:#617187;font:10px/1 inherit;cursor:pointer}.dhunter-chip:hover,.dhunter-chip.active{border-color:#9ec0f6;background:#edf5ff;color:#2870d9}.dhunter-warning{margin-top:8px;padding:7px 8px;border-left:3px solid #efa85d;border-radius:5px;background:#fff8ed;color:#8b5b24;font-size:10px;line-height:1.45}.dhunter-result-tools{display:flex;align-items:center;gap:6px;min-width:0;margin-left:auto}.dhunter-result-tools .dhunter-input{width:180px}.dhunter-detail-tabs{display:flex;gap:3px;margin-bottom:8px}.dhunter-detail-tab{border:0;border-radius:5px;padding:5px 7px;background:transparent;color:#718096;font:10px/1 inherit;cursor:pointer}.dhunter-detail-tab.active{background:#e7f0ff;color:#2f78df;font-weight:650}.dhunter-detail-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.dhunter-detail-kv{min-width:0;padding:7px;border:1px solid #e2e8f0;border-radius:6px;background:#fff}.dhunter-detail-kv span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#8491a3;font-size:9px}.dhunter-detail-kv strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:3px;color:#374151;font-size:10px}.dhunter-badge{display:inline-flex;align-items:center;border-radius:999px;padding:3px 6px;background:#edf5ff;color:#2870d9;font-size:9px}.dhunter-badge.risk{background:#fff0f0;color:#be4848}.dhunter-history-row{display:grid;grid-template-columns:minmax(170px,1.5fr) 70px 80px 100px auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #edf0f4;font-size:10px}.dhunter-history-row:last-child{border-bottom:0}.dhunter-history-query{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.dhunter-asset-actions{display:flex;gap:5px;flex-wrap:wrap}.dhunter-table-sort{border:0;background:transparent;color:inherit;font:inherit;font-weight:650;cursor:pointer}.dhunter-table-sort:hover{color:#2870d9}@media (max-width:900px){.dhunter-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.dhunter-history-row{grid-template-columns:minmax(160px,1fr) 80px auto}.dhunter-history-row>*:nth-child(3),.dhunter-history-row>*:nth-child(4){display:none}}@media (max-width:700px){.dhunter-form-grid,.dhunter-form-grid.two,.dhunter-batch-grid{grid-template-columns:1fr}.dhunter-toolbar{flex-wrap:wrap;padding:8px 10px}.dhunter-spacer{display:none}.dhunter-result-tools{width:100%;margin-left:0}.dhunter-result-tools .dhunter-input{width:100%}.dhunter-detail-grid{grid-template-columns:1fr}.dhunter-history-row{grid-template-columns:1fr auto}.dhunter-history-row>*:nth-child(2){display:none}}'
+          '.dhunter-config{margin-bottom:8px;border:1px solid #dfe7f2;border-radius:10px;background:#fff;box-shadow:0 2px 10px rgba(45,77,120,.035)}.dhunter-config summary{display:flex;align-items:center;gap:6px;padding:10px;cursor:pointer;list-style:none;font-weight:700;font-size:11px}.dhunter-config summary::-webkit-details-marker{display:none}.dhunter-config summary:before{content:"›";color:#7e91aa}.dhunter-config[open] summary:before{content:"⌄"}.dhunter-config-body{padding:0 10px 10px;border-top:1px solid #edf0f4}.dhunter-field-groups{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}.dhunter-chip{border:1px solid #d6e2f0;border-radius:999px;padding:4px 7px;background:#fff;color:#617187;font:10px/1 inherit;cursor:pointer}.dhunter-chip:hover,.dhunter-chip.active{border-color:#9ec0f6;background:#edf5ff;color:#2870d9}.dhunter-field-summary{display:flex;align-items:center;gap:5px;min-height:32px;margin-top:7px;padding:5px 7px;border:1px solid #e4eaf2;border-radius:7px;background:#fbfcfe;color:#6e7c8f;font-size:10px;overflow:hidden}.dhunter-field-summary strong{flex:0 0 auto;color:#3d4c60}.dhunter-field-summary span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dhunter-field-editor{margin-top:7px;border-top:1px solid #edf0f4}.dhunter-field-editor summary{padding:7px 0;cursor:pointer;color:#6d7c90;font-size:10px}.dhunter-field-editor-body{display:flex;flex-wrap:wrap;gap:5px;padding:0 0 4px}.dhunter-field-option{display:inline-flex;align-items:center;gap:4px;padding:4px 6px;border:1px solid #e1e7ef;border-radius:6px;background:#fff;color:#59697d;font-size:9px;cursor:pointer}.dhunter-field-option input{width:12px;height:12px;margin:0;accent-color:#3578e5}.dhunter-warning{margin-top:8px;padding:7px 8px;border-left:3px solid #efa85d;border-radius:5px;background:#fff8ed;color:#8b5b24;font-size:10px;line-height:1.45}.dhunter-result-tools{display:flex;align-items:center;gap:6px;min-width:0;margin-left:auto}.dhunter-result-tools .dhunter-input,.dhunter-card-filter{width:clamp(180px,22vw,280px);flex:0 1 280px}.dhunter-detail-tabs{display:flex;gap:3px;margin-bottom:8px}.dhunter-detail-tab{border:0;border-radius:5px;padding:5px 7px;background:transparent;color:#718096;font:10px/1 inherit;cursor:pointer}.dhunter-detail-tab.active{background:#e7f0ff;color:#2f78df;font-weight:650}.dhunter-detail-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.dhunter-detail-kv{min-width:0;padding:7px;border:1px solid #e2e8f0;border-radius:6px;background:#fff}.dhunter-detail-kv span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#8491a3;font-size:9px}.dhunter-detail-kv strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:3px;color:#374151;font-size:10px}.dhunter-badge{display:inline-flex;align-items:center;border-radius:999px;padding:3px 6px;background:#edf5ff;color:#2870d9;font-size:9px}.dhunter-badge.risk{background:#fff0f0;color:#be4848}.dhunter-history-row{display:grid;grid-template-columns:minmax(170px,1.5fr) 70px 80px 100px auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #edf0f4;font-size:10px}.dhunter-history-row:last-child{border-bottom:0}.dhunter-history-query{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.dhunter-asset-actions{display:flex;gap:5px;flex-wrap:wrap}.dhunter-table-sort{border:0;background:transparent;color:inherit;font:inherit;font-weight:650;cursor:pointer}.dhunter-table-sort:hover{color:#2870d9}@media (max-width:900px){.dhunter-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.dhunter-history-row{grid-template-columns:minmax(160px,1fr) 80px auto}.dhunter-history-row>*:nth-child(3),.dhunter-history-row>*:nth-child(4){display:none}}@media (max-width:700px){.dhunter-form-grid,.dhunter-form-grid.two,.dhunter-batch-grid{grid-template-columns:1fr}.dhunter-toolbar{flex-wrap:wrap;padding:8px 10px}.dhunter-spacer{display:none}.dhunter-result-tools{width:100%;margin-left:0}.dhunter-result-tools .dhunter-input,.dhunter-card-filter{width:100%;flex:1 1 100%}.dhunter-detail-grid{grid-template-columns:1fr}.dhunter-history-row{grid-template-columns:1fr auto}.dhunter-history-row>*:nth-child(2){display:none}}'
+          '.dhunter-field-picker{margin-top:10px;border:1px solid #dce6f2;border-radius:9px;background:#fbfcff}.dhunter-field-picker-head{display:flex;align-items:center;gap:8px;padding:8px 9px;border-bottom:1px solid #e8edf4}.dhunter-field-picker-title{min-width:0;flex:1}.dhunter-field-picker-title strong{display:block;color:#3b4a5f;font-size:10.5px}.dhunter-field-picker-title span{display:block;margin-top:2px;color:#8491a3;font-size:9px}.dhunter-field-count{display:inline-flex;align-items:center;border-radius:999px;padding:3px 6px;background:#eaf3ff;color:#2870d9;font-size:9px;font-weight:650;white-space:nowrap}.dhunter-field-picker-actions{display:flex;gap:5px}.dhunter-field-picker-actions .dhunter-btn{padding:5px 7px;font-size:9.5px}.dhunter-field-selected{display:flex;flex-wrap:wrap;gap:5px;padding:8px 9px}.dhunter-field-selected.empty{color:#8c98a8;font-size:10px}.dhunter-field-token{display:inline-flex;align-items:center;gap:4px;border:1px solid #cfe0f8;border-radius:999px;padding:4px 7px;background:#f5f9ff;color:#3d70ae;font:10px/1 inherit;cursor:pointer}.dhunter-field-token:hover{border-color:#8db6ec;background:#eaf3ff}.dhunter-field-token .remove{color:#6b88af;font-size:12px;line-height:8px}.dhunter-field-manage{border-top:1px solid #e8edf4}.dhunter-field-manage summary{display:flex;align-items:center;gap:5px;padding:8px 9px;cursor:pointer;list-style:none;color:#607287;font-size:10px}.dhunter-field-manage summary::-webkit-details-marker{display:none}.dhunter-field-manage summary:before{content:"›";color:#7a91ad;font-size:14px}.dhunter-field-manage[open] summary:before{content:"⌄"}.dhunter-field-manage-body{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;padding:0 9px 9px}.dhunter-field-group{min-width:0;border:1px solid #e1e8f1;border-radius:7px;background:#fff}.dhunter-field-group-head{display:flex;align-items:flex-start;gap:6px;padding:7px;border-bottom:1px solid #edf1f5}.dhunter-field-group-copy{min-width:0;flex:1}.dhunter-field-group-copy strong{display:block;color:#46566b;font-size:9.5px}.dhunter-field-group-copy span{display:block;margin-top:2px;color:#8a96a7;font-size:8.5px;line-height:1.3}.dhunter-field-group-count{color:#7d8fa6;font-size:8.5px;white-space:nowrap}.dhunter-field-group-toggle{border:0;background:transparent;color:#2f78df;font:9px/1 inherit;cursor:pointer;white-space:nowrap}.dhunter-field-options{display:flex;flex-wrap:wrap;gap:4px;padding:6px}.dhunter-field-option{display:inline-flex;align-items:center;gap:4px;padding:3px 5px;border:1px solid #e1e7ef;border-radius:5px;background:#fff;color:#59697d;font-size:8.8px;cursor:pointer}.dhunter-field-option.selected{border-color:#bcd5f5;background:#f2f7ff;color:#316faf}.dhunter-field-option.large{border-color:#f1d5ae;background:#fffaf2;color:#9a6a2b}.dhunter-field-option input{width:11px;height:11px;margin:0;accent-color:#3578e5}.dhunter-warning{margin-top:8px;padding:7px 8px;border-left:3px solid #efa85d;border-radius:5px;background:#fff8ed;color:#8b5b24;font-size:10px;line-height:1.45}.dhunter-result-tools{display:flex;align-items:center;gap:6px;min-width:0;margin-left:auto}.dhunter-result-tools .dhunter-input,.dhunter-card-filter{width:clamp(180px,22vw,280px);flex:0 1 280px}.dhunter-detail-tabs{display:flex;gap:3px;margin-bottom:8px}.dhunter-detail-tab{border:0;border-radius:5px;padding:5px 7px;background:transparent;color:#718096;font:10px/1 inherit;cursor:pointer}.dhunter-detail-tab.active{background:#e7f0ff;color:#2f78df;font-weight:650}.dhunter-detail-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.dhunter-detail-kv{min-width:0;padding:7px;border:1px solid #e2e8f0;border-radius:6px;background:#fff}.dhunter-detail-kv span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#8491a3;font-size:9px}.dhunter-detail-kv strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:3px;color:#374151;font-size:10px}.dhunter-badge{display:inline-flex;align-items:center;border-radius:999px;padding:3px 6px;background:#edf5ff;color:#2870d9;font-size:9px}.dhunter-badge.risk{background:#fff0f0;color:#be4848}.dhunter-history-row{display:grid;grid-template-columns:minmax(170px,1.5fr) 70px 80px 100px auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #edf0f4;font-size:10px}.dhunter-history-row:last-child{border-bottom:0}.dhunter-history-query{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.dhunter-asset-actions{display:flex;gap:5px;flex-wrap:wrap}.dhunter-table-sort{border:0;background:transparent;color:inherit;font:inherit;font-weight:650;cursor:pointer}.dhunter-table-sort:hover{color:#2870d9}@media (max-width:900px){.dhunter-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.dhunter-history-row{grid-template-columns:minmax(160px,1fr) 80px auto}.dhunter-history-row>*:nth-child(3),.dhunter-history-row>*:nth-child(4){display:none}}@media (max-width:700px){.dhunter-form-grid,.dhunter-form-grid.two,.dhunter-batch-grid,.dhunter-field-manage-body{grid-template-columns:1fr}.dhunter-toolbar{flex-wrap:wrap;padding:8px 10px}.dhunter-spacer{display:none}.dhunter-result-tools{width:100%;margin-left:0}.dhunter-result-tools .dhunter-input,.dhunter-card-filter{width:100%;flex:1 1 100%}.dhunter-detail-grid{grid-template-columns:1fr}.dhunter-history-row{grid-template-columns:1fr auto}.dhunter-history-row>*:nth-child(2){display:none}}'
 
         function installStyle() {
           if (document.querySelector('style[data-plugin="dsh-resource-center-hunter"]')) return
@@ -83,8 +92,8 @@
           return body
         }
 
-        async function api(action, payload = {}, signal) {
-          const response = await fetchWithTimeout(API, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action, ...payload }), signal })
+        async function api(action, payload = {}, signal, timeoutMs) {
+          const response = await fetchWithTimeout(API, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action, ...payload }), signal }, timeoutMs)
           return readJson(response)
         }
 
@@ -201,10 +210,10 @@
           const info = config?.userInfo
           return h('section', { className: 'dhunter-panel', 'aria-label': 'Hunter' },
             h('header', { className: 'dhunter-head' }, h('span', { className: 'dhunter-head-mark' }, h(Icon)), h('div', { className: 'dhunter-head-copy' }, h('span', { className: 'dhunter-head-title' }, 'Hunter'), h('span', { className: 'dhunter-head-sub' }, '网络空间搜索辅助')), h('button', { className: 'dhunter-btn', onClick: state.refresh, disabled: state.busy, title: '刷新账号信息' }, '↻')),
-            state.error ? h('div', { className: 'dhunter-error' }, state.error) : null,
-            state.notice ? h('div', { className: 'dhunter-notice' }, state.notice) : null,
             h('div', { className: 'dhunter-sidebar' },
               h(HunterStatus, { configured: config?.configured, userInfo: info, loading: state.busy }),
+              state.error ? h('div', { className: 'dhunter-feedback' }, state.error) : null,
+              state.notice ? h('div', { className: 'dhunter-feedback notice' }, state.notice) : null,
               config?.configured && info ? h('section', { className: 'dhunter-section' },
                 h('div', { className: 'dhunter-section-title' }, '账号额度', h('small', null, info.type || 'Hunter')),
                 h('div', { className: 'dhunter-quota' },
@@ -234,7 +243,7 @@
           )
         }
 
-        function useHunterState() {
+        function useHunterState(sessionId) {
           const [config, setConfig] = React.useState({ configured: false })
           const [workspaceState, setWorkspaceState] = React.useState({ queries: [], tasks: [], assets: [], audits: [] })
           const [workspacePersistent, setWorkspacePersistent] = React.useState(false)
@@ -254,7 +263,10 @@
           const [result, setResult] = React.useState(null)
           const [selected, setSelected] = React.useState(null)
           const [batchResult, setBatchResult] = React.useState(null)
+          const [assistantRequirement, setAssistantRequirement] = React.useState('')
+          const [assistantBusy, setAssistantBusy] = React.useState(false)
           const controllerRef = React.useRef(null)
+          const assistantControllerRef = React.useRef(null)
 
           const applyResponse = React.useCallback(response => {
             if (response && Object.prototype.hasOwnProperty.call(response, 'configured')) setConfig(response)
@@ -276,10 +288,15 @@
             try {
               const response = await fetchWithTimeout(API + '?refresh=1')
               applyResponse(await readJson(response))
-            } catch (cause) { if (cause?.name !== 'AbortError') setError(messageOf(cause)) }
+            } catch (cause) {
+              if (cause?.name !== 'AbortError') {
+                if (!config?.configured) setNotice('Hunter 尚未连接。配置 ApiKey 后将自动验证账号与额度。')
+                else setError(messageOf(cause))
+              }
+            }
             finally { setBusy(false) }
-          }, [applyResponse])
-          React.useEffect(() => { refresh(); return () => controllerRef.current?.abort() }, [refresh])
+          }, [applyResponse, config?.configured])
+          React.useEffect(() => { refresh(); return () => { controllerRef.current?.abort(); assistantControllerRef.current?.abort() } }, [refresh])
           const save = React.useCallback(async () => {
             setBusy(true); setError(''); setNotice('')
             try {
@@ -305,6 +322,31 @@
             } catch (cause) { if (cause?.name !== 'AbortError') setError(messageOf(cause)) }
             finally { if (!controller.signal.aborted) setBusy(false) }
           }, [applyResponse, query, startTime, endTime, pageSize, isWeb, statusCode, fields])
+          const generateSyntax = React.useCallback(async () => {
+            const requirement = assistantRequirement.trim()
+            if (!requirement) {
+              setError('请输入要检索的网络空间资产条件。')
+              return
+            }
+            assistantControllerRef.current?.abort()
+            const controller = new AbortController()
+            assistantControllerRef.current = controller
+            setAssistantBusy(true); setError(''); setNotice('')
+            try {
+              const response = await api('assistQuery', { sessionId, requirement }, controller.signal, 25_000)
+              applyResponse(response)
+              setQuery(response.syntax || '')
+              setNotice(response.summary ? `已生成并回填语法：${response.summary}` : '已生成并回填 Hunter 搜索语法，请确认后手动开始查询。')
+            } catch (cause) {
+              if (cause?.name === 'AbortError' && !controller.signal.aborted) setError('生成 Hunter 语法超时，请缩短描述后重试。')
+              else if (cause?.name !== 'AbortError') setError(messageOf(cause))
+            } finally {
+              if (assistantControllerRef.current === controller) {
+                assistantControllerRef.current = null
+                setAssistantBusy(false)
+              }
+            }
+          }, [applyResponse, assistantRequirement, sessionId])
           const submitBatch = React.useCallback(async file => {
             setBusy(true); setError(''); setNotice(''); setBatchResult(null)
             try {
@@ -374,7 +416,7 @@
           const history = workspaceState.queries || []
           const assets = workspaceState.assets || []
           const quotaSpent = [...history, ...tasks].reduce((total, item) => total + quotaPoints(item.consumeQuota), 0)
-          return { config, setConfig, keyDraft, setKeyDraft, busy, error, notice, setNotice, save, clear, refresh, query, setQuery, startTime, setStartTime, endTime, setEndTime, pageSize, setPageSize, isWeb, setIsWeb, statusCode, setStatusCode, fields, setFields, searchType, setSearchType, assetsLimit, setAssetsLimit, result, setResult, selected, setSelected, batchResult, tasks, history, assets, audits: workspaceState.audits || [], quotaSpent, workspacePersistent, submitBatch, refreshTask, retryTask, clearHistory, saveAssets, toggleFavorite }
+          return { config, setConfig, keyDraft, setKeyDraft, busy, error, notice, setNotice, save, clear, refresh, query, setQuery, startTime, setStartTime, endTime, setEndTime, pageSize, setPageSize, isWeb, setIsWeb, statusCode, setStatusCode, fields, setFields, searchType, setSearchType, assetsLimit, setAssetsLimit, result, setResult, selected, setSelected, batchResult, assistantRequirement, setAssistantRequirement, assistantBusy, generateSyntax, tasks, history, assets, audits: workspaceState.audits || [], quotaSpent, workspacePersistent, submitBatch, refreshTask, retryTask, clearHistory, saveAssets, toggleFavorite }
         }
 
         function resultData(result) { return Array.isArray(result?.data?.arr) ? result.data.arr : [] }
@@ -387,6 +429,7 @@
           const [sort, setSort] = React.useState({ key: 'updated_at', direction: 'desc' })
           const [detailTab, setDetailTab] = React.useState('overview')
           const selectedFields = fieldsFrom(state.fields)
+          const selectedFieldNames = HUNTER_FIELDS.filter(field => selectedFields.has(field))
           const warnings = preflightWarning(state.startTime, state.endTime, state.fields)
           const invalidRange = warnings.some(item => item.includes('结束时间早于'))
           const toggleGroup = group => {
@@ -394,6 +437,12 @@
             const enabled = group.fields.every(field => next.has(field))
             group.fields.forEach(field => enabled ? next.delete(field) : next.add(field))
             state.setFields([...next].filter(field => HUNTER_FIELDS.includes(field)).join(','))
+          }
+          const toggleField = (field, enabled) => {
+            const next = fieldsFrom(state.fields)
+            if (enabled) next.add(field)
+            else next.delete(field)
+            state.setFields([...next].filter(item => HUNTER_FIELDS.includes(item)).join(','))
           }
           const rows = resultData(state.result)
             .filter(row => !filter.trim() || [row.ip, row.port, row.domain, row.url, row.web_title, row.company].join(' ').toLowerCase().includes(filter.trim().toLowerCase()))
@@ -410,6 +459,11 @@
             h('section', { className: 'dhunter-card' },
               h('div', { className: 'dhunter-card-head' }, h('span', { className: 'dhunter-card-title' }, '语法检索'), h('span', { className: 'dhunter-card-meta' }, 'RFC 4648 base64url 由服务端自动编码')),
               h('div', { className: 'dhunter-card-body' },
+                h('section', { className: 'dhunter-ai-assist', 'aria-label': 'LLM 辅助查询' },
+                  h('div', { className: 'dhunter-ai-assist-head' }, h('span', { className: 'dhunter-ai-assist-mark', 'aria-hidden': 'true' }, '✦'), h('div', { className: 'dhunter-ai-assist-copy' }, h('span', { className: 'dhunter-ai-assist-title' }, 'LLM 辅助查询'), h('span', { className: 'dhunter-ai-assist-sub' }, '根据当前会话模型生成可编辑的 Hunter 语法'))),
+                  h('div', { className: 'dhunter-ai-assist-form' }, h('input', { className: 'dhunter-input', value: state.assistantRequirement, onChange: event => state.setAssistantRequirement(event.target.value), onKeyDown: event => { if (event.key === 'Enter' && !event.nativeEvent?.isComposing) { event.preventDefault(); state.generateSyntax() } }, placeholder: '例如：查找中国境内使用 Nginx 的登录页', 'aria-label': 'LLM 查询需求' }), h('button', { className: 'dhunter-btn primary', type: 'button', disabled: state.assistantBusy || !state.assistantRequirement.trim(), onClick: state.generateSyntax }, state.assistantBusy ? '生成中…' : '生成 Hunter 语法')),
+                  h('div', { className: 'dhunter-ai-assist-note' }, '仅生成并回填下方语法，不会自动发起 Hunter 查询。'),
+                ),
                 h('label', { className: 'dhunter-label' }, 'Hunter 搜索语法'),
                 h('textarea', { className: 'dhunter-textarea', value: state.query, onChange: event => state.setQuery(event.target.value), placeholder: '例如：title="登录" && country="中国"' }),
                 h('div', { className: 'dhunter-row', style: { marginTop: '7px' } }, QUERY_TEMPLATES.map(template => h('button', { key: template.label, className: 'dhunter-chip' + (state.query === template.value ? ' active' : ''), type: 'button', onClick: () => state.setQuery(template.value) }, template.label))),
@@ -422,10 +476,31 @@
                   h('div', null, h('label', { className: 'dhunter-label' }, '资产类型'), h('select', { className: 'dhunter-select', value: state.isWeb, onChange: event => state.setIsWeb(event.target.value) }, h('option', { value: '' }, '不限制'), h('option', { value: '1' }, 'Web 资产'), h('option', { value: '2' }, '非 Web 资产'), h('option', { value: '3' }, '全部资产'))),
                   h('div', null, h('label', { className: 'dhunter-label' }, '状态码'), h('input', { className: 'dhunter-input', value: state.statusCode, onChange: event => state.setStatusCode(event.target.value), placeholder: '例如 200,401' })),
                 ),
-                h('div', { className: 'dhunter-row', style: { justifyContent: 'space-between' } }, h('label', { className: 'dhunter-label', style: { marginBottom: 0 } }, '返回字段'), h('div', { className: 'dhunter-row' }, h('button', { className: 'dhunter-btn', type: 'button', onClick: () => state.setFields(LIGHT_FIELDS) }, '轻量字段'), h('button', { className: 'dhunter-btn', type: 'button', onClick: () => state.setFields(HUNTER_FIELDS.join(',')) }, '全部字段'))),
-                h('div', { className: 'dhunter-field-groups' }, FIELD_GROUPS.map(group => h('button', { key: group.id, className: 'dhunter-chip' + (group.fields.every(field => selectedFields.has(field)) ? ' active' : ''), type: 'button', onClick: () => toggleGroup(group) }, group.label))),
-                h('input', { className: 'dhunter-input', value: state.fields, onChange: event => state.setFields(event.target.value), placeholder: 'ip,port,domain,url…' }),
-                h('div', { className: 'dhunter-hint' }, '可选字段：', HUNTER_FIELDS.join(', '), h('br'), 'whois、body、banner、header、vul_list 可能较大，按需选择。'),
+                h('section', { className: 'dhunter-field-picker', 'aria-label': '返回字段' },
+                  h('div', { className: 'dhunter-field-picker-head' },
+                    h('div', { className: 'dhunter-field-picker-title' }, h('strong', null, '返回字段'), h('span', null, '选择 Hunter 返回的资产属性；原始响应字段按需开启')),
+                    h('span', { className: 'dhunter-field-count' }, `已选 ${selectedFieldNames.length} 项`),
+                    h('div', { className: 'dhunter-field-picker-actions' }, h('button', { className: 'dhunter-btn', type: 'button', onClick: () => state.setFields(LIGHT_FIELDS) }, '推荐'), h('button', { className: 'dhunter-btn', type: 'button', onClick: () => state.setFields(HUNTER_FIELDS.join(',')) }, '全部')),
+                  ),
+                  h('div', { className: 'dhunter-field-selected' + (selectedFieldNames.length ? '' : ' empty') }, selectedFieldNames.length
+                    ? selectedFieldNames.map(field => h('button', { key: field, className: 'dhunter-field-token', type: 'button', title: `移除 ${FIELD_LABELS[field] || field}`, 'aria-label': `移除返回字段 ${FIELD_LABELS[field] || field}`, onClick: () => toggleField(field, false) }, FIELD_LABELS[field] || field, h('span', { className: 'remove', 'aria-hidden': 'true' }, '×')))
+                    : '未选择字段。建议先使用“推荐”字段集。'),
+                  h('details', { className: 'dhunter-field-manage' },
+                    h('summary', null, '管理字段与原始响应'),
+                    h('div', { className: 'dhunter-field-manage-body' }, FIELD_GROUPS.map(group => {
+                      const activeCount = group.fields.filter(field => selectedFields.has(field)).length
+                      const allActive = activeCount === group.fields.length
+                      return h('section', { className: 'dhunter-field-group', key: group.id },
+                        h('div', { className: 'dhunter-field-group-head' },
+                          h('div', { className: 'dhunter-field-group-copy' }, h('strong', null, group.label), h('span', null, group.description)),
+                          h('span', { className: 'dhunter-field-group-count' }, `${activeCount}/${group.fields.length}`),
+                          h('button', { type: 'button', className: 'dhunter-field-group-toggle', onClick: () => toggleGroup(group) }, allActive ? '清除此组' : '选择此组'),
+                        ),
+                        h('div', { className: 'dhunter-field-options' }, group.fields.map(field => h('label', { className: 'dhunter-field-option' + (selectedFields.has(field) ? ' selected' : '') + (LARGE_FIELDS.has(field) ? ' large' : ''), key: field }, h('input', { type: 'checkbox', checked: selectedFields.has(field), onChange: event => toggleField(field, event.target.checked) }), FIELD_LABELS[field] || field, LARGE_FIELDS.has(field) ? h('span', { title: '该字段可能较大' }, '大') : null))),
+                      )
+                    })),
+                  ),
+                ),
                 warnings.length ? h('div', { className: 'dhunter-warning' }, warnings.map((item, index) => h('div', { key: index }, item))) : null,
                 h('div', { className: 'dhunter-form-actions' }, h('button', { className: 'dhunter-btn primary', onClick: state.search, disabled: state.busy || !state.config?.configured || !state.query.trim() || invalidRange }, state.busy ? '查询中…' : '开始查询'), h('span', { className: 'dhunter-card-meta' }, state.config?.configured ? '查询会消耗 Hunter 额度，并写入当前工作区历史' : '请先在左侧配置 ApiKey')),
               ),
@@ -552,7 +627,7 @@
           )
           return h('div', { className: 'dhunter-workbench' },
             h('section', { className: 'dhunter-card dhunter-result-card' },
-              h('div', { className: 'dhunter-card-head' }, h('span', { className: 'dhunter-card-title' }, '已保存资产'), h('span', { className: 'dhunter-card-meta' }, state.assets.length + ' 个资产'), h('span', { className: 'dhunter-spacer' }), selectedRows.length ? h('button', { className: 'dhunter-btn primary', onClick: () => sendToFuzzer?.(selectedRows) }, `发送所选到 Fuzzer (${selectedRows.length})`) : null, h('input', { className: 'dhunter-input', value: filter, onChange: event => setFilter(event.target.value), placeholder: '筛选已保存资产' })),
+              h('div', { className: 'dhunter-card-head' }, h('span', { className: 'dhunter-card-title' }, '已保存资产'), h('span', { className: 'dhunter-card-meta' }, state.assets.length + ' 个资产'), h('span', { className: 'dhunter-spacer' }), selectedRows.length ? h('button', { className: 'dhunter-btn primary', onClick: () => sendToFuzzer?.(selectedRows) }, `发送所选到 Fuzzer (${selectedRows.length})`) : null, h('input', { className: 'dhunter-input dhunter-card-filter', value: filter, onChange: event => setFilter(event.target.value), placeholder: '筛选已保存资产', 'aria-label': '筛选已保存资产' })),
               rows.length ? h('div', { className: 'dhunter-result-scroll' }, table) : h('div', { className: 'dhunter-empty' }, h(Icon), h('strong', null, '暂无保存资产'), h('span', null, '检索结果会自动写入资产库，也可以在结果区手动保存')),
             ),
           )
@@ -610,7 +685,7 @@
         }
 
         function HunterPanel(props) {
-          const state = useHunterState()
+          const state = useHunterState(props.sessionId)
           const [tab, setTab] = React.useState('search')
           const sendToFuzzer = React.useCallback(input => {
             const requests = (Array.isArray(input) ? input : [input]).map(asset => {

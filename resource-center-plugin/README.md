@@ -54,7 +54,7 @@ Hunter 模块使用资源中心自己的 `/api/dsh-resource-center/hunter` 和 `
 
 ## 快速安装
 
-要求 Node.js `>=22.19.0`，以及与当前发布包一致的 DeepSeek Harness release；当前源码验证目标为 `0.1.0-rc.8`。
+要求 Node.js `>=22.19.0`，以及与当前发布包一致的 DeepSeek Harness release；当前源码验证目标为 `0.1.1-rc.1`。
 
 ### 从 GitHub 安装
 

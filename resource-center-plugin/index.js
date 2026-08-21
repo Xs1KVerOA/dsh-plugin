@@ -9,7 +9,7 @@ export const name = 'dsh-resource-center'
 // Host routes persist session titles and serialize bounded session references.
 // All list data and workspace grouping still come from the native DSH client stores.
 export const inject = [...new Set([
-  'webServer', 'sessions', 'credentials', 'fs', 'tools', 'sandboxPolicy', 'dshAuth', 'sessionQuery', 'timer',
+  'webServer', 'sessions', 'llm', 'credentials', 'fs', 'tools', 'sandboxPolicy', 'dshAuth', 'sessionQuery', 'timer',
   ...rightSidebarInject,
 ])]
 export const Config = TestConfig

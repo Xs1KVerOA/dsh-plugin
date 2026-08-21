@@ -1,7 +1,7 @@
 import { createHash, randomInt } from 'node:crypto'
 import { Agent as HttpsAgent } from 'node:https'
 import { createServer } from 'node:net'
-import { PassThrough, Readable } from 'node:stream'
+import { PassThrough, Readable, Transform } from 'node:stream'
 import { StringDecoder } from 'node:string_decoder'
 import { relative, resolve, sep } from 'node:path'
 import { URL } from 'node:url'
@@ -62,11 +62,14 @@ const SERVICE_TOOL_OPERATIONS = Object.freeze([
   'listContainers', 'listImages', 'logs', 'start', 'stop', 'exec',
   'listCollections', 'find',
   'listKeyspaces',
-  'listBuckets', 'listObjects', 'readObject', 'writeObject', 'deleteObject',
+  'listBuckets', 'listObjects', 'readObject', 'writeObject', 'uploadObject', 'deleteObject',
   'terminalOpen', 'terminalRead', 'terminalWrite', 'terminalResize', 'terminalClose',
 ])
 const SERVICE_TOOL_OPERATION_SET = new Set(SERVICE_TOOL_OPERATIONS)
 const REMOTE_SHELL_FALLBACK_PATTERN = /(?:^|[;&|]\s*)(?:env\s+)?(?:sshpass|ssh|sftp|scp|rsync|mysql|mariadb|psql|redis-cli|mongosh|mongo|cqlsh|sqlcmd|docker|ftp|curl|wget|aws|s5cmd)\b|\b(?:paramiko|asyncssh|fabric|ssh2)\b|(?:~\/|\$HOME\/)(?:\.ssh(?:\/|\b)|\.dsh(?:\/|\b))/i
+const S3_REFERENCE_MAX_BYTES = 128 * 1024
+const S3_BROWSER_UPLOAD_MAX_BYTES = 1024 * 1024 * 1024
+const S3_REFERENCE_TEXT_EXTENSION = /\.(?:txt|log|md|markdown|json|jsonl|csv|tsv|xml|ya?ml|ini|conf|config|properties|env|js|jsx|ts|tsx|css|html?|svg|py|go|java|c|cc|cpp|h|hpp|sh|bash|zsh|sql)$/i
 
 const SSH_INSPECT_COMMAND = String.raw`
 printf "__DSH_HOST__\t%s\n" "$(hostname 2>/dev/null || printf unknown)"
@@ -97,7 +100,7 @@ else
   printf "__DSH_MEMORY__\t0\t0\t0\n"
 fi
 if command -v df >/dev/null 2>&1; then
-  df -Pk / 2>/dev/null | awk 'NR==2 {printf "__DSH_DISK__\t%.0f\t%.0f\t%s\n", $2*1024, $3*1024, $5}'
+  df -Pk / 2>/dev/null | awk 'NR==2 {printf "__DSH_DISK__\t%.0f\t%.0f\t%.0f\t%s\n", $2*1024, $3*1024, $4*1024, $5}'
 fi
 printf "__DSH_PORTS__\n"
 if command -v ss >/dev/null 2>&1; then
@@ -122,7 +125,7 @@ export function parseSshInspectOutput(text) {
     uptime: '',
     cpu: { cores: 0, load: '' },
     memory: { totalBytes: 0, usedBytes: 0, availableBytes: 0 },
-    disk: { totalBytes: 0, usedBytes: 0, usagePercent: '' },
+    disk: { totalBytes: 0, usedBytes: 0, availableBytes: 0, usagePercent: '' },
     ports: [],
   }
   for (const line of String(text ?? '').split(/\r?\n/)) {
@@ -137,7 +140,13 @@ export function parseSshInspectOutput(text) {
     else if (key === '__DSH_MEMORY__') {
       snapshot.memory = { totalBytes: numeric(parts[0]), usedBytes: numeric(parts[1]), availableBytes: numeric(parts[2]) }
     } else if (key === '__DSH_DISK__') {
-      snapshot.disk = { totalBytes: numeric(parts[0]), usedBytes: numeric(parts[1]), usagePercent: String(parts[2] || '').trim() }
+      const hasAvailableBytes = parts.length >= 4
+      snapshot.disk = {
+        totalBytes: numeric(parts[0]),
+        usedBytes: numeric(parts[1]),
+        availableBytes: hasAvailableBytes ? numeric(parts[2]) : 0,
+        usagePercent: String(parts[hasAvailableBytes ? 3 : 2] || '').trim(),
+      }
     } else if (key === '__DSH_PORT__' && value) snapshot.ports.push(value)
   }
   snapshot.ports = [...new Set(snapshot.ports)].sort((left, right) => numeric(left) - numeric(right))
@@ -372,8 +381,9 @@ function parseJson(value, label) {
 
 function decodeBase64(value, maxBytes, label) {
   const raw = String(value ?? '')
-  if (raw.includes('\0') || raw.length > Math.ceil(maxBytes * 4 / 3) + 16) throw new Error(`${label} 超过大小限制`)
-  const encoded = cleanString(raw, Math.ceil(maxBytes * 4 / 3) + 16)
+  const maxEncodedLength = Math.ceil(maxBytes * 4 / 3) + 16
+  if (raw.includes('\0') || raw.length > maxEncodedLength) throw new Error(`${label} 超过大小限制`)
+  const encoded = cleanString(raw, maxEncodedLength)
   if (!encoded || !/^[A-Za-z0-9+/]*={0,2}$/.test(encoded) || encoded.length % 4 !== 0) throw new Error(`${label} 不是合法 Base64`)
   const decoded = Buffer.from(encoded, 'base64')
   if (decoded.length > maxBytes) throw new Error(`${label} 超过大小限制`)
@@ -389,14 +399,40 @@ async function streamToBuffer(stream) {
   return Buffer.concat(chunks)
 }
 
+async function streamToBufferLimited(stream, maxBytes) {
+  if (stream == null) return Buffer.alloc(0)
+  if (Buffer.isBuffer(stream) || stream instanceof Uint8Array) {
+    const value = Buffer.from(stream)
+    if (value.length > maxBytes) throw new Error('对象内容超过引用大小限制')
+    return value
+  }
+  const chunks = []
+  let length = 0
+  for await (const chunk of stream) {
+    const value = Buffer.from(chunk)
+    length += value.length
+    if (length > maxBytes) throw new Error('对象内容超过引用大小限制')
+    chunks.push(value)
+  }
+  return Buffer.concat(chunks)
+}
+
 function tlsOptions(connection, originalHost) {
   return { rejectUnauthorized: connection.options.tlsRejectUnauthorized !== false, servername: originalHost || undefined }
 }
 
+function normalizeS3Endpoint(value, scheme = 'https') {
+  const raw = String(value ?? '').trim()
+  const candidate = /^[a-z][a-z\d+.-]*:\/\//i.test(raw) ? raw : `${scheme}://${raw}`
+  const url = new URL(candidate)
+  if (!['http:', 'https:'].includes(url.protocol)) throw new Error('S3 endpoint 必须是 http 或 https URL')
+  return url.toString().replace(/\/$/, '')
+}
+
 function parseEndpoint(connection) {
   if (connection.type === 's3') {
-    const raw = connection.options.endpoint || `${connection.options.scheme || 'https'}://s3.amazonaws.com`
-    const url = new URL(raw)
+    const raw = connection.options.endpoint || `s3.amazonaws.com`
+    const url = new URL(normalizeS3Endpoint(raw, connection.options.scheme || 'https'))
     return { host: url.hostname, port: Number(url.port || (url.protocol === 'http:' ? 80 : 443)), url }
   }
   if (connection.type === 'docker') {
@@ -507,10 +543,12 @@ async function createTunnel(connection, secrets, endpoint) {
   return { host: '127.0.0.1', port: local.port, endpoint, close: local.close }
 }
 
-function localEndpoint(network, connection) {
+export function localEndpoint(network, connection) {
   if (connection.type !== 's3' || !network.endpoint) return null
-  const scheme = network.endpoint.protocol
-  return `${scheme}//${network.host}:${network.port}${network.endpoint.pathname === '/' ? '' : network.endpoint.pathname}`
+  const endpointUrl = network.endpoint.url
+  const scheme = endpointUrl?.protocol || (connection.options?.scheme === 'http' ? 'http:' : 'https:')
+  const pathname = endpointUrl?.pathname && endpointUrl.pathname !== '/' ? endpointUrl.pathname : ''
+  return `${scheme}//${network.host}:${network.port}${pathname}`
 }
 
 async function withNetwork(connection, secrets, fn, activeTunnels) {
@@ -1033,7 +1071,10 @@ async function execCassandra(connection, secrets, network, params) {
 }
 
 function s3Client(connection, secrets, network) {
-  const endpoint = network.localEndpoint || connection.options.endpoint || `${connection.options.scheme || 'https'}://s3.amazonaws.com`
+  const endpoint = normalizeS3Endpoint(
+    network.localEndpoint || connection.options.endpoint || 's3.amazonaws.com',
+    connection.options.scheme || 'https',
+  )
   const parsed = new URL(endpoint)
   const config = { region: connection.options.region || 'us-east-1', endpoint, forcePathStyle: Boolean(connection.options.endpoint) || Boolean(network.localEndpoint) }
   const hasAccessKey = Boolean(secrets.accessKey)
@@ -1044,6 +1085,34 @@ function s3Client(connection, secrets, network) {
   return new S3Client(config)
 }
 
+function s3ObjectIsText(key, contentType) {
+  return /^text\//i.test(String(contentType || ''))
+    || /(?:json|xml|yaml|javascript|typescript|svg|sql)/i.test(String(contentType || ''))
+    || S3_REFERENCE_TEXT_EXTENSION.test(String(key || ''))
+}
+
+async function readS3ObjectReference(connection, secrets, network, params) {
+  const bucket = cleanString(params.bucket || connection.options.bucket || '', 256)
+  const key = cleanString(params.key || '', 2048)
+  if (!bucket || !key) throw new Error('MinIO 文件引用需要 bucket 和 Object Key')
+  const client = s3Client(connection, secrets, network)
+  try {
+    const response = await client.send(new GetObjectCommand({ Bucket: bucket, Key: key }))
+    const size = Number(response.ContentLength || 0) || 0
+    const contentType = cleanString(response.ContentType || '', 256)
+    const filename = key.split('/').filter(Boolean).pop() || 'object'
+    const base = { bucket, key, filename, size, contentType, contentIncluded: false }
+    if (!s3ObjectIsText(key, contentType)) return { ...base, omittedReason: '文件不是可安全内嵌的文本类型；模型将收到对象元数据。' }
+    if (size > S3_REFERENCE_MAX_BYTES) return { ...base, omittedReason: `文件超过 ${S3_REFERENCE_MAX_BYTES} 字节的会话引用限制；模型将收到对象元数据。` }
+    try {
+      const content = (await streamToBufferLimited(response.Body, S3_REFERENCE_MAX_BYTES)).toString('utf8')
+      return { ...base, contentIncluded: true, content }
+    } catch (error) {
+      return { ...base, omittedReason: error?.message || '对象内容无法安全读取；模型将收到对象元数据。' }
+    }
+  } finally { client.destroy() }
+}
+
 async function execS3(connection, secrets, network, params) {
   const client = s3Client(connection, secrets, network)
   try {
@@ -1051,19 +1120,73 @@ async function execS3(connection, secrets, network, params) {
     const key = cleanString(params.key || '', 2048)
     if (params.op === 'inspect') {
       const result = await client.send(new ListBucketsCommand({}))
-      return resultJson({ version: 'S3 API', endpoint: network.localEndpoint || connection.options.endpoint || `${connection.options.scheme || 'https'}://${connection.host}:${connection.port}`, config: { region: connection.options.region || 'us-east-1', bucketCount: result.Buckets?.length || 0, forcePathStyle: Boolean(connection.options.endpoint) || Boolean(network.localEndpoint) } })
+      return resultJson({ version: 'S3 API', endpoint: normalizeS3Endpoint(network.localEndpoint || connection.options.endpoint || 's3.amazonaws.com', connection.options.scheme || 'https'), config: { region: connection.options.region || 'us-east-1', bucketCount: result.Buckets?.length || 0, forcePathStyle: Boolean(connection.options.endpoint) || Boolean(network.localEndpoint) } })
     }
     if (!['test', 'listBuckets'].includes(params.op) && !bucket) throw new Error('S3 操作需要 bucket')
+    if (['readObject', 'writeObject', 'uploadObject', 'deleteObject'].includes(params.op) && !key) throw new Error('S3 对象操作需要 Object Key')
     if (params.op === 'test' || params.op === 'listBuckets') return resultJson(await client.send(new ListBucketsCommand({})))
     if (params.op === 'listObjects') return resultJson(await client.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: cleanString(params.prefix || '', 2048) || undefined })))
     if (params.op === 'readObject') {
       const filename = key.split('/').filter(Boolean).pop() || 'download.bin'
       return resultText((await streamToBuffer((await client.send(new GetObjectCommand({ Bucket: bucket, Key: key }))).Body)).toString('base64'), { encoding: 'base64', filename })
     }
-    if (params.op === 'writeObject') { await client.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: Buffer.from(cleanString(params.content, 16 * 1024 * 1024)) })); return resultText('写入成功') }
+    if (params.op === 'writeObject') { await client.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: Buffer.from(cleanString(params.content, 16 * 1024 * 1024)) })); return resultJson({ uploaded: true, bucket, key, bytes: Buffer.byteLength(String(params.content ?? '')) }) }
+    if (params.op === 'uploadObject') {
+      const content = decodeBase64(params.contentBase64, 16 * 1024 * 1024, '上传文件')
+      await client.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: content }))
+      return resultJson({ uploaded: true, bucket, key, bytes: content.length })
+    }
     if (params.op === 'deleteObject') { await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key })); return resultText('删除成功') }
     throw new Error('不支持的 S3 操作')
   } finally { client.destroy() }
+}
+
+function requestHeader(req, name, max = 4096) {
+  const value = req.headers?.[name]
+  if (Array.isArray(value)) throw new Error(`请求头 ${name} 无效`)
+  return cleanString(value || '', max)
+}
+
+function requestContentLength(req) {
+  const raw = requestHeader(req, 'content-length', 32)
+  if (!raw) return undefined
+  if (!/^\d+$/.test(raw)) throw new Error('Content-Length 无效')
+  const value = Number(raw)
+  if (!Number.isSafeInteger(value)) throw new Error('Content-Length 无效')
+  return value
+}
+
+function boundedUploadStream(req, maxBytes) {
+  let bytes = 0
+  const body = new Transform({
+    transform(chunk, _encoding, callback) {
+      bytes += chunk.length
+      if (bytes > maxBytes) return callback(new Error(`上传文件超过 ${maxBytes} 字节限制`))
+      callback(null, chunk)
+    },
+  })
+  req.pipe(body)
+  return { body, bytes: () => bytes }
+}
+
+async function uploadS3ObjectStream(connection, secrets, network, { bucket, key, contentType, contentLength, req }) {
+  if (!bucket || !key) throw new Error('上传文件需要 Bucket 和 Object Key')
+  if (contentLength !== undefined && contentLength > S3_BROWSER_UPLOAD_MAX_BYTES) throw new Error(`上传文件超过 ${S3_BROWSER_UPLOAD_MAX_BYTES} 字节限制`)
+  const client = s3Client(connection, secrets, network)
+  const upload = boundedUploadStream(req, S3_BROWSER_UPLOAD_MAX_BYTES)
+  try {
+    await client.send(new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: upload.body,
+      ...(contentLength !== undefined ? { ContentLength: contentLength } : {}),
+      ...(contentType ? { ContentType: contentType } : {}),
+    }))
+    return { uploaded: true, bucket, key, bytes: contentLength ?? upload.bytes() }
+  } finally {
+    upload.body.destroy()
+    client.destroy()
+  }
 }
 
 async function executeConnection(connection, secrets, network, params, sshSftpCache) {
@@ -1102,6 +1225,8 @@ async function readJson(req, maxBytes = 256 * 1024) {
   if (!value || typeof value !== 'object') throw new Error('请求体必须是 JSON 对象')
   return value
 }
+
+const SERVICE_REQUEST_MAX_BYTES = 24 * 1024 * 1024
 
 function json(res, status, value) {
   const body = JSON.stringify(value)
@@ -1185,7 +1310,16 @@ export function apply(ctx) {
   async function writeConfigAt(cwd, value) {
     const target = await configTarget(cwd)
     if (!target || !fs) throw new Error('filesystem service unavailable')
-    await fs.writeText(target, JSON.stringify(value, null, 2) + '\n')
+    // This is application-owned metadata, but it still goes through DSH's
+    // sandboxed filesystem. The service runs with the Harness checkout as its
+    // fallback root, while an authenticated Dex user owns a separate root
+    // under /home/dsh. Stamp the exact workspace root for this write instead
+    // of accidentally checking the process cwd.
+    const writePolicy = {
+      mode: 'workspace-write',
+      workspaceRoot: resolve(String(cwd || workspaceRoot)),
+    }
+    await fs.writeText(target, JSON.stringify(value, null, 2) + '\n', undefined, undefined, writePolicy)
   }
 
   const defaultConnectionId = userRoot => `dsh_minio_${createHash('sha256').update(resolve(userRoot)).digest('hex').slice(0, 24)}`
@@ -1481,7 +1615,7 @@ export function apply(ctx) {
       const principal = dshAuth?.authenticateRequest ? await dshAuth.authenticateRequest(req) : undefined
       if (dshAuth && !principal) return json(res, 401, { ok: false, error: 'authentication required' })
       const cwd = principal?.workspaceRoot || workspaceRoot
-      const args = await readJson(req)
+      const args = await readJson(req, SERVICE_REQUEST_MAX_BYTES)
       const op = String(args.op || '')
       if (op === 'list') {
         const cfg = await readConfig(cwd, principal)
@@ -1493,6 +1627,16 @@ export function apply(ctx) {
         const connection = cfg.connections.find(item => item.id === id)
         if (!connection) throw new Error('连接不存在')
         return json(res, 200, { ok: true, connection: referenceConnection(connection) })
+      }
+      if (op === 's3Reference') {
+        const id = cleanString(args.id, 128)
+        const cfg = await readConfig(cwd, principal)
+        const connection = cfg.connections.find(item => item.id === id)
+        if (!connection) throw new Error('连接不存在')
+        if (connection.type !== 's3') throw new Error('该连接不是 S3 / MinIO 服务')
+        const secrets = await readSecrets(connection.id)
+        const object = await withNetwork(connection, secrets, network => readS3ObjectReference(connection, secrets, network, args.params || {}), activeTunnels)
+        return json(res, 200, { ok: true, connection: referenceConnection(connection), object })
       }
       if (op === 'types') return json(res, 200, { ok: true, types: Object.entries(TYPES).map(([key, value]) => ({ key, ...value, implementation: 'node-sdk' })) })
       if (op === 'capabilities') return json(res, 200, { ok: true, implementation: 'node-sdk', available: Object.fromEntries(Object.keys(TYPES).map(type => [type, true])) })
@@ -1537,7 +1681,33 @@ export function apply(ctx) {
     } catch (error) { return json(res, 400, { ok: false, error: error?.message || String(error) }) }
   }
 
+  async function uploadHandler(req, res) {
+    if (!loopbackRequest(req)) return json(res, 403, { ok: false, error: '服务管理接口只接受本机请求' })
+    if (req.method !== 'POST') return json(res, 405, { ok: false, error: '仅支持 POST' })
+    try {
+      const principal = dshAuth?.authenticateRequest ? await dshAuth.authenticateRequest(req) : undefined
+      if (dshAuth && !principal) return json(res, 401, { ok: false, error: 'authentication required' })
+      const cwd = principal?.workspaceRoot || workspaceRoot
+      const id = requestHeader(req, 'x-dsh-connection-id', 128)
+      const bucket = requestHeader(req, 'x-dsh-s3-bucket', 256)
+      const key = requestHeader(req, 'x-dsh-s3-key', 2048)
+      const contentType = requestHeader(req, 'content-type', 256)
+      const contentLength = requestContentLength(req)
+      const cfg = await readConfig(cwd, principal)
+      const connection = cfg.connections.find(item => item.id === id)
+      if (!connection) throw new Error('连接不存在')
+      if (connection.type !== 's3') throw new Error('该连接不是 S3 / MinIO 服务')
+      const secrets = await readSecrets(connection.id)
+      const result = await withNetwork(connection, secrets, network => uploadS3ObjectStream(connection, secrets, network, { bucket, key, contentType, contentLength, req }), activeTunnels)
+      return json(res, 200, { ok: true, ...result })
+    } catch (error) {
+      req.resume?.()
+      return json(res, 400, { ok: false, error: error?.message || String(error) })
+    }
+  }
+
   ctx.effect(() => webServer.register({ kind: 'exact', path: '/api/dsh-service-manage', handler }), 'dsh-service-manage: api route')
+  ctx.effect(() => webServer.register({ kind: 'exact', path: '/api/dsh-service-manage/upload', handler: uploadHandler }), 'dsh-service-manage: stream upload route')
   ctx.effect(() => async () => {
     await Promise.all([...terminalSessions.keys()].map(terminalId => closeTerminal(terminalId)))
     closeSshSftpSessions(sshSftpCache)

@@ -14,3 +14,14 @@
           process.env.DSH_DEX_ADMIN_GROUPS ? process.env.DSH_DEX_ADMIN_GROUPS.split(',') : []
         cookieSecure: !!js >-
           process.env.DSH_DEX_COOKIE_SECURE === 'true'
+
+# The core connection keeps configuration reads loopback-only by default.
+# dsh-dex is the explicit authentication boundary for these two read-only
+# methods; its API policy filters settings to model namespaces and credential
+# status, while all writes and model discovery remain admin-only.
+- id: connection
+  config:
+    trustedHosts: !!js ctx.webRuntime.trustedHosts
+    remoteReadableMethods:
+      - settings.describe
+      - credentials.describe

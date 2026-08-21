@@ -1145,6 +1145,10 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
       const RELATIONAL_TYPES = new Set(['mysql', 'mariadb', 'postgresql', 'mssql'])
       const DATA_WORKSPACE_TYPES = new Set(['redis', 'elasticsearch', 'mongodb', 'cassandra'])
       const DEFAULT_RESULT_LIMIT = 10
+      // Upload raw File data to the host instead of expanding it as Base64 JSON.
+      // Keeping this in bytes makes the browser, host and Nginx 1 GiB limits explicit.
+      const S3_UPLOAD_MAX_BYTES = 1024 * 1024 * 1024
+      const S3_PREVIEW_MAX_BYTES = 512 * 1024
 
       const OP_META = {
         ssh: ['test', 'listFiles', 'downloadFile', 'uploadFile', 'terminal'],
@@ -1158,7 +1162,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         docker: ['test', 'listContainers', 'listImages', 'logs', 'start', 'stop', 'exec', 'query'],
         mongodb: ['test', 'listDatabases', 'listCollections', 'find', 'query'],
         cassandra: ['test', 'listKeyspaces', 'listTables', 'query'],
-        s3: ['test', 'listBuckets', 'listObjects', 'readObject', 'writeObject', 'deleteObject'],
+        s3: ['test', 'listBuckets', 'listObjects', 'readObject', 'writeObject', 'uploadObject', 'deleteObject'],
       }
 
       const OP_LABEL = {
@@ -1167,7 +1171,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         listDatabases: '列出数据库', listTables: '列出表', listIndices: '列出索引', listContainers: '列出容器',
         listImages: '列出镜像', logs: '读取日志', start: '启动容器', stop: '停止容器', exec: '容器执行',
         listCollections: '列出集合', find: '查询集合', listKeyspaces: '列出 Keyspace', listBuckets: '列出 Bucket',
-        listObjects: '列出对象', readObject: '读取对象', writeObject: '写入对象', deleteObject: '删除对象',
+        listObjects: '列出对象', readObject: '读取对象', writeObject: '写入对象', uploadObject: '上传文件', deleteObject: '删除对象',
       }
 
       const SECRET_LABEL = {
@@ -1192,7 +1196,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
 .dsm-panel{width:min(940px,94vw);height:100%;display:flex;flex-direction:column;background:var(--dsw-specific-sidebar-fill,#17191e);color:var(--dsw-alias-label-primary,#e8e8e8);box-shadow:-8px 0 36px rgba(0,0,0,.42)}
 .dsm-head{display:flex;align-items:center;gap:10px;padding:13px 17px;border-bottom:1px solid rgba(128,128,128,.22);flex:0 0 auto}.dsm-title{font-weight:650;font-size:15px;flex:1}.dsm-sub{font-size:11px;opacity:.55}.dsm-btn{border:1px solid rgba(128,128,128,.30);background:var(--dsw-alias-button-secondary-fill,rgba(128,128,128,.12));color:inherit;border-radius:7px;padding:6px 11px;cursor:pointer;font:inherit;font-size:12px}.dsm-btn:hover{background:rgba(128,128,128,.22)}.dsm-btn.primary{background:var(--dsm-accent,#3578e5);border-color:var(--dsm-accent,#3578e5);color:white}.dsm-btn.danger{color:var(--dsw-alias-state-error-primary,#c2413b);border-color:rgba(194,65,59,.36)}.dsm-btn:disabled{opacity:.45;cursor:default}
 .dsm-body{display:flex;min-height:0;flex:1}.dsm-list{width:270px;min-width:220px;border-right:1px solid rgba(128,128,128,.2);padding:10px;overflow:auto}.dsm-main{flex:1;min-width:0;overflow:auto;padding:15px 18px}.dsm-card{display:flex;align-items:center;gap:9px;width:100%;padding:9px;margin-bottom:7px;border:1px solid transparent;border-radius:9px;background:rgba(128,128,128,.08);color:inherit;cursor:pointer;text-align:left}.dsm-card:hover,.dsm-card.active{background:rgba(128,128,128,.16);border-color:rgba(53,120,229,.30)}.dsm-card-icon{width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:rgba(53,120,229,.13);font-size:16px}.dsm-card-copy{min-width:0;flex:1}.dsm-card-name{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dsm-card-meta{font-size:10.5px;opacity:.55;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dsm-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;background:#44c878}.dsm-dot.bad{background:#ee6a62}
-.dsm-empty{padding:28px 12px;text-align:center;opacity:.55;font-size:12px}.dsm-error{color:#bd3d36;background:rgba(194,65,59,.08);border:1px solid rgba(194,65,59,.16);padding:8px 10px;border-radius:7px;font-size:12px;margin-bottom:10px;white-space:pre-wrap}.dsm-section{font-size:11px;letter-spacing:.04em;text-transform:uppercase;opacity:.58;font-weight:650;margin:17px 0 9px}.dsm-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px}.dsm-field{min-width:0}.dsm-field.wide{grid-column:1/-1}.dsm-label{display:block;font-size:11px;opacity:.67;margin-bottom:4px}.dsm-input,.dsm-select,.dsm-textarea{width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid rgba(128,128,128,.3);border-radius:7px;background:rgba(128,128,128,.09);color:inherit;font:inherit;font-size:12px}.dsm-textarea{min-height:92px;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.dsm-input:focus,.dsm-select:focus,.dsm-textarea:focus{outline:none;border-color:var(--dsm-accent,#3578e5)}.dsm-help{font-size:10px;opacity:.48;margin-top:4px;line-height:1.35}.dsm-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:17px}.dsm-operation{border-top:1px solid rgba(128,128,128,.2);margin-top:17px;padding-top:4px}.dsm-result{margin-top:13px;min-height:140px;padding:11px;border-radius:8px;background:rgba(0,0,0,.14);overflow:auto}.dsm-terminal-wrap{margin-top:13px}.dsm-terminal-output{height:300px;overflow:auto;margin:0 0 8px;padding:11px;border-radius:8px;background:#0b0d10;color:#d8e2d4;white-space:pre-wrap;word-break:break-word;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}.dsm-terminal-input{min-height:58px}.dsm-pre{margin:0;white-space:pre-wrap;word-break:break-word;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}.dsm-table{border-collapse:collapse;width:100%;font-size:11px}.dsm-table th,.dsm-table td{border:1px solid rgba(128,128,128,.22);padding:5px 7px;text-align:left;vertical-align:top;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dsm-table th{position:sticky;top:0;background:#202228}.dsm-close{border:0;background:transparent;color:inherit;opacity:.7;cursor:pointer;font-size:17px;padding:3px 7px}.dsm-close:hover{opacity:1}
+.dsm-empty{padding:28px 12px;text-align:center;opacity:.55;font-size:12px}.dsm-error{color:#bd3d36;background:rgba(194,65,59,.08);border:1px solid rgba(194,65,59,.16);padding:8px 10px;border-radius:7px;font-size:12px;margin-bottom:10px;white-space:pre-wrap}.dsm-section{font-size:11px;letter-spacing:.04em;text-transform:uppercase;opacity:.58;font-weight:650;margin:17px 0 9px}.dsm-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px}.dsm-field{min-width:0}.dsm-field.wide{grid-column:1/-1}.dsm-label{display:block;font-size:11px;opacity:.67;margin-bottom:4px}.dsm-input,.dsm-select,.dsm-textarea{width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid rgba(128,128,128,.3);border-radius:7px;background:rgba(128,128,128,.09);color:inherit;font:inherit;font-size:12px}.dsm-textarea{min-height:92px;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.dsm-input:focus,.dsm-select:focus,.dsm-textarea:focus{outline:none;border-color:var(--dsm-accent,#3578e5)}.dsm-help{font-size:10px;opacity:.48;margin-top:4px;line-height:1.35}.dsm-file-picker{display:flex;align-items:center;gap:10px;min-width:0;padding:10px;border:1px dashed rgba(53,120,229,.38);border-radius:10px;background:rgba(53,120,229,.045)}.dsm-file-picker-copy{min-width:0;flex:1}.dsm-file-picker-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsm-text);font-size:12px;font-weight:650}.dsm-file-picker-meta{margin-top:3px;color:var(--dsm-muted);font-size:10px}.dsm-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:17px}.dsm-operation{border-top:1px solid rgba(128,128,128,.2);margin-top:17px;padding-top:4px}.dsm-result{margin-top:13px;min-height:140px;padding:11px;border-radius:8px;background:rgba(0,0,0,.14);overflow:auto}.dsm-terminal-wrap{margin-top:13px}.dsm-terminal-output{height:300px;overflow:auto;margin:0 0 8px;padding:11px;border-radius:8px;background:#0b0d10;color:#d8e2d4;white-space:pre-wrap;word-break:break-word;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}.dsm-terminal-input{min-height:58px}.dsm-pre{margin:0;white-space:pre-wrap;word-break:break-word;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}.dsm-table{border-collapse:collapse;width:100%;font-size:11px}.dsm-table th,.dsm-table td{border:1px solid rgba(128,128,128,.22);padding:5px 7px;text-align:left;vertical-align:top;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dsm-table th{position:sticky;top:0;background:#202228}.dsm-close{border:0;background:transparent;color:inherit;opacity:.7;cursor:pointer;font-size:17px;padding:3px 7px}.dsm-close:hover{opacity:1}
 @media(max-width:700px){.dsm-body{display:block;overflow:auto}.dsm-list{width:auto;border-right:0;border-bottom:1px solid rgba(128,128,128,.2);max-height:220px}.dsm-main{padding:12px}.dsm-grid{grid-template-columns:1fr}.dsm-panel{width:100%}}
 .dsm-panel{--dsm-bg:var(--dsw-specific-sidebar-fill,#fff);--dsm-text:var(--dsw-alias-label-primary,#1c1f26);--dsm-muted:var(--dsw-alias-label-secondary,#6b7280);--dsm-soft:rgba(128,128,128,.07);--dsm-line:rgba(128,128,128,.18);--dsm-accent:var(--dsw-alias-state-business-primary,#3578e5);background:var(--dsm-bg);color:var(--dsm-text);border:1px solid var(--dsm-line);border-radius:18px;overflow:hidden;box-shadow:0 24px 70px rgba(15,23,42,.24)}
 .dsm-embedded-panel{width:100%;height:100%;min-width:0;border:0;border-radius:0;box-shadow:none}.dsm-embedded-panel .dsm-head{height:58px;padding:0 14px}.dsm-embedded-panel .dsm-body{display:flex;flex-direction:column;overflow:auto}.dsm-embedded-panel .dsm-list{width:auto;min-width:0;max-height:220px;border-right:0;border-bottom:1px solid var(--dsm-line);padding:12px 10px}.dsm-embedded-panel .dsm-main{padding:16px 14px}.dsm-embedded-panel .dsm-grid{grid-template-columns:1fr}.dsm-embedded-panel .dsm-operation-head{align-items:flex-start;flex-wrap:wrap;margin-bottom:18px!important;padding-bottom:14px}.dsm-embedded-panel .dsm-operation-head .dsm-sub{width:100%;margin-left:0}.dsm-embedded-panel .dsm-db-layout{display:block;min-height:0}.dsm-embedded-panel .dsm-db-sidebar{max-height:180px;border-right:0;border-bottom:1px solid var(--dsm-line)}.dsm-embedded-panel .dsm-db-content{padding:12px}
@@ -1209,10 +1213,11 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
 .dsm-ssh-overview{margin:0 0 18px;padding:14px;border:1px solid var(--dsm-line);border-radius:12px;background:var(--dsm-soft)}.dsm-ssh-overview-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}.dsm-ssh-overview-copy{min-width:0;flex:1}.dsm-ssh-overview-title{color:var(--dsm-text);font-size:13px;font-weight:700}.dsm-ssh-overview-sub{margin-top:3px;color:var(--dsm-muted);font-size:10px}.dsm-ssh-overview-status{display:inline-flex;align-items:center;gap:5px;color:var(--dsm-muted);font-size:10px;white-space:nowrap}.dsm-ssh-status-dot{width:7px;height:7px;border-radius:50%;background:#2dbb78}.dsm-ssh-status-dot.busy{background:#3578e5;box-shadow:0 0 0 3px rgba(53,120,229,.13)}.dsm-ssh-overview-refresh{padding:6px 9px;font-size:11px}.dsm-ssh-metric-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}.dsm-ssh-metric{min-width:0;padding:10px;border:1px solid var(--dsm-line);border-radius:9px;background:var(--dsm-bg)}.dsm-ssh-metric-label{color:var(--dsm-muted);font-size:10px}.dsm-ssh-metric-value{margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsm-text);font-size:16px;font-weight:700;font-variant-numeric:tabular-nums}.dsm-ssh-metric-detail{margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsm-muted);font-size:10px}.dsm-ssh-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:9px}.dsm-ssh-detail{min-width:0;padding:9px 10px;border-radius:8px;background:var(--dsm-bg)}.dsm-ssh-detail-label{color:var(--dsm-muted);font-size:10px}.dsm-ssh-detail-value{margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsm-text);font-size:11px}.dsm-ssh-ports{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px}.dsm-ssh-port{padding:3px 7px;border:1px solid rgba(53,120,229,.2);border-radius:999px;background:rgba(53,120,229,.07);color:var(--dsm-accent);font-size:10px;font-variant-numeric:tabular-nums}.dsm-ssh-error{margin-bottom:9px;padding:7px 9px;border-radius:7px;background:rgba(194,65,59,.08);color:#bd3d36;font-size:10px}
 .dsm-ssh-workspace-tabs{display:flex;align-items:center;gap:4px;margin:0 0 14px;padding:4px;border:1px solid var(--dsm-line);border-radius:10px;background:var(--dsm-soft)}.dsm-ssh-workspace-tab{padding:7px 12px;border:0;border-radius:7px;background:transparent;color:var(--dsm-muted);font:inherit;font-size:11px;font-weight:650;cursor:pointer}.dsm-ssh-workspace-tab:hover{color:var(--dsm-text);background:rgba(128,128,128,.08)}.dsm-ssh-workspace-tab.active{background:var(--dsm-bg);color:var(--dsm-accent);box-shadow:0 2px 7px rgba(15,23,42,.08)}
 .dsm-ssh-file-layout{display:grid;grid-template-columns:218px minmax(0,1fr);min-height:500px;border:1px solid var(--dsm-line);border-radius:13px;overflow:hidden;background:var(--dsm-soft)}.dsm-ssh-file-tree{min-width:0;padding:12px 8px;border-right:1px solid var(--dsm-line);overflow:auto;background:rgba(128,128,128,.035)}.dsm-ssh-file-tree-head{display:flex;align-items:center;gap:6px;padding:2px 7px 9px;color:var(--dsm-muted);font-size:11px;font-weight:700}.dsm-ssh-file-tree-head span{flex:1}.dsm-ssh-tree-node{display:flex;align-items:center;gap:4px;width:100%;min-width:0;padding:6px 6px;border:1px solid transparent;border-radius:7px;background:transparent;color:var(--dsm-text);font:inherit;font-size:11px;text-align:left;cursor:pointer}.dsm-ssh-tree-node:hover{background:rgba(128,128,128,.10)}.dsm-ssh-tree-node.active{border-color:rgba(53,120,229,.24);background:rgba(53,120,229,.09);color:var(--dsm-accent);font-weight:650}.dsm-ssh-tree-chevron{width:13px;flex:0 0 13px;color:var(--dsm-muted);text-align:center;font-size:10px}.dsm-ssh-tree-icon{width:18px;flex:0 0 18px;text-align:center}.dsm-ssh-tree-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dsm-ssh-file-main{min-width:0;display:flex;flex-direction:column;background:var(--dsm-bg)}.dsm-ssh-file-toolbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:10px;border-bottom:1px solid var(--dsm-line);background:var(--dsm-bg)}.dsm-ssh-file-toolbar .dsm-btn{padding:6px 9px;font-size:11px}.dsm-ssh-path-input{flex:1 1 180px;min-width:100px;height:34px;padding:7px 9px;border:1px solid var(--dsm-line);border-radius:8px;background:var(--dsm-soft);color:var(--dsm-text);font:inherit;font-size:11px}.dsm-ssh-path-input:focus{outline:none;border-color:rgba(53,120,229,.72);box-shadow:0 0 0 3px rgba(53,120,229,.12)}.dsm-ssh-file-table-wrap{min-width:0;flex:1;overflow:auto}.dsm-ssh-file-table{width:100%;min-width:560px;border-collapse:collapse;font-size:11px}.dsm-ssh-file-table th,.dsm-ssh-file-table td{padding:9px 10px;border-bottom:1px solid var(--dsm-line);text-align:left;white-space:nowrap}.dsm-ssh-file-table th{position:sticky;top:0;z-index:1;background:var(--dsm-soft);color:var(--dsm-muted);font-size:10px;font-weight:700}.dsm-ssh-file-table tbody tr{cursor:default}.dsm-ssh-file-table tbody tr:hover{background:rgba(53,120,229,.055)}.dsm-ssh-file-name{display:flex;align-items:center;gap:8px;min-width:180px;max-width:430px}.dsm-ssh-file-name-icon{width:20px;flex:0 0 20px;text-align:center;font-size:15px}.dsm-ssh-file-name-text{min-width:0;overflow:hidden;text-overflow:ellipsis}.dsm-ssh-file-muted{color:var(--dsm-muted)}.dsm-ssh-file-footer{padding:9px 11px;border-top:1px solid var(--dsm-line);color:var(--dsm-muted);font-size:10px}.dsm-ssh-file-state{padding:24px 14px;text-align:center;color:var(--dsm-muted);font-size:11px}.dsm-ssh-file-error{margin:10px;padding:8px 10px;border-radius:8px;background:rgba(194,65,59,.08);color:#bd3d36;font-size:11px}.dsm-ssh-context-backdrop{position:fixed;inset:0;z-index:3600}.dsm-ssh-context-menu{position:fixed;min-width:130px;padding:4px;border:1px solid var(--dsm-line);border-radius:8px;background:var(--dsm-bg);box-shadow:0 10px 26px rgba(15,23,42,.18)}.dsm-ssh-context-menu button{display:block;width:100%;padding:7px 10px;border:0;border-radius:5px;background:transparent;color:var(--dsm-text);font:inherit;font-size:11px;text-align:left;cursor:pointer}.dsm-ssh-context-menu button:hover{background:var(--dsm-soft)}.dsm-ssh-upload-input{display:none}.dsm-ssh-terminal-panel{min-height:500px;padding:12px;border:1px solid var(--dsm-line);border-radius:13px;background:var(--dsm-soft)}.dsm-ssh-terminal-panel .dsm-terminal-output{height:390px;background:#101318}.dsm-ssh-editor-backdrop{position:fixed;inset:0;z-index:3700;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(15,23,42,.34);backdrop-filter:blur(3px)}.dsm-ssh-editor{display:flex;flex-direction:column;width:min(980px,94vw);height:min(700px,90vh);border:1px solid var(--dsm-line);border-radius:14px;background:var(--dsm-bg);box-shadow:0 24px 70px rgba(15,23,42,.24);overflow:hidden}.dsm-ssh-editor-head,.dsm-ssh-editor-foot{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--dsm-line)}.dsm-ssh-editor-foot{justify-content:flex-end;border-top:1px solid var(--dsm-line);border-bottom:0}.dsm-ssh-editor-title{min-width:0;flex:1;font-size:13px;font-weight:700}.dsm-ssh-editor-body{min-height:0;flex:1;padding:0;background:#fbfcfe}.dsm-ssh-editor-textarea{width:100%;height:100%;padding:16px;border:0;outline:0;resize:none;background:transparent;color:var(--dsm-text);font:13px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;tab-size:2}
+.dsm-s3-workspace{display:flex;flex-direction:column;min-height:500px;border:1px solid var(--dsm-line);border-radius:13px;overflow:hidden;background:var(--dsm-soft)}.dsm-s3-toolbar{display:flex;align-items:end;gap:8px;flex-wrap:wrap;padding:12px;border-bottom:1px solid var(--dsm-line);background:var(--dsm-bg)}.dsm-s3-control{min-width:0;flex:1 1 190px}.dsm-s3-control.prefix{flex:2 1 250px}.dsm-s3-control .dsm-label{margin-bottom:5px}.dsm-s3-input{width:100%;box-sizing:border-box;height:34px;padding:7px 9px;border:1px solid var(--dsm-line);border-radius:8px;background:var(--dsm-soft);color:var(--dsm-text);font:inherit;font-size:11px}.dsm-s3-input:focus{outline:none;border-color:rgba(53,120,229,.72);box-shadow:0 0 0 3px rgba(53,120,229,.12)}.dsm-s3-toolbar-actions{display:flex;gap:6px;align-items:center}.dsm-s3-toolbar-actions .dsm-btn{padding:7px 10px;font-size:11px}.dsm-s3-layout{display:grid;grid-template-columns:minmax(0,1fr) 250px;min-height:400px}.dsm-s3-main{min-width:0;display:flex;flex-direction:column;background:var(--dsm-bg)}.dsm-s3-table-wrap{min-width:0;flex:1;overflow:auto}.dsm-s3-table{width:100%;min-width:560px;border-collapse:collapse;font-size:11px}.dsm-s3-table th,.dsm-s3-table td{padding:10px;border-bottom:1px solid var(--dsm-line);text-align:left;white-space:nowrap}.dsm-s3-table th{position:sticky;top:0;z-index:1;background:var(--dsm-soft);color:var(--dsm-muted);font-size:10px;font-weight:700}.dsm-s3-row{cursor:pointer}.dsm-s3-row:hover{background:rgba(53,120,229,.055)}.dsm-s3-row.active{background:rgba(53,120,229,.09)}.dsm-s3-object{display:flex;align-items:center;gap:8px;min-width:180px;max-width:520px}.dsm-s3-object-icon{width:20px;text-align:center;flex:0 0 20px;font-size:14px}.dsm-s3-object-key{min-width:0;overflow:hidden;text-overflow:ellipsis}.dsm-s3-detail{display:flex;flex-direction:column;gap:10px;padding:14px;border-left:1px solid var(--dsm-line);background:rgba(128,128,128,.035)}.dsm-s3-detail-title{color:var(--dsm-text);font-size:12px;font-weight:700;word-break:break-word}.dsm-s3-detail-meta{color:var(--dsm-muted);font-size:10px;line-height:1.6;word-break:break-word}.dsm-s3-detail-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:auto}.dsm-s3-empty{display:flex;min-height:240px;align-items:center;justify-content:center;padding:28px;text-align:center;color:var(--dsm-muted);font-size:11px;line-height:1.6}.dsm-s3-empty strong{display:block;color:var(--dsm-text);font-size:12px;margin-bottom:4px}.dsm-s3-footer{padding:9px 12px;border-top:1px solid var(--dsm-line);color:var(--dsm-muted);font-size:10px}.dsm-s3-preview-body{min-height:0;flex:1;overflow:auto;background:#101318}.dsm-s3-preview-text{margin:0;padding:16px;color:#e5e7eb;white-space:pre-wrap;word-break:break-word;font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace}.dsm-s3-preview-note{padding:10px 14px;border-bottom:1px solid var(--dsm-line);background:var(--dsm-soft);color:var(--dsm-muted);font-size:10px}
 .dsm-db-layout{display:grid;grid-template-columns:218px minmax(0,1fr);min-height:520px;border:1px solid var(--dsm-line);border-radius:13px;overflow:hidden;background:var(--dsm-soft)}.dsm-db-sidebar{min-width:0;padding:13px 10px;border-right:1px solid var(--dsm-line);background:rgba(128,128,128,.045);overflow:auto}.dsm-db-sidebar-head{display:flex;align-items:center;gap:7px;padding:2px 5px 10px;color:var(--dsm-muted);font-size:11px;font-weight:700;letter-spacing:.05em}.dsm-db-sidebar-head span{flex:1}.dsm-db-icon-btn{width:25px;height:25px;padding:0;border:1px solid var(--dsm-line);border-radius:7px;background:var(--dsm-bg);color:var(--dsm-muted);cursor:pointer}.dsm-db-icon-btn:hover{color:var(--dsm-text);background:var(--dsm-soft)}.dsm-db-node{display:flex;align-items:center;gap:6px;width:100%;padding:7px 8px;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--dsm-text);font:inherit;font-size:11.5px;text-align:left;cursor:pointer}.dsm-db-node:hover{background:rgba(128,128,128,.10)}.dsm-db-node.active{border-color:rgba(53,120,229,.26);background:rgba(53,120,229,.09);color:var(--dsm-accent);font-weight:650}.dsm-db-node span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dsm-db-node-icon{width:17px;text-align:center;flex:0 0 17px}.dsm-db-group{margin:9px 0 0;padding-top:9px;border-top:1px solid var(--dsm-line)}.dsm-db-group-title{padding:0 8px 5px;color:var(--dsm-muted);font-size:10px;font-weight:700}.dsm-db-content{min-width:0;padding:15px;background:var(--dsm-bg);overflow:auto}.dsm-db-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:12px}.dsm-db-toolbar .dsm-select{flex:1;min-width:0}.dsm-db-title{font-size:12px;font-weight:700}.dsm-db-query-head{display:flex;align-items:center;gap:8px;margin:15px 0 7px;color:var(--dsm-muted);font-size:11px;font-weight:700}.dsm-db-query-head span{flex:1}.dsm-db-query{min-height:130px;margin:0;font-size:12px;line-height:1.55}.dsm-db-result{min-height:220px;margin-top:13px}.dsm-db-result .dsm-table{min-width:100%;white-space:nowrap}.dsm-db-result .dsm-pre{max-height:360px;overflow:auto}
 @media(max-width:700px){.dsm-backdrop{padding:0}.dsm-panel{width:100%;height:100%;border:0;border-radius:0}.dsm-main{padding:17px}.dsm-center-main{padding:20px 16px}.dsm-operation-head .dsm-sub{width:100%;margin-left:0}.dsm-operation-head{align-items:flex-start}.dsm-list{padding:14px}.dsm-list:before{margin-bottom:8px}}
-@media(max-width:820px){.dsm-db-layout{grid-template-columns:180px minmax(0,1fr)}.dsm-ssh-file-layout{grid-template-columns:180px minmax(0,1fr)}.dsm-ssh-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:620px){.dsm-db-layout{display:block}.dsm-db-sidebar{max-height:230px;border-right:0;border-bottom:1px solid var(--dsm-line)}.dsm-db-content{padding:12px}.dsm-ssh-file-layout{display:block}.dsm-ssh-file-tree{max-height:220px;border-right:0;border-bottom:1px solid var(--dsm-line)}.dsm-ssh-metric-grid{grid-template-columns:1fr}.dsm-ssh-detail-grid{grid-template-columns:1fr}.dsm-ssh-overview-head{align-items:flex-start;flex-wrap:wrap}}
+@media(max-width:820px){.dsm-db-layout{grid-template-columns:180px minmax(0,1fr)}.dsm-ssh-file-layout{grid-template-columns:180px minmax(0,1fr)}.dsm-s3-layout{grid-template-columns:minmax(0,1fr) 210px}.dsm-ssh-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.dsm-db-layout{display:block}.dsm-db-sidebar{max-height:230px;border-right:0;border-bottom:1px solid var(--dsm-line)}.dsm-db-content{padding:12px}.dsm-ssh-file-layout,.dsm-s3-layout{display:block}.dsm-ssh-file-tree{max-height:220px;border-right:0;border-bottom:1px solid var(--dsm-line)}.dsm-s3-detail{min-height:150px;border-top:1px solid var(--dsm-line);border-left:0}.dsm-s3-toolbar-actions{width:100%}.dsm-s3-toolbar-actions .dsm-btn{flex:1}.dsm-ssh-metric-grid{grid-template-columns:1fr}.dsm-ssh-detail-grid{grid-template-columns:1fr}.dsm-ssh-overview-head{align-items:flex-start;flex-wrap:wrap}}
 .dsm-embedded-panel .dsm-head{gap:5px;padding:0 7px}
 .dsm-embedded-panel .dsm-head .dsm-title{flex:0 1 auto;min-width:0;font-size:13px;white-space:nowrap}
 .dsm-embedded-panel .dsm-head .dsm-sub{padding:3px 5px;border:1px solid var(--dsm-line);border-radius:999px;font-size:9px;opacity:1}
@@ -1234,7 +1239,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         document.head.appendChild(style)
       }
 
-      function fetchWithTimeout(input, options = {}, timeoutMs = 12000) {
+      function fetchWithTimeout(input, options = {}, timeoutMs = 60_000) {
         const parentSignal = options.signal
         const controller = typeof AbortController === 'function' ? new AbortController() : null
         let timer
@@ -1243,6 +1248,14 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         else parentSignal?.addEventListener?.('abort', abortParent, { once: true })
         if (controller) timer = setTimeout(() => controller.abort(), timeoutMs)
         return fetch(input, { ...options, ...(controller ? { signal: controller.signal } : {}) })
+          .catch(error => {
+            if (controller?.signal.aborted && !parentSignal?.aborted) {
+              const timeoutError = new Error(`服务请求超时（${Math.round(timeoutMs / 1000)} 秒），请检查连接后重试`)
+              timeoutError.name = 'TimeoutError'
+              throw timeoutError
+            }
+            throw error
+          })
           .finally(() => {
             if (timer) clearTimeout(timer)
             parentSignal?.removeEventListener?.('abort', abortParent)
@@ -1250,9 +1263,29 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
       }
 
       function apiRequest(body, signal) {
+        const timeoutMs = body?.op === 'exec' && body?.params?.op === 'inspect' ? 30_000 : 60_000
         return fetchWithTimeout('/api/dsh-service-manage', {
           method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal,
-        }).then(async response => {
+        }, timeoutMs).then(async response => {
+          const payload = await response.json().catch(() => ({}))
+          if (!response.ok || payload.ok === false) throw new Error(payload.error || `HTTP ${response.status}`)
+          return payload
+        })
+      }
+
+      function uploadS3File(connection, { bucket, key, file }, signal) {
+        if (!(file instanceof File)) throw new Error('请先选择要上传的文件')
+        return fetchWithTimeout('/api/dsh-service-manage/upload', {
+          method: 'POST',
+          headers: {
+            'x-dsh-connection-id': String(connection.id || ''),
+            'x-dsh-s3-bucket': String(bucket || ''),
+            'x-dsh-s3-key': String(key || ''),
+            'content-type': file.type || 'application/octet-stream',
+          },
+          body: file,
+          signal,
+        }, 60 * 60 * 1000).then(async response => {
           const payload = await response.json().catch(() => ({}))
           if (!response.ok || payload.ok === false) throw new Error(payload.error || `HTTP ${response.status}`)
           return payload
@@ -1292,6 +1325,9 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
       const serverByAlias = new Map()
       const serverById = new Map()
       const serverLexiconListeners = new Set()
+      const s3ObjectByAlias = new Map()
+      const s3ObjectByRef = new Map()
+      const s3ObjectLexiconListeners = new Set()
       let serverCatalogPromise = null
       let serverCatalogExpiresAt = 0
 
@@ -1393,6 +1429,145 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           },
         }
         return source
+      }
+
+      function s3ObjectRef(connectionId, bucket, key) {
+        return `s3:${encodeURIComponent(String(connectionId))}:${encodeURIComponent(String(bucket))}:${encodeURIComponent(String(key))}`
+      }
+
+      function s3ObjectAlias(item, used = new Set()) {
+        const filename = String(item.key || '').split('/').filter(Boolean).pop() || 'object'
+        const stem = filename.replace(/\.[^.]+$/, '') || filename
+        const safe = stem.replace(/[^A-Za-z0-9_-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 42) || 'object'
+        const suffix = String(item.connectionId || 's3').replace(/[^A-Za-z0-9_-]+/g, '_').slice(-12) || 's3'
+        const base = `minio_${safe}`
+        if (!used.has(base)) return base
+        let alias = `${base}_${suffix}`
+        let index = 2
+        while (used.has(alias)) alias = `${base}_${suffix}_${index++}`
+        return alias
+      }
+
+      function cacheS3Objects(connection, bucket, objects) {
+        const used = new Set(s3ObjectByAlias.keys())
+        let changed = false
+        const cached = []
+        for (const object of objects || []) {
+          const key = String(object?.key || '')
+          const targetBucket = String(bucket || '').trim()
+          if (!key || !targetBucket) continue
+          const ref = s3ObjectRef(connection.id, targetBucket, key)
+          const existing = s3ObjectByRef.get(ref)
+          const item = {
+            ...object,
+            ref,
+            connectionId: String(connection.id),
+            connectionName: String(connection.name || 'MinIO'),
+            bucket: targetBucket,
+            alias: existing?.alias || s3ObjectAlias({ ...object, connectionId: connection.id }, used),
+          }
+          used.add(item.alias)
+          if (!existing || existing.key !== item.key || existing.size !== item.size || existing.updatedAt !== item.updatedAt) changed = true
+          s3ObjectByAlias.set(item.alias, item)
+          s3ObjectByRef.set(ref, item)
+          cached.push(item)
+        }
+        if (changed) for (const listener of s3ObjectLexiconListeners) listener()
+        return cached
+      }
+
+      function forgetS3Object(connection, bucket, key) {
+        const ref = s3ObjectRef(connection.id, bucket, key)
+        const item = s3ObjectByRef.get(ref)
+        if (!item) return
+        s3ObjectByRef.delete(ref)
+        s3ObjectByAlias.delete(item.alias)
+        for (const listener of s3ObjectLexiconListeners) listener()
+      }
+
+      function s3ObjectReferenceMarkup(payload) {
+        const connection = payload?.connection || {}
+        const object = payload?.object || {}
+        const content = String(object.content || '').replaceAll(']]>', ']]]]><![CDATA[>')
+        const text = object.contentIncluded ? `\n<![CDATA[\n${content}\n]]>\n` : ''
+        return `<dsh-s3-object-ref connection-id="${escapeXml(connection.id)}" connection="${escapeXml(connection.name)}" bucket="${escapeXml(object.bucket)}" key="${escapeXml(object.key)}" filename="${escapeXml(object.filename)}" size="${escapeXml(object.size)}" content-type="${escapeXml(object.contentType || '')}" content-included="${object.contentIncluded ? 'true' : 'false'}" omitted-reason="${escapeXml(object.omittedReason || '')}" content-scope="untrusted-object" transport="service-manager" tool="dsh_server_manage">${text}</dsh-s3-object-ref>`
+      }
+
+      function createS3ObjectInputSource() {
+        return {
+          trigger: '@',
+          name: 'MinIO 文件',
+          order: 31,
+          async candidates(_session, { query, signal }) {
+            if (signal.aborted) return []
+            const needle = String(query || '').toLowerCase()
+            return [...s3ObjectByAlias.values()]
+              .filter(item => item.alias.toLowerCase().startsWith(needle) || item.key.toLowerCase().includes(needle) || item.bucket.toLowerCase().includes(needle))
+              .map(item => ({
+                name: item.alias,
+                description: `${item.connectionName} · ${item.bucket}/${item.key}`,
+                icon: '🪣',
+                hint: 'MinIO 对象',
+              }))
+          },
+          lexicon() { return s3ObjectByAlias.size ? [...s3ObjectByAlias.keys()] : undefined },
+          subscribeLexicon(_session, listener) {
+            s3ObjectLexiconListeners.add(listener)
+            return () => s3ObjectLexiconListeners.delete(listener)
+          },
+          matchSpace(_session, token) {
+            const item = s3ObjectByAlias.get(String(token).slice(1))
+            if (!item) return undefined
+            return { insert: { source: 'MinIO 文件', ref: item.ref, label: `${item.bucket}/${item.key}`, clipboardText: `@${item.alias}` } }
+          },
+          onPick({ candidate }) {
+            const item = s3ObjectByAlias.get(candidate.name)
+            if (!item) return undefined
+            return { insert: { source: 'MinIO 文件', ref: item.ref, label: `${item.bucket}/${item.key}`, clipboardText: `@${item.alias}` } }
+          },
+          codec: {
+            clipboardText(ref) {
+              const item = s3ObjectByRef.get(String(ref))
+              return `@${item?.alias || ref}`
+            },
+            async serialize(ref, signal) {
+              const item = s3ObjectByRef.get(String(ref))
+              if (!item) throw new Error('MinIO 文件引用已失效，请在服务管理中重新选择该对象。')
+              const payload = await apiRequest({ op: 's3Reference', id: item.connectionId, params: { bucket: item.bucket, key: item.key } }, signal)
+              return s3ObjectReferenceMarkup(payload)
+            },
+          },
+        }
+      }
+
+      function createS3SessionReference(ctx) {
+        const sessions = ctx.get('sessions')
+        const workspaces = ctx.get('workspaces')
+        return async item => {
+          if (!sessions || !workspaces) throw new Error('会话或工作区服务未就绪，请刷新页面后重试。')
+          const workspaceState = workspaces.list?.getSnapshot?.()
+          const currentId = sessions.list?.getSnapshot?.().current
+          const workspaceId = workspaceState?.items?.find(workspace => currentId && workspace.sessionIds.includes(currentId))?.workspaceId
+            || workspaceState?.recentWorkspaceId
+            || workspaceState?.items?.[0]?.workspaceId
+          if (!workspaceId) throw new Error('请先创建一个工作区，再引用 MinIO 文件。')
+          const sessionId = await workspaces.connectWorkspace(workspaceId)
+          const sessionCtx = sessions.scope?.(sessionId)
+          const conversation = sessionCtx?.get?.('conversation')
+          if (!sessionCtx || !conversation?.input?.for) throw new Error('目标会话输入未就绪，请重试。')
+          const input = conversation.input.for(sessionCtx)
+          const text = `@${item.alias}`
+          input.setDraft(text)
+          const state = input.state?.getSnapshot?.()
+          const inserted = input.insertReference({ source: 'MinIO 文件', ref: item.ref, label: `${item.bucket}/${item.key}`, clipboardText: text }, {
+            start: 0,
+            end: text.length,
+            draftRev: state?.draftRev,
+          })
+          if (!inserted) throw new Error('MinIO 文件引用未写入会话草稿，请重试。')
+          sessions.open(sessionId)
+          return sessionId
+        }
       }
 
       function downloadBase64(base64, filename) {
@@ -1946,11 +2121,14 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         const disk = snapshot?.disk || {}
         const memoryTotal = Number(memory.totalBytes) || 0
         const memoryUsed = Number(memory.usedBytes) || 0
+        const memoryAvailable = Number(memory.availableBytes) || 0
+        const diskUsed = Number(disk.usedBytes) || 0
+        const diskAvailable = Number(disk.availableBytes) || 0
         const memoryPercent = memoryTotal > 0 ? `${Math.round((memoryUsed / memoryTotal) * 100)}%` : '—'
         const cards = [
           { label: 'CPU', value: cpu.cores ? `${cpu.cores} 核` : '—', detail: cpu.load ? `负载 ${cpu.load}` : '负载不可用' },
-          { label: '内存', value: formatBytes(memoryUsed), detail: memoryTotal ? `${memoryPercent} / ${formatBytes(memoryTotal)}` : '容量不可用' },
-          { label: '根磁盘', value: formatBytes(disk.usedBytes), detail: disk.totalBytes ? `${disk.usagePercent || '—'} / ${formatBytes(disk.totalBytes)}` : '容量不可用' },
+          { label: '已用内存', value: formatBytes(memoryUsed), detail: memoryTotal ? `剩余 ${formatBytes(memoryAvailable)} / 共 ${formatBytes(memoryTotal)} · ${memoryPercent}` : '容量不可用' },
+          { label: '剩余空间', value: formatBytes(diskAvailable), detail: disk.totalBytes ? `已用 ${formatBytes(diskUsed)} / 共 ${formatBytes(disk.totalBytes)} · ${disk.usagePercent || '—'}` : '容量不可用' },
           { label: '监听端口', value: String(snapshot?.ports?.length || 0), detail: snapshot?.ports?.length ? 'SSH 实时扫描' : '未发现监听端口' },
         ]
         return h('section', { className: 'dsm-ssh-overview' },
@@ -1974,13 +2152,32 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         const [error, setError] = useState('')
         const [busy, setBusy] = useState(false)
         const [updatedAt, setUpdatedAt] = useState(null)
+        const mountedRef = useRef(false)
+        const requestRef = useRef(null)
+        useEffect(() => {
+          mountedRef.current = true
+          return () => {
+            mountedRef.current = false
+            requestRef.current?.abort()
+            requestRef.current = null
+          }
+        }, [connection.id])
         const load = () => {
+          requestRef.current?.abort()
+          const controller = typeof AbortController === 'function' ? new AbortController() : null
+          requestRef.current = controller
           setBusy(true)
           setError('')
-          return api({ op: 'exec', id: connection.id, params: { op: 'inspect' } }).then(value => {
+          return api({ op: 'exec', id: connection.id, params: { op: 'inspect' } }, controller?.signal).then(value => {
+            if (!mountedRef.current) return
             setSnapshot(value.data || value)
             setUpdatedAt(new Date())
-          }).catch(loadError => setError(loadError.message)).finally(() => setBusy(false))
+          }).catch(loadError => {
+            if (mountedRef.current && loadError?.name !== 'AbortError') setError(loadError.message || '读取失败')
+          }).finally(() => {
+            if (requestRef.current === controller) requestRef.current = null
+            if (mountedRef.current) setBusy(false)
+          })
         }
         useEffect(() => { void load() }, [connection.id])
         const info = snapshot || {}
@@ -2306,9 +2503,198 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         )
       }
 
+      function S3Workspace({ connection, api, onBack, onEdit, referenceToSession }) {
+        const defaultBucket = String(connection.options?.bucket || '')
+        const [bucket, setBucket] = useState(defaultBucket)
+        const [prefix, setPrefix] = useState('')
+        const [objects, setObjects] = useState([])
+        const [selectedKey, setSelectedKey] = useState('')
+        const [loading, setLoading] = useState(false)
+        const [busy, setBusy] = useState(false)
+        const [error, setError] = useState('')
+        const [status, setStatus] = useState('')
+        const [menu, setMenu] = useState(null)
+        const [preview, setPreview] = useState(null)
+        const uploadRef = useRef(null)
+
+        const cleanPrefix = value => String(value || '').trim().replace(/^\/+/, '')
+        const objectKey = (base, name) => {
+          const normalized = cleanPrefix(base).replace(/\/+$/, '')
+          return normalized ? `${normalized}/${name}` : name
+        }
+        const selected = objects.find(item => item.key === selectedKey) || null
+        const supportsPreview = item => /(?:^|\/)[^/]+\.(?:txt|log|md|markdown|json|jsonl|csv|tsv|xml|ya?ml|ini|conf|config|properties|env|js|jsx|ts|tsx|css|html?|svg|py|go|java|c|cc|cpp|h|hpp|sh|bash|zsh|sql)$/i.test(item?.key || '')
+        const loadObjects = (nextBucket = bucket, nextPrefix = prefix) => {
+          const targetBucket = String(nextBucket || '').trim()
+          if (!targetBucket) {
+            setObjects([])
+            setSelectedKey('')
+            setError('请先输入要浏览的 Bucket 名称。')
+            return Promise.resolve()
+          }
+          setLoading(true)
+          setError('')
+          return api({ op: 'exec', id: connection.id, params: { op: 'listObjects', bucket: targetBucket, prefix: cleanPrefix(nextPrefix) || undefined } }).then(value => {
+            const contents = Array.isArray(value?.data?.Contents) ? value.data.Contents : []
+            const nextObjects = contents.map(item => ({
+              key: String(item?.Key || ''),
+              size: Number(item?.Size || 0) || 0,
+              updatedAt: item?.LastModified || '',
+              etag: String(item?.ETag || '').replaceAll('"', ''),
+            })).filter(item => item.key)
+            cacheS3Objects(connection, targetBucket, nextObjects)
+            setObjects(nextObjects)
+            setSelectedKey(current => nextObjects.some(item => item.key === current) ? current : '')
+            setStatus(`${nextObjects.length} 个对象`)
+          }).catch(loadError => {
+            setObjects([])
+            setSelectedKey('')
+            setError(loadError.message || '对象列表读取失败')
+          }).finally(() => setLoading(false))
+        }
+        const refresh = () => { void loadObjects() }
+        const applyLocation = () => { void loadObjects(bucket, prefix) }
+        const selectFile = event => {
+          const file = event.target.files?.[0]
+          event.target.value = ''
+          if (!file) return
+          if (!String(bucket || '').trim()) {
+            setError('请先输入 Bucket 名称，再选择文件上传。')
+            return
+          }
+          if (file.size > S3_UPLOAD_MAX_BYTES) {
+            setError(`文件超过 ${formatBytes(S3_UPLOAD_MAX_BYTES)} 限制，请选择更小的文件。`)
+            return
+          }
+          const key = objectKey(prefix, file.name)
+          setBusy(true)
+          setError('')
+          setStatus(`正在上传 ${file.name}（${formatBytes(file.size)}）…`)
+          uploadS3File(connection, { bucket: String(bucket).trim(), key, file }).then(() => {
+            setStatus(`${file.name} 已上传到 ${key}`)
+            return loadObjects()
+          }).catch(uploadError => setError(uploadError.message || '上传失败')).finally(() => setBusy(false))
+        }
+        const downloadObject = (item = selected) => {
+          if (!item) return
+          setBusy(true)
+          setError('')
+          setStatus(`正在下载 ${item.key}…`)
+          api({ op: 'exec', id: connection.id, params: { op: 'readObject', bucket: String(bucket).trim(), key: item.key } }).then(value => {
+            downloadBase64(value.text, value.filename || item.key.split('/').pop())
+            setStatus(`${item.key.split('/').pop()} 已下载`)
+          }).catch(downloadError => setError(downloadError.message || '下载失败')).finally(() => setBusy(false))
+        }
+        const previewObject = (item = selected) => {
+          if (!item) return
+          if (!supportsPreview(item)) {
+            setError('此文件类型不支持文本预览，请通过右键菜单下载后查看。')
+            return
+          }
+          if (item.size > S3_PREVIEW_MAX_BYTES) {
+            setError(`文件超过 ${formatBytes(S3_PREVIEW_MAX_BYTES)} 预览限制，请下载后查看。`)
+            return
+          }
+          setMenu(null)
+          setPreview({ item, loading: true, text: '', error: '' })
+          api({ op: 'exec', id: connection.id, params: { op: 'readObject', bucket: String(bucket).trim(), key: item.key } }).then(value => {
+            setPreview(current => current?.item.key === item.key ? { ...current, loading: false, text: decodeBase64Text(value.text) } : current)
+          }).catch(previewError => setPreview(current => current?.item.key === item.key ? { ...current, loading: false, error: previewError.message || '预览读取失败' } : current))
+        }
+        const deleteObject = (item = selected) => {
+          if (!item || typeof window !== 'undefined' && !window.confirm(`确认删除对象 “${item.key}”？此操作无法撤销。`)) return
+          setMenu(null)
+          setBusy(true)
+          setError('')
+          api({ op: 'exec', id: connection.id, params: { op: 'deleteObject', bucket: String(bucket).trim(), key: item.key } }).then(() => {
+            setStatus(`${item.key} 已删除`)
+            setSelectedKey('')
+            forgetS3Object(connection, String(bucket).trim(), item.key)
+            return loadObjects()
+          }).catch(deleteError => setError(deleteError.message || '删除失败')).finally(() => setBusy(false))
+        }
+        const referenceObjectToSession = (item = selected) => {
+          if (!item || !referenceToSession) return
+          const cached = cacheS3Objects(connection, String(bucket).trim(), [item])[0]
+          if (!cached) {
+            setError('当前 MinIO 对象缺少引用信息，请刷新对象列表后重试。')
+            return
+          }
+          setMenu(null)
+          setBusy(true)
+          setError('')
+          setStatus(`正在把 ${item.key} 引用到会话…`)
+          referenceToSession(cached).then(() => {
+            setStatus(`已创建会话并加入 @${cached.alias}`)
+            onBack?.()
+          }).catch(referenceError => setError(referenceError.message || '引用到会话失败')).finally(() => setBusy(false))
+        }
+        useEffect(() => {
+          setBucket(defaultBucket)
+          setPrefix('')
+          setObjects([])
+          setSelectedKey('')
+          setError('')
+          setStatus('')
+          if (defaultBucket) void loadObjects(defaultBucket, '')
+        }, [connection.id])
+
+        return h(React.Fragment, null,
+          h(WorkspaceHeader, { connection, onBack, onEdit }),
+          h(ServiceOverview, { connection, api }),
+          h('section', { className: 'dsm-s3-workspace', 'aria-label': '对象管理' },
+            h('div', { className: 'dsm-s3-toolbar' },
+              h('div', { className: 'dsm-s3-control' }, h('label', { className: 'dsm-label' }, 'Bucket'), h('input', { className: 'dsm-s3-input', value: bucket, onChange: event => setBucket(event.target.value), onKeyDown: event => { if (event.key === 'Enter') applyLocation() }, placeholder: '例如：codesentry-artifacts', 'aria-label': 'Bucket' })),
+              h('div', { className: 'dsm-s3-control prefix' }, h('label', { className: 'dsm-label' }, '路径前缀（可选）'), h('input', { className: 'dsm-s3-input', value: prefix, onChange: event => setPrefix(event.target.value), onKeyDown: event => { if (event.key === 'Enter') applyLocation() }, placeholder: '例如：reports/2026/', 'aria-label': '对象路径前缀' })),
+              h('div', { className: 'dsm-s3-toolbar-actions' },
+                h('button', { className: 'dsm-btn', disabled: loading || busy, onClick: applyLocation }, loading ? '读取中…' : '打开'),
+                h('button', { className: 'dsm-btn', title: '刷新当前路径', disabled: loading || busy, onClick: refresh }, '↻'),
+                h('button', { className: 'dsm-btn primary', disabled: busy, onClick: () => uploadRef.current?.click() }, busy ? '处理中…' : '上传文件'),
+                h('input', { ref: uploadRef, className: 'dsm-ssh-upload-input', type: 'file', onChange: selectFile }),
+              ),
+            ),
+            error ? h('div', { className: 'dsm-ssh-file-error' }, error) : null,
+            h('div', { className: 'dsm-s3-layout' },
+              h('section', { className: 'dsm-s3-main' },
+                h('div', { className: 'dsm-s3-table-wrap' }, loading && !objects.length ? h('div', { className: 'dsm-s3-empty' }, '正在读取对象…') : h('table', { className: 'dsm-s3-table' },
+                  h('thead', null, h('tr', null, h('th', null, '对象'), h('th', null, '更新时间'), h('th', null, '大小'))),
+                  h('tbody', null, objects.length ? objects.map(item => h('tr', { key: item.key, className: 'dsm-s3-row' + (selectedKey === item.key ? ' active' : ''), onClick: () => setSelectedKey(item.key), onDoubleClick: () => setSelectedKey(item.key), onContextMenu: event => { event.preventDefault(); setSelectedKey(item.key); setMenu({ item, x: Math.min(event.clientX, window.innerWidth - 160), y: Math.min(event.clientY, window.innerHeight - 150) }) } },
+                    h('td', null, h('div', { className: 'dsm-s3-object' }, h('span', { className: 'dsm-s3-object-icon' }, '📄'), h('span', { className: 'dsm-s3-object-key', title: item.key }, item.key))),
+                    h('td', { className: 'dsm-ssh-file-muted' }, item.updatedAt ? new Date(item.updatedAt).toLocaleString() : '—'),
+                    h('td', { className: 'dsm-ssh-file-muted' }, formatBytes(item.size)),
+                  )) : h('tr', null, h('td', { colSpan: 3 }, h('div', { className: 'dsm-s3-empty' }, h('div', null, h('strong', null, bucket ? '当前路径没有对象' : '选择一个 Bucket 开始管理'), bucket ? '可上传文件，或修改路径前缀浏览其他对象。' : '输入 Bucket 名称后点击“打开”。'))))),
+                )),
+              ),
+              h('aside', { className: 'dsm-s3-detail' }, selected ? h(React.Fragment, null,
+                h('div', { className: 'dsm-label' }, '已选对象'),
+                h('div', { className: 'dsm-s3-detail-title', title: selected.key }, selected.key),
+                h('div', { className: 'dsm-s3-detail-meta' }, `大小：${formatBytes(selected.size)}`),
+                h('div', { className: 'dsm-s3-detail-meta' }, `更新时间：${selected.updatedAt ? new Date(selected.updatedAt).toLocaleString() : '—'}`),
+                selected.etag ? h('div', { className: 'dsm-s3-detail-meta', title: selected.etag }, `ETag：${selected.etag}`) : null,
+                h('div', { className: 'dsm-s3-detail-actions' }, h('button', { className: 'dsm-btn', disabled: busy, onClick: () => referenceObjectToSession() }, '引用到会话'), h('button', { className: 'dsm-btn', disabled: busy || !supportsPreview(selected) || selected.size > S3_PREVIEW_MAX_BYTES, onClick: () => previewObject() }, '预览'), h('button', { className: 'dsm-btn danger', disabled: busy, onClick: () => deleteObject() }, '删除')),
+              ) : h('div', { className: 'dsm-s3-empty' }, h('div', null, h('strong', null, '对象详情'), '从左侧列表选择对象；右键可引用到会话、下载或预览。'))),
+            ),
+            h('div', { className: 'dsm-s3-footer' }, status || (bucket ? `${objects.length} 个对象 · 单击查看详情，右键引用、下载或预览` : '对象操作通过已保存的 S3 / MinIO 连接完成。')),
+          ),
+          menu ? h('div', { className: 'dsm-ssh-context-backdrop', onClick: () => setMenu(null), onContextMenu: event => { event.preventDefault(); setMenu(null) } }, h('div', { className: 'dsm-ssh-context-menu', style: { left: menu.x, top: menu.y }, onClick: event => event.stopPropagation() },
+            h('button', { disabled: busy, onClick: () => referenceObjectToSession(menu.item) }, '引用到会话'),
+            h('button', { disabled: !supportsPreview(menu.item) || menu.item.size > S3_PREVIEW_MAX_BYTES, onClick: () => previewObject(menu.item) }, '预览内容'),
+            h('button', { onClick: () => { setMenu(null); downloadObject(menu.item) } }, '下载文件'),
+            h('button', { onClick: () => deleteObject(menu.item) }, '删除对象'),
+          )) : null,
+          preview ? h('div', { className: 'dsm-ssh-editor-backdrop', onMouseDown: event => { if (event.target === event.currentTarget && !preview.loading) setPreview(null) } }, h('section', { className: 'dsm-ssh-editor' },
+            h('header', { className: 'dsm-ssh-editor-head' }, h('div', { className: 'dsm-ssh-editor-title', title: preview.item.key }, `预览 · ${preview.item.key.split('/').pop()}`), h('span', { className: 'dsm-help' }, `${formatBytes(preview.item.size)} · 仅文本预览`), h('button', { className: 'dsm-close', disabled: preview.loading, onClick: () => setPreview(null) }, '×')),
+            h('div', { className: 'dsm-s3-preview-note' }, '预览内容只读，不会修改远端对象。'),
+            h('div', { className: 'dsm-s3-preview-body' }, preview.loading ? h('div', { className: 'dsm-s3-empty' }, '正在读取预览…') : preview.error ? h('div', { className: 'dsm-ssh-file-error' }, preview.error) : h('pre', { className: 'dsm-s3-preview-text' }, preview.text || '（空文件）')),
+            h('footer', { className: 'dsm-ssh-editor-foot' }, h('button', { className: 'dsm-btn', onClick: () => setPreview(null) }, '关闭'), h('button', { className: 'dsm-btn primary', disabled: busy, onClick: () => downloadObject(preview.item) }, '下载文件')),
+          )) : null,
+        )
+      }
+
       function OperationView({ connection, api, onBack, onEdit, embedded = false }) {
         const [op, setOp] = useState('test')
-        const [fields, setFields] = useState({ path: '/', key: '', bucket: connection.options?.bucket || '', collection: '', container: '', pattern: '*', tail: '200', limit: '100', value: '', text: '', sql: '', cql: '', body: '', content: '', contentBase64: '', fileName: '', filter: '{}', method: 'GET', prefix: '' })
+        const [fields, setFields] = useState({ path: '/', key: '', bucket: connection.options?.bucket || '', collection: '', container: '', pattern: '*', tail: '200', limit: '100', value: '', text: '', sql: '', cql: '', body: '', content: '', fileName: '', fileSize: 0, filter: '{}', method: 'GET', prefix: '' })
+        const [s3UploadFile, setS3UploadFile] = useState(null)
         const [result, setResult] = useState(null)
         const [busy, setBusy] = useState(false)
         const [terminalId, setTerminalId] = useState('')
@@ -2320,9 +2706,37 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         const terminalReadController = useRef(null)
         const set = (key, value) => setFields(current => ({ ...current, [key]: value }))
         const run = () => {
+          if (connection.type === 's3' && op === 'uploadObject' && !s3UploadFile) {
+            setResult({ ok: false, error: '请先选择要上传的文件' })
+            return
+          }
           setBusy(true); setResult(null)
+          if (connection.type === 's3' && op === 'uploadObject') {
+            const key = String(fields.key || '').trim() || s3UploadFile.name
+            uploadS3File(connection, { bucket: String(fields.bucket || '').trim(), key, file: s3UploadFile }).then(setResult).catch(error => setResult({ ok: false, error: error.message })).finally(() => setBusy(false))
+            return
+          }
           const params = { op, ...fields }
           api({ op: 'exec', id: connection.id, params }).then(setResult).catch(error => setResult({ ok: false, error: error.message })).finally(() => setBusy(false))
+        }
+        const selectS3File = event => {
+          const file = event.target.files?.[0]
+          event.target.value = ''
+          if (!file) return
+          if (file.size > S3_UPLOAD_MAX_BYTES) {
+            setS3UploadFile(null)
+            set({ fileName: '', fileSize: 0 })
+            setResult({ ok: false, error: `文件超过 ${formatBytes(S3_UPLOAD_MAX_BYTES)} 限制，请选择更小的文件` })
+            return
+          }
+          setS3UploadFile(file)
+          setFields(current => ({
+            ...current,
+            fileName: file.name,
+            fileSize: file.size,
+            key: String(current.key || '').trim() || file.name,
+          }))
+          setResult(null)
         }
         const appendTerminal = value => {
           const text = normalizeTerminalText(value?.text)
@@ -2380,7 +2794,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
             ['redis'].includes(connection.type) ? h(Field, { label: 'Key', value: fields.key, onChange: value => set('key', value) }) : null,
             ['s3'].includes(connection.type) ? h(Field, { label: 'Bucket', value: fields.bucket, onChange: value => set('bucket', value) }) : null,
             ['s3'].includes(connection.type) && op === 'listObjects' ? h(Field, { label: 'Prefix', value: fields.prefix, onChange: value => set('prefix', value) }) : null,
-            ['s3'].includes(connection.type) && ['readObject', 'writeObject', 'deleteObject'].includes(op) ? h(Field, { label: 'Object Key', value: fields.key, onChange: value => set('key', value), wide: true }) : null,
+            ['s3'].includes(connection.type) && ['readObject', 'writeObject', 'uploadObject', 'deleteObject'].includes(op) ? h(Field, { label: 'Object Key', value: fields.key, onChange: value => set('key', value), wide: true, placeholder: op === 'uploadObject' ? '留空则使用本地文件名' : '例如：reports/result.json' }) : null,
             ['mongodb'].includes(connection.type) && ['find'].includes(op) ? h(Field, { label: 'Collection', value: fields.collection, onChange: value => set('collection', value) }) : null,
             ['docker'].includes(connection.type) && ['logs', 'start', 'stop', 'exec'].includes(op) ? h(Field, { label: 'Container', value: fields.container, onChange: value => set('container', value) }) : null,
             connection.type === 'elasticsearch' && op === 'query' ? h(Field, { label: 'API Path', value: fields.path, onChange: value => set('path', value), placeholder: '/_search', wide: true }) : null,
@@ -2390,10 +2804,11 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
             needsQuery ? h('div', { className: 'dsm-field wide' }, h('label', { className: 'dsm-label' }, queryLabel), h('textarea', { className: 'dsm-textarea', value: fields[queryKey], onChange: event => set(queryKey, event.target.value), placeholder: connection.type === 'mongodb' ? '{"action":"find","collection":"users","filter":{}}' : connection.type === 'redis' ? '["GET","key"]' : '' })) : null,
             op === 'find' ? h(Field, { label: 'Filter JSON', value: fields.filter, onChange: value => set('filter', value) }) : null,
             ['writeFile', 'writeObject'].includes(op) ? h('div', { className: 'dsm-field wide' }, h('label', { className: 'dsm-label' }, '写入内容'), h('textarea', { className: 'dsm-textarea', value: fields.content, onChange: event => set('content', event.target.value) })) : null,
+            op === 'uploadObject' ? h('div', { className: 'dsm-field wide' }, h('label', { className: 'dsm-label' }, '选择本地文件'), h('div', { className: 'dsm-file-picker' }, h('input', { className: 'dsm-input', type: 'file', onChange: selectS3File }), h('div', { className: 'dsm-file-picker-copy' }, h('div', { className: 'dsm-file-picker-name' }, fields.fileName || '尚未选择文件'), h('div', { className: 'dsm-file-picker-meta' }, fields.fileName ? `${formatBytes(fields.fileSize)} · 将上传到 ${fields.bucket || '默认 Bucket'}` : `单文件上限 ${formatBytes(S3_UPLOAD_MAX_BYTES)}`))), h('div', { className: 'dsm-help' }, '文件通过当前已认证的 S3 / MinIO 连接上传，不会经过浏览器直连 MinIO。')) : null,
             op === 'uploadFile' ? h('div', { className: 'dsm-field wide' }, h('label', { className: 'dsm-label' }, '选择本地文件'), h('input', { className: 'dsm-input', type: 'file', onChange: event => { const file = event.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => { const value = String(reader.result || ''); set('contentBase64', value.includes(',') ? value.slice(value.indexOf(',') + 1) : value); set('fileName', file.name) }; reader.readAsDataURL(file) } }), fields.fileName ? h('div', { className: 'dsm-help' }, `${fields.fileName} · 将写入 ${fields.path}`) : null) : null,
             ['setKey'].includes(op) ? h(Field, { label: 'Value', value: fields.value || '', onChange: value => set('value', value), wide: true }) : null,
           ),
-          op === 'terminal' ? h('div', { className: 'dsm-terminal-wrap' }, h('div', { className: 'dsm-actions', style: { marginTop: 8 } }, !terminalId ? h('button', { className: 'dsm-btn primary', disabled: terminalBusy, onClick: openTerminal }, terminalBusy ? '连接中…' : '打开远程终端') : h('button', { className: 'dsm-btn danger', onClick: closeTerminal }, '关闭终端'), h('span', { className: 'dsm-help' }, terminalId ? '已连接；输入命令后按 Enter 执行。' : '使用 SSH shell 建立远程终端会话。')), h('pre', { ref: terminalOutputRef, className: 'dsm-terminal-output' }, terminalText || '终端输出将在这里显示'), h('textarea', { className: 'dsm-textarea dsm-terminal-input', disabled: !terminalId, value: terminalInput, onChange: event => setTerminalInput(event.target.value), onKeyDown: event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendTerminal() } }, placeholder: terminalId ? '输入远程命令，Enter 执行' : '请先打开终端' })) : h('div', { className: 'dsm-actions' }, h('button', { className: 'dsm-btn primary', disabled: busy, onClick: run }, busy ? '执行中…' : '执行操作'), h('span', { className: 'dsm-help' }, '写入、删除和容器控制操作会直接作用于远端服务。')),
+          op === 'terminal' ? h('div', { className: 'dsm-terminal-wrap' }, h('div', { className: 'dsm-actions', style: { marginTop: 8 } }, !terminalId ? h('button', { className: 'dsm-btn primary', disabled: terminalBusy, onClick: openTerminal }, terminalBusy ? '连接中…' : '打开远程终端') : h('button', { className: 'dsm-btn danger', onClick: closeTerminal }, '关闭终端'), h('span', { className: 'dsm-help' }, terminalId ? '已连接；输入命令后按 Enter 执行。' : '使用 SSH shell 建立远程终端会话。')), h('pre', { ref: terminalOutputRef, className: 'dsm-terminal-output' }, terminalText || '终端输出将在这里显示'), h('textarea', { className: 'dsm-textarea dsm-terminal-input', disabled: !terminalId, value: terminalInput, onChange: event => setTerminalInput(event.target.value), onKeyDown: event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendTerminal() } }, placeholder: terminalId ? '输入远程命令，Enter 执行' : '请先打开终端' })) : h('div', { className: 'dsm-actions' }, h('button', { className: 'dsm-btn primary', disabled: busy || (connection.type === 's3' && op === 'uploadObject' && !s3UploadFile), onClick: run }, busy ? '执行中…' : op === 'uploadObject' ? '上传文件' : '执行操作'), h('span', { className: 'dsm-help' }, op === 'uploadObject' ? `上传将以二进制流经已认证的 DSH 服务转发，单文件最大 ${formatBytes(S3_UPLOAD_MAX_BYTES)}。` : '写入、上传、删除和容器控制操作会直接作用于远端服务。')),
           h('div', { className: 'dsm-result' }, busy ? h('div', { className: 'dsm-empty' }, '执行中…') : h(Result, { value: result })),
           result?.encoding === 'base64' ? h('div', { className: 'dsm-actions' }, h('button', { className: 'dsm-btn primary', onClick: () => downloadBase64(result.text, result.filename) }, '下载到本地')) : null,
         )
@@ -2401,7 +2816,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
 
       let servicePaneSequence = 0
 
-      function ServicePane({ api, connection: initialConnection, editing: initialEditing, onSaved, close }) {
+      function ServicePane({ api, connection: initialConnection, editing: initialEditing, onSaved, close, referenceToSession }) {
         const [connection, setConnection] = useState(initialConnection || null)
         const [editing, setEditing] = useState(initialEditing || null)
         const save = saved => {
@@ -2420,6 +2835,8 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           onSaved: save,
         }) : connection ? (connection.type === 'ssh'
           ? h(SshWorkspace, { key: connection.id, connection, api, onBack: close, onEdit: () => setEditing(connection) })
+          : connection.type === 's3'
+            ? h(S3Workspace, { key: connection.id, connection, api, onBack: close, onEdit: () => setEditing(connection), referenceToSession })
           : RELATIONAL_TYPES.has(connection.type)
             ? h(DatabaseWorkspace, { key: connection.id, connection, api, onBack: close, onEdit: () => setEditing(connection) })
             : DATA_WORKSPACE_TYPES.has(connection.type)
@@ -2429,7 +2846,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         return h('main', { className: 'dsm-main dsm-center-main' }, content)
       }
 
-      function ServicePaneLayer({ api, pane, onClose, onSaved }) {
+      function ServicePaneLayer({ api, pane, onClose, onSaved, referenceToSession }) {
         if (!pane) return null
         return h('div', { className: 'dsm-center-pane-layer', 'aria-label': '中间区域服务器操作' },
           h('div', { className: 'dsm-center-pane-grid' },
@@ -2446,13 +2863,14 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
                 editing: pane.editing,
                 onSaved,
                 close: onClose,
+                referenceToSession,
               })),
             ),
           ),
         )
       }
 
-      function ManagerPanel({ api, onClose, embedded = false }) {
+      function ManagerPanel({ api, onClose, embedded = false, referenceToSession }) {
         const [connections, setConnections] = useState([])
         const [sdk, setSdk] = useState({})
         const [editing, setEditing] = useState(null)
@@ -2480,7 +2898,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           title: `${connection.name} · ${typeLabel(connection.type)} · ${connection.host || '本机'}${connection.port ? ':' + connection.port : ''}`,
           'aria-label': `打开连接 ${connection.name}`,
         }, h('span', { className: 'dsm-card-icon' }, TYPE_META[connection.type]?.icon || '🔌'), h('span', { className: 'dsm-card-copy' }, h('span', { className: 'dsm-card-name' }, connection.name), h('span', { className: 'dsm-card-meta' }, h('span', { className: 'dsm-dot ' + (sdk[connection.type] === false || missingCredential(connection) ? 'bad' : '') }), `${typeLabel(connection.type)} · ${connection.host || '本机'}${connection.port ? ':' + connection.port : ''}`)), h('span', { className: 'dsm-sub' }, '›'))) : h('div', { className: 'dsm-empty' }, '还没有服务连接\n  点击右上角新建')
-        const fallbackContent = editing ? h(ConnectionForm, { value: editing, api, onCancel: () => setEditing(null), onSaved: connection => { setEditing(null); saved(connection) } }) : selected ? (selected.type === 'ssh' ? h(SshWorkspace, { key: selected.id, connection: selected, api, onBack: () => setWorkspace(null), onEdit: () => setEditing(selected) }) : RELATIONAL_TYPES.has(selected.type) ? h(DatabaseWorkspace, { key: selected.id, connection: selected, api, onBack: () => setWorkspace(null), onEdit: () => setEditing(selected) }) : DATA_WORKSPACE_TYPES.has(selected.type) ? h(DataWorkspace, { key: selected.id, connection: selected, api, onBack: () => setWorkspace(null), onEdit: () => setEditing(selected) }) : h(OperationView, { key: selected.id, connection: selected, api, onBack: () => setWorkspace(null), onEdit: () => setEditing(selected) })) : h('div', { className: 'dsm-empty' }, '点击左侧连接，在中间区域打开服务器操作。')
+        const fallbackContent = editing ? h(ConnectionForm, { value: editing, api, onCancel: () => setEditing(null), onSaved: connection => { setEditing(null); saved(connection) } }) : selected ? (selected.type === 'ssh' ? h(SshWorkspace, { key: selected.id, connection: selected, api, onBack: () => setWorkspace(null), onEdit: () => setEditing(selected) }) : selected.type === 's3' ? h(S3Workspace, { key: selected.id, connection: selected, api, onBack: () => setWorkspace(null), onEdit: () => setEditing(selected), referenceToSession }) : RELATIONAL_TYPES.has(selected.type) ? h(DatabaseWorkspace, { key: selected.id, connection: selected, api, onBack: () => setWorkspace(null), onEdit: () => setEditing(selected) }) : DATA_WORKSPACE_TYPES.has(selected.type) ? h(DataWorkspace, { key: selected.id, connection: selected, api, onBack: () => setWorkspace(null), onEdit: () => setEditing(selected) }) : h(OperationView, { key: selected.id, connection: selected, api, onBack: () => setWorkspace(null), onEdit: () => setEditing(selected) })) : h('div', { className: 'dsm-empty' }, '点击左侧连接，在中间区域打开服务器操作。')
         const panel = h('section', { className: 'dsm-panel' + (embedded ? ' dsm-embedded-panel' : ''), onClick: event => event.stopPropagation() },
           h('header', { className: 'dsm-head' }, h('span', { className: 'dsm-title' }, '服务管理'), h('span', { className: 'dsm-sub' }, `${connections.length} 个连接`), h('button', { className: 'dsm-btn primary', onClick: openNew }, '+ 新建连接'), h('button', { className: 'dsm-close', onClick: onClose }, '×')),
           error ? h('div', { className: 'dsm-error', style: { margin: '10px 15px 0' } }, error) : null,
@@ -2491,7 +2909,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
             !embedded ? h('main', { className: 'dsm-main' }, fallbackContent) : null,
           ),
         )
-        const result = embedded ? h(React.Fragment, null, panel, h(ServicePaneLayer, { api, pane: centerPane, onClose: closePane, onSaved: savePane })) : h('div', { className: 'dsm-backdrop', onClick: onClose }, panel)
+        const result = embedded ? h(React.Fragment, null, panel, h(ServicePaneLayer, { api, pane: centerPane, onClose: closePane, onSaved: savePane, referenceToSession })) : h('div', { className: 'dsm-backdrop', onClick: onClose }, panel)
         return result
       }
 
@@ -2514,6 +2932,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
       apply(ctx, options = {}) {
         installStyle()
         const api = (body, signal) => apiRequest(body, signal)
+        const referenceToSession = createS3SessionReference(ctx)
         const sidebar = options.sidebar || ctx.get('resourceCenter') || ctx.get('dshResourceCenter')
         if (!sidebar || typeof sidebar.registerActivity !== 'function') return
         ctx.effect(() => sidebar.registerActivity({
@@ -2521,10 +2940,11 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           label: '服务管理',
           order: 20,
           icon: ServiceManagerIcon,
-          component: props => h(ManagerPanel, { api, onClose: props.close, embedded: true }),
+          component: props => h(ManagerPanel, { api, onClose: props.close, embedded: true, referenceToSession }),
         }), 'dsh-service-manage: sidebar activity')
         const inputTriggers = ctx.get('inputTriggers')
         if (inputTriggers) ctx.effect(() => inputTriggers.registerSource(createServerInputSource()), 'dsh-service-manage: @server source')
+        if (inputTriggers) ctx.effect(() => inputTriggers.registerSource(createS3ObjectInputSource()), 'dsh-service-manage: @minio object source')
       },
       }
     },
@@ -3940,12 +4360,20 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           'as_org', 'cert_sha256', 'ssl_certificate', 'component', 'asset_tag', 'updated_at', 'header', 'header_server',
           'banner', 'whois', 'body', 'vul_list',
         ]
+        const LARGE_FIELDS = new Set(['header', 'banner', 'body', 'whois', 'ssl_certificate', 'vul_list'])
+        const FIELD_LABELS = {
+          ip: 'IP', port: '端口', domain: '域名', url: 'URL', protocol: '协议', base_protocol: '传输协议', is_web: 'Web 资产',
+          web_title: '网站标题', status_code: '状态码', header_server: 'Server', component: '组件', asset_tag: '资产标签', updated_at: '探查时间',
+          country: '国家', province: '省份', city: '城市', company: '备案单位', isp: '运营商', as_org: '注册机构', number: '备案号',
+          is_risk: '风险资产', is_risk_protocol: '高危协议', vul_list: '历史漏洞', cert_sha256: '证书 SHA256', ssl_certificate: '证书',
+          header: '响应头', banner: 'Banner', body: '响应正文', whois: 'WHOIS', ip_tag: 'IP 标签', icp_exception: '备案异常', os: '操作系统',
+        }
         const FIELD_GROUPS = [
-          { id: 'asset', label: '资产定位', fields: ['ip', 'port', 'domain', 'url', 'protocol', 'base_protocol', 'is_web'] },
-          { id: 'web', label: 'Web 指纹', fields: ['web_title', 'status_code', 'header_server', 'component', 'asset_tag', 'updated_at'] },
-          { id: 'org', label: '归属位置', fields: ['country', 'province', 'city', 'company', 'isp', 'as_org', 'number'] },
-          { id: 'risk', label: '风险研判', fields: ['is_risk', 'is_risk_protocol', 'vul_list', 'cert_sha256', 'ssl_certificate'] },
-          { id: 'raw', label: '原始大字段', fields: ['header', 'banner', 'body', 'whois', 'ip_tag', 'icp_exception', 'os'] },
+          { id: 'asset', label: '资产定位', description: 'IP、域名与访问入口', fields: ['ip', 'port', 'domain', 'url', 'protocol', 'base_protocol', 'is_web'] },
+          { id: 'web', label: 'Web 指纹', description: '标题、组件与状态信息', fields: ['web_title', 'status_code', 'header_server', 'component', 'asset_tag', 'updated_at'] },
+          { id: 'org', label: '归属位置', description: '地域、单位与运营商', fields: ['country', 'province', 'city', 'company', 'isp', 'as_org', 'number'] },
+          { id: 'risk', label: '风险研判', description: '风险协议、漏洞与证书', fields: ['is_risk', 'is_risk_protocol', 'vul_list', 'cert_sha256', 'ssl_certificate'] },
+          { id: 'raw', label: '原始响应', description: '响应正文与原始数据', fields: ['header', 'banner', 'body', 'whois', 'ip_tag', 'icp_exception', 'os'] },
         ]
         const QUERY_TEMPLATES = [
           { label: '登录页', value: 'title="登录"' },
@@ -3961,18 +4389,19 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           '.dhunter-section{margin-bottom:8px;padding:10px;border:1px solid #dfe7f2;border-radius:10px;background:#fff;box-shadow:0 2px 10px rgba(45,77,120,.035)}.dhunter-section-title{display:flex;align-items:center;gap:5px;margin-bottom:8px;font-weight:700;font-size:11px}.dhunter-section-title small{margin-left:auto;color:#8b98aa;font-size:9px;font-weight:400}' +
           '.dhunter-label{display:block;margin:7px 0 4px;color:#69778a;font-size:10px}.dhunter-input,.dhunter-select,.dhunter-textarea{width:100%;min-width:0;border:1px solid #d8e1ec;border-radius:6px;padding:7px 8px;background:#fbfcfe;color:inherit;font:inherit;font-size:11px;outline:0}.dhunter-input:focus,.dhunter-select:focus,.dhunter-textarea:focus{border-color:#75a8f5;box-shadow:0 0 0 3px rgba(53,120,229,.1);background:#fff}.dhunter-textarea{min-height:84px;resize:vertical;line-height:1.45;font:10px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}' +
           '.dhunter-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.dhunter-btn{border:1px solid #d6dfeb;border-radius:6px;padding:6px 9px;background:#fff;color:inherit;font:inherit;font-size:10.5px;cursor:pointer}.dhunter-btn:hover{background:#f4f7fb}.dhunter-btn.primary{border-color:#3578e5;background:linear-gradient(180deg,#438cf2,#3578e5);color:#fff;box-shadow:0 4px 10px rgba(53,120,229,.18)}.dhunter-btn.danger{color:#bd4b4b}.dhunter-btn:disabled{opacity:.5;cursor:default}' +
-          '.dhunter-error{margin:8px 10px;padding:8px;border-radius:7px;background:#fff0f0;color:#be4848;font-size:10px;line-height:1.45}.dhunter-notice{margin:8px 10px;padding:8px;border-radius:7px;background:#eefaf2;color:#37844d;font-size:10px;line-height:1.45}' +
+          '.dhunter-feedback{margin:0 0 8px;padding:7px 8px;border:1px solid #f2d4d4;border-radius:8px;background:#fff8f8;color:#a85050;font-size:10px;line-height:1.45}.dhunter-feedback.notice,.dhunter-notice{border-color:#d6ebdc;background:#f4fbf6;color:#37844d}.dhunter-notice{margin:7px 0 0;padding:7px 8px;border:1px solid #d6ebdc;border-radius:8px;font-size:10px;line-height:1.45}' +
           '.dhunter-status{display:flex;align-items:center;gap:6px;margin-bottom:8px;padding:8px;border:1px solid #dfe7f2;border-radius:8px;background:#f7faff}.dhunter-status-dot{width:7px;height:7px;border-radius:50%;background:#b1bbc8}.dhunter-status-dot.live{background:#35bd72}.dhunter-status-copy{min-width:0;flex:1}.dhunter-status-title{display:block;font-weight:650;font-size:11px}.dhunter-status-meta{display:block;margin-top:2px;color:#8a95a5;font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
           '.dhunter-quota{display:grid;grid-template-columns:1fr 1fr;gap:6px}.dhunter-quota-card{padding:7px;border:1px solid #e5ebf3;border-radius:7px;background:#fbfcfe}.dhunter-quota-card span{display:block;color:#8491a3;font-size:9px}.dhunter-quota-card strong{display:block;margin-top:3px;font-size:13px}.dhunter-quota-trend{display:flex;gap:7px;align-items:center;padding:5px 0;border-bottom:1px solid #edf1f6;font-size:9.5px}.dhunter-quota-trend:last-child{border-bottom:0}.dhunter-quota-trend span{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#738196}.dhunter-quota-trend strong{color:#3578e5;font-weight:650;white-space:nowrap}.dhunter-hint{margin-top:7px;color:#8995a5;font-size:9.5px;line-height:1.45}' +
           '.dhunter-center-layer{position:fixed;left:var(--dsh-resource-center-left-width,280px);right:var(--dsh-resource-center-right-width,0px);top:var(--dsh-resource-center-top,0px);bottom:var(--dsh-resource-center-bottom,0px);z-index:24;display:flex;pointer-events:none}.dhunter-center{display:flex;width:100%;height:100%;min-width:0;min-height:0;flex-direction:column;border-left:1px solid #e3e8ef;background:#fff;box-shadow:-12px 0 30px rgba(15,23,42,.04);pointer-events:auto}' +
           '.dhunter-center-head{display:flex;align-items:center;gap:8px;min-height:50px;padding:0 14px;border-bottom:1px solid #e5eaf1;background:#fff}.dhunter-center-title{min-width:0;flex:1;font-size:14px;font-weight:700}.dhunter-center-sub{color:#8a95a5;font-size:10px}.dhunter-close{width:26px;height:26px;border:0;border-radius:6px;background:transparent;color:#8a95a5;font-size:17px;cursor:pointer}.dhunter-close:hover{background:#f1f4f8;color:#26303d}' +
           '.dhunter-toolbar{display:flex;align-items:center;gap:7px;min-height:45px;padding:0 14px;border-bottom:1px solid #e8edf3;background:#fff}.dhunter-tabs{display:flex;gap:3px}.dhunter-tab{border:0;border-radius:6px;padding:6px 10px;background:transparent;color:#788698;font:inherit;font-size:11px;cursor:pointer}.dhunter-tab.active{background:#edf4ff;color:#3578e5;font-weight:650}.dhunter-spacer{flex:1}.dhunter-content{display:flex;flex:1;min-height:0;flex-direction:column;overflow:auto;background:#f6f8fb}' +
-          '.dhunter-workbench{display:flex;min-height:100%;flex-direction:column;gap:10px;padding:12px}.dhunter-card{min-width:0;border:1px solid #dde6f0;border-radius:10px;background:#fff;box-shadow:0 2px 12px rgba(35,63,97,.035)}.dhunter-card-head{display:flex;align-items:center;gap:7px;padding:10px 12px;border-bottom:1px solid #e9eef4}.dhunter-card-title{font-weight:700;font-size:12px}.dhunter-card-meta{color:#8a95a5;font-size:9px}.dhunter-card-body{padding:11px 12px}' +
+          '.dhunter-workbench{display:flex;min-height:100%;flex-direction:column;gap:10px;padding:12px}.dhunter-card{min-width:0;border:1px solid #dde6f0;border-radius:10px;background:#fff;box-shadow:0 2px 12px rgba(35,63,97,.035)}.dhunter-card-head{display:flex;align-items:center;gap:7px;min-width:0;padding:10px 12px;border-bottom:1px solid #e9eef4}.dhunter-card-title{flex:0 0 auto;white-space:nowrap;font-weight:700;font-size:12px}.dhunter-card-meta{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#8a95a5;font-size:9px}.dhunter-card-body{padding:11px 12px}.dhunter-ai-assist{margin-bottom:10px;padding:9px 10px;border:1px solid #d6e6ff;border-radius:8px;background:linear-gradient(135deg,#f4f8ff,#fbfdff)}.dhunter-ai-assist-head{display:flex;align-items:center;gap:7px}.dhunter-ai-assist-mark{display:inline-flex;width:19px;height:19px;align-items:center;justify-content:center;border-radius:6px;background:#e2efff;color:#3578e5;font-size:12px}.dhunter-ai-assist-copy{min-width:0;flex:1}.dhunter-ai-assist-title{display:block;color:#35445a;font-size:10.5px;font-weight:700}.dhunter-ai-assist-sub{display:block;margin-top:1px;color:#8090a4;font-size:9px}.dhunter-ai-assist-form{display:flex;gap:7px;margin-top:8px}.dhunter-ai-assist-form .dhunter-input{flex:1;background:#fff}.dhunter-ai-assist-note{margin-top:6px;color:#8290a1;font-size:9px;line-height:1.4}@media (max-width:700px){.dhunter-ai-assist-form{flex-direction:column}.dhunter-ai-assist-form .dhunter-btn{width:100%}}' +
           '.dhunter-form-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(130px,180px) minmax(130px,180px);gap:8px}.dhunter-form-grid.two{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.dhunter-form-actions{display:flex;align-items:center;gap:7px;margin-top:9px}.dhunter-result-card{display:flex;min-height:300px;flex:1;flex-direction:column}.dhunter-result-scroll{min-height:0;flex:1;overflow:auto}' +
           '.dhunter-table{width:100%;border-collapse:collapse;font-size:10px}.dhunter-table th,.dhunter-table td{padding:8px 9px;border-bottom:1px solid #edf0f4;text-align:left;vertical-align:top;white-space:nowrap}.dhunter-table th{position:sticky;top:0;background:#f7f9fc;color:#738196;font-weight:650;z-index:1}.dhunter-table tbody tr{cursor:pointer}.dhunter-table tbody tr:hover,.dhunter-table tbody tr.active{background:#f3f7ff}.dhunter-table td.wrap{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dhunter-table td.status-ok{color:#269354}.dhunter-table td.status-fail{color:#c14d4d}' +
           '.dhunter-empty{display:flex;min-height:220px;align-items:center;justify-content:center;flex-direction:column;gap:7px;color:#95a0ae}.dhunter-empty strong{color:#667386;font-size:12px}.dhunter-empty span{font-size:10px}.dhunter-detail{margin:0 12px 12px;padding:10px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc}.dhunter-detail pre{max-height:250px;margin:0;overflow:auto;white-space:pre-wrap;word-break:break-word;color:#536174;font:10px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}' +
           '.dhunter-batch-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(250px,360px);gap:10px}.dhunter-task-row{display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid #edf0f4}.dhunter-task-row:last-child{border-bottom:0}.dhunter-task-id{font:10px ui-monospace,SFMono-Regular,Menlo,monospace;color:#3578e5}.dhunter-task-meta{min-width:0;flex:1;color:#6f7d90;font-size:10px}.dhunter-task-actions{display:flex;gap:5px}.dhunter-download{color:#3578e5;text-decoration:none;font-size:10px}.dhunter-file{font-size:10px;color:#748196}.dhunter-select-check{width:14px;height:14px;accent-color:#3578e5}.dhunter-footer-note{padding:8px 12px;color:#8b97a6;font-size:9.5px;line-height:1.45}' +
-          '.dhunter-config{margin-bottom:8px;border:1px solid #dfe7f2;border-radius:10px;background:#fff;box-shadow:0 2px 10px rgba(45,77,120,.035)}.dhunter-config summary{display:flex;align-items:center;gap:6px;padding:10px;cursor:pointer;list-style:none;font-weight:700;font-size:11px}.dhunter-config summary::-webkit-details-marker{display:none}.dhunter-config summary:before{content:"›";color:#7e91aa}.dhunter-config[open] summary:before{content:"⌄"}.dhunter-config-body{padding:0 10px 10px;border-top:1px solid #edf0f4}.dhunter-field-groups{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}.dhunter-chip{border:1px solid #d6e2f0;border-radius:999px;padding:4px 7px;background:#fff;color:#617187;font:10px/1 inherit;cursor:pointer}.dhunter-chip:hover,.dhunter-chip.active{border-color:#9ec0f6;background:#edf5ff;color:#2870d9}.dhunter-warning{margin-top:8px;padding:7px 8px;border-left:3px solid #efa85d;border-radius:5px;background:#fff8ed;color:#8b5b24;font-size:10px;line-height:1.45}.dhunter-result-tools{display:flex;align-items:center;gap:6px;min-width:0;margin-left:auto}.dhunter-result-tools .dhunter-input{width:180px}.dhunter-detail-tabs{display:flex;gap:3px;margin-bottom:8px}.dhunter-detail-tab{border:0;border-radius:5px;padding:5px 7px;background:transparent;color:#718096;font:10px/1 inherit;cursor:pointer}.dhunter-detail-tab.active{background:#e7f0ff;color:#2f78df;font-weight:650}.dhunter-detail-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.dhunter-detail-kv{min-width:0;padding:7px;border:1px solid #e2e8f0;border-radius:6px;background:#fff}.dhunter-detail-kv span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#8491a3;font-size:9px}.dhunter-detail-kv strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:3px;color:#374151;font-size:10px}.dhunter-badge{display:inline-flex;align-items:center;border-radius:999px;padding:3px 6px;background:#edf5ff;color:#2870d9;font-size:9px}.dhunter-badge.risk{background:#fff0f0;color:#be4848}.dhunter-history-row{display:grid;grid-template-columns:minmax(170px,1.5fr) 70px 80px 100px auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #edf0f4;font-size:10px}.dhunter-history-row:last-child{border-bottom:0}.dhunter-history-query{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.dhunter-asset-actions{display:flex;gap:5px;flex-wrap:wrap}.dhunter-table-sort{border:0;background:transparent;color:inherit;font:inherit;font-weight:650;cursor:pointer}.dhunter-table-sort:hover{color:#2870d9}@media (max-width:900px){.dhunter-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.dhunter-history-row{grid-template-columns:minmax(160px,1fr) 80px auto}.dhunter-history-row>*:nth-child(3),.dhunter-history-row>*:nth-child(4){display:none}}@media (max-width:700px){.dhunter-form-grid,.dhunter-form-grid.two,.dhunter-batch-grid{grid-template-columns:1fr}.dhunter-toolbar{flex-wrap:wrap;padding:8px 10px}.dhunter-spacer{display:none}.dhunter-result-tools{width:100%;margin-left:0}.dhunter-result-tools .dhunter-input{width:100%}.dhunter-detail-grid{grid-template-columns:1fr}.dhunter-history-row{grid-template-columns:1fr auto}.dhunter-history-row>*:nth-child(2){display:none}}'
+          '.dhunter-config{margin-bottom:8px;border:1px solid #dfe7f2;border-radius:10px;background:#fff;box-shadow:0 2px 10px rgba(45,77,120,.035)}.dhunter-config summary{display:flex;align-items:center;gap:6px;padding:10px;cursor:pointer;list-style:none;font-weight:700;font-size:11px}.dhunter-config summary::-webkit-details-marker{display:none}.dhunter-config summary:before{content:"›";color:#7e91aa}.dhunter-config[open] summary:before{content:"⌄"}.dhunter-config-body{padding:0 10px 10px;border-top:1px solid #edf0f4}.dhunter-field-groups{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}.dhunter-chip{border:1px solid #d6e2f0;border-radius:999px;padding:4px 7px;background:#fff;color:#617187;font:10px/1 inherit;cursor:pointer}.dhunter-chip:hover,.dhunter-chip.active{border-color:#9ec0f6;background:#edf5ff;color:#2870d9}.dhunter-field-summary{display:flex;align-items:center;gap:5px;min-height:32px;margin-top:7px;padding:5px 7px;border:1px solid #e4eaf2;border-radius:7px;background:#fbfcfe;color:#6e7c8f;font-size:10px;overflow:hidden}.dhunter-field-summary strong{flex:0 0 auto;color:#3d4c60}.dhunter-field-summary span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dhunter-field-editor{margin-top:7px;border-top:1px solid #edf0f4}.dhunter-field-editor summary{padding:7px 0;cursor:pointer;color:#6d7c90;font-size:10px}.dhunter-field-editor-body{display:flex;flex-wrap:wrap;gap:5px;padding:0 0 4px}.dhunter-field-option{display:inline-flex;align-items:center;gap:4px;padding:4px 6px;border:1px solid #e1e7ef;border-radius:6px;background:#fff;color:#59697d;font-size:9px;cursor:pointer}.dhunter-field-option input{width:12px;height:12px;margin:0;accent-color:#3578e5}.dhunter-warning{margin-top:8px;padding:7px 8px;border-left:3px solid #efa85d;border-radius:5px;background:#fff8ed;color:#8b5b24;font-size:10px;line-height:1.45}.dhunter-result-tools{display:flex;align-items:center;gap:6px;min-width:0;margin-left:auto}.dhunter-result-tools .dhunter-input,.dhunter-card-filter{width:clamp(180px,22vw,280px);flex:0 1 280px}.dhunter-detail-tabs{display:flex;gap:3px;margin-bottom:8px}.dhunter-detail-tab{border:0;border-radius:5px;padding:5px 7px;background:transparent;color:#718096;font:10px/1 inherit;cursor:pointer}.dhunter-detail-tab.active{background:#e7f0ff;color:#2f78df;font-weight:650}.dhunter-detail-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.dhunter-detail-kv{min-width:0;padding:7px;border:1px solid #e2e8f0;border-radius:6px;background:#fff}.dhunter-detail-kv span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#8491a3;font-size:9px}.dhunter-detail-kv strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:3px;color:#374151;font-size:10px}.dhunter-badge{display:inline-flex;align-items:center;border-radius:999px;padding:3px 6px;background:#edf5ff;color:#2870d9;font-size:9px}.dhunter-badge.risk{background:#fff0f0;color:#be4848}.dhunter-history-row{display:grid;grid-template-columns:minmax(170px,1.5fr) 70px 80px 100px auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #edf0f4;font-size:10px}.dhunter-history-row:last-child{border-bottom:0}.dhunter-history-query{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.dhunter-asset-actions{display:flex;gap:5px;flex-wrap:wrap}.dhunter-table-sort{border:0;background:transparent;color:inherit;font:inherit;font-weight:650;cursor:pointer}.dhunter-table-sort:hover{color:#2870d9}@media (max-width:900px){.dhunter-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.dhunter-history-row{grid-template-columns:minmax(160px,1fr) 80px auto}.dhunter-history-row>*:nth-child(3),.dhunter-history-row>*:nth-child(4){display:none}}@media (max-width:700px){.dhunter-form-grid,.dhunter-form-grid.two,.dhunter-batch-grid{grid-template-columns:1fr}.dhunter-toolbar{flex-wrap:wrap;padding:8px 10px}.dhunter-spacer{display:none}.dhunter-result-tools{width:100%;margin-left:0}.dhunter-result-tools .dhunter-input,.dhunter-card-filter{width:100%;flex:1 1 100%}.dhunter-detail-grid{grid-template-columns:1fr}.dhunter-history-row{grid-template-columns:1fr auto}.dhunter-history-row>*:nth-child(2){display:none}}'
+          '.dhunter-field-picker{margin-top:10px;border:1px solid #dce6f2;border-radius:9px;background:#fbfcff}.dhunter-field-picker-head{display:flex;align-items:center;gap:8px;padding:8px 9px;border-bottom:1px solid #e8edf4}.dhunter-field-picker-title{min-width:0;flex:1}.dhunter-field-picker-title strong{display:block;color:#3b4a5f;font-size:10.5px}.dhunter-field-picker-title span{display:block;margin-top:2px;color:#8491a3;font-size:9px}.dhunter-field-count{display:inline-flex;align-items:center;border-radius:999px;padding:3px 6px;background:#eaf3ff;color:#2870d9;font-size:9px;font-weight:650;white-space:nowrap}.dhunter-field-picker-actions{display:flex;gap:5px}.dhunter-field-picker-actions .dhunter-btn{padding:5px 7px;font-size:9.5px}.dhunter-field-selected{display:flex;flex-wrap:wrap;gap:5px;padding:8px 9px}.dhunter-field-selected.empty{color:#8c98a8;font-size:10px}.dhunter-field-token{display:inline-flex;align-items:center;gap:4px;border:1px solid #cfe0f8;border-radius:999px;padding:4px 7px;background:#f5f9ff;color:#3d70ae;font:10px/1 inherit;cursor:pointer}.dhunter-field-token:hover{border-color:#8db6ec;background:#eaf3ff}.dhunter-field-token .remove{color:#6b88af;font-size:12px;line-height:8px}.dhunter-field-manage{border-top:1px solid #e8edf4}.dhunter-field-manage summary{display:flex;align-items:center;gap:5px;padding:8px 9px;cursor:pointer;list-style:none;color:#607287;font-size:10px}.dhunter-field-manage summary::-webkit-details-marker{display:none}.dhunter-field-manage summary:before{content:"›";color:#7a91ad;font-size:14px}.dhunter-field-manage[open] summary:before{content:"⌄"}.dhunter-field-manage-body{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;padding:0 9px 9px}.dhunter-field-group{min-width:0;border:1px solid #e1e8f1;border-radius:7px;background:#fff}.dhunter-field-group-head{display:flex;align-items:flex-start;gap:6px;padding:7px;border-bottom:1px solid #edf1f5}.dhunter-field-group-copy{min-width:0;flex:1}.dhunter-field-group-copy strong{display:block;color:#46566b;font-size:9.5px}.dhunter-field-group-copy span{display:block;margin-top:2px;color:#8a96a7;font-size:8.5px;line-height:1.3}.dhunter-field-group-count{color:#7d8fa6;font-size:8.5px;white-space:nowrap}.dhunter-field-group-toggle{border:0;background:transparent;color:#2f78df;font:9px/1 inherit;cursor:pointer;white-space:nowrap}.dhunter-field-options{display:flex;flex-wrap:wrap;gap:4px;padding:6px}.dhunter-field-option{display:inline-flex;align-items:center;gap:4px;padding:3px 5px;border:1px solid #e1e7ef;border-radius:5px;background:#fff;color:#59697d;font-size:8.8px;cursor:pointer}.dhunter-field-option.selected{border-color:#bcd5f5;background:#f2f7ff;color:#316faf}.dhunter-field-option.large{border-color:#f1d5ae;background:#fffaf2;color:#9a6a2b}.dhunter-field-option input{width:11px;height:11px;margin:0;accent-color:#3578e5}.dhunter-warning{margin-top:8px;padding:7px 8px;border-left:3px solid #efa85d;border-radius:5px;background:#fff8ed;color:#8b5b24;font-size:10px;line-height:1.45}.dhunter-result-tools{display:flex;align-items:center;gap:6px;min-width:0;margin-left:auto}.dhunter-result-tools .dhunter-input,.dhunter-card-filter{width:clamp(180px,22vw,280px);flex:0 1 280px}.dhunter-detail-tabs{display:flex;gap:3px;margin-bottom:8px}.dhunter-detail-tab{border:0;border-radius:5px;padding:5px 7px;background:transparent;color:#718096;font:10px/1 inherit;cursor:pointer}.dhunter-detail-tab.active{background:#e7f0ff;color:#2f78df;font-weight:650}.dhunter-detail-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.dhunter-detail-kv{min-width:0;padding:7px;border:1px solid #e2e8f0;border-radius:6px;background:#fff}.dhunter-detail-kv span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#8491a3;font-size:9px}.dhunter-detail-kv strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:3px;color:#374151;font-size:10px}.dhunter-badge{display:inline-flex;align-items:center;border-radius:999px;padding:3px 6px;background:#edf5ff;color:#2870d9;font-size:9px}.dhunter-badge.risk{background:#fff0f0;color:#be4848}.dhunter-history-row{display:grid;grid-template-columns:minmax(170px,1.5fr) 70px 80px 100px auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #edf0f4;font-size:10px}.dhunter-history-row:last-child{border-bottom:0}.dhunter-history-query{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.dhunter-asset-actions{display:flex;gap:5px;flex-wrap:wrap}.dhunter-table-sort{border:0;background:transparent;color:inherit;font:inherit;font-weight:650;cursor:pointer}.dhunter-table-sort:hover{color:#2870d9}@media (max-width:900px){.dhunter-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.dhunter-history-row{grid-template-columns:minmax(160px,1fr) 80px auto}.dhunter-history-row>*:nth-child(3),.dhunter-history-row>*:nth-child(4){display:none}}@media (max-width:700px){.dhunter-form-grid,.dhunter-form-grid.two,.dhunter-batch-grid,.dhunter-field-manage-body{grid-template-columns:1fr}.dhunter-toolbar{flex-wrap:wrap;padding:8px 10px}.dhunter-spacer{display:none}.dhunter-result-tools{width:100%;margin-left:0}.dhunter-result-tools .dhunter-input,.dhunter-card-filter{width:100%;flex:1 1 100%}.dhunter-detail-grid{grid-template-columns:1fr}.dhunter-history-row{grid-template-columns:1fr auto}.dhunter-history-row>*:nth-child(2){display:none}}'
 
         function installStyle() {
           if (document.querySelector('style[data-plugin="dsh-resource-center-hunter"]')) return
@@ -4005,8 +4434,8 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           return body
         }
 
-        async function api(action, payload = {}, signal) {
-          const response = await fetchWithTimeout(API, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action, ...payload }), signal })
+        async function api(action, payload = {}, signal, timeoutMs) {
+          const response = await fetchWithTimeout(API, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action, ...payload }), signal }, timeoutMs)
           return readJson(response)
         }
 
@@ -4123,10 +4552,10 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           const info = config?.userInfo
           return h('section', { className: 'dhunter-panel', 'aria-label': 'Hunter' },
             h('header', { className: 'dhunter-head' }, h('span', { className: 'dhunter-head-mark' }, h(Icon)), h('div', { className: 'dhunter-head-copy' }, h('span', { className: 'dhunter-head-title' }, 'Hunter'), h('span', { className: 'dhunter-head-sub' }, '网络空间搜索辅助')), h('button', { className: 'dhunter-btn', onClick: state.refresh, disabled: state.busy, title: '刷新账号信息' }, '↻')),
-            state.error ? h('div', { className: 'dhunter-error' }, state.error) : null,
-            state.notice ? h('div', { className: 'dhunter-notice' }, state.notice) : null,
             h('div', { className: 'dhunter-sidebar' },
               h(HunterStatus, { configured: config?.configured, userInfo: info, loading: state.busy }),
+              state.error ? h('div', { className: 'dhunter-feedback' }, state.error) : null,
+              state.notice ? h('div', { className: 'dhunter-feedback notice' }, state.notice) : null,
               config?.configured && info ? h('section', { className: 'dhunter-section' },
                 h('div', { className: 'dhunter-section-title' }, '账号额度', h('small', null, info.type || 'Hunter')),
                 h('div', { className: 'dhunter-quota' },
@@ -4156,7 +4585,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           )
         }
 
-        function useHunterState() {
+        function useHunterState(sessionId) {
           const [config, setConfig] = React.useState({ configured: false })
           const [workspaceState, setWorkspaceState] = React.useState({ queries: [], tasks: [], assets: [], audits: [] })
           const [workspacePersistent, setWorkspacePersistent] = React.useState(false)
@@ -4176,7 +4605,10 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           const [result, setResult] = React.useState(null)
           const [selected, setSelected] = React.useState(null)
           const [batchResult, setBatchResult] = React.useState(null)
+          const [assistantRequirement, setAssistantRequirement] = React.useState('')
+          const [assistantBusy, setAssistantBusy] = React.useState(false)
           const controllerRef = React.useRef(null)
+          const assistantControllerRef = React.useRef(null)
 
           const applyResponse = React.useCallback(response => {
             if (response && Object.prototype.hasOwnProperty.call(response, 'configured')) setConfig(response)
@@ -4198,10 +4630,15 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
             try {
               const response = await fetchWithTimeout(API + '?refresh=1')
               applyResponse(await readJson(response))
-            } catch (cause) { if (cause?.name !== 'AbortError') setError(messageOf(cause)) }
+            } catch (cause) {
+              if (cause?.name !== 'AbortError') {
+                if (!config?.configured) setNotice('Hunter 尚未连接。配置 ApiKey 后将自动验证账号与额度。')
+                else setError(messageOf(cause))
+              }
+            }
             finally { setBusy(false) }
-          }, [applyResponse])
-          React.useEffect(() => { refresh(); return () => controllerRef.current?.abort() }, [refresh])
+          }, [applyResponse, config?.configured])
+          React.useEffect(() => { refresh(); return () => { controllerRef.current?.abort(); assistantControllerRef.current?.abort() } }, [refresh])
           const save = React.useCallback(async () => {
             setBusy(true); setError(''); setNotice('')
             try {
@@ -4227,6 +4664,31 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
             } catch (cause) { if (cause?.name !== 'AbortError') setError(messageOf(cause)) }
             finally { if (!controller.signal.aborted) setBusy(false) }
           }, [applyResponse, query, startTime, endTime, pageSize, isWeb, statusCode, fields])
+          const generateSyntax = React.useCallback(async () => {
+            const requirement = assistantRequirement.trim()
+            if (!requirement) {
+              setError('请输入要检索的网络空间资产条件。')
+              return
+            }
+            assistantControllerRef.current?.abort()
+            const controller = new AbortController()
+            assistantControllerRef.current = controller
+            setAssistantBusy(true); setError(''); setNotice('')
+            try {
+              const response = await api('assistQuery', { sessionId, requirement }, controller.signal, 25_000)
+              applyResponse(response)
+              setQuery(response.syntax || '')
+              setNotice(response.summary ? `已生成并回填语法：${response.summary}` : '已生成并回填 Hunter 搜索语法，请确认后手动开始查询。')
+            } catch (cause) {
+              if (cause?.name === 'AbortError' && !controller.signal.aborted) setError('生成 Hunter 语法超时，请缩短描述后重试。')
+              else if (cause?.name !== 'AbortError') setError(messageOf(cause))
+            } finally {
+              if (assistantControllerRef.current === controller) {
+                assistantControllerRef.current = null
+                setAssistantBusy(false)
+              }
+            }
+          }, [applyResponse, assistantRequirement, sessionId])
           const submitBatch = React.useCallback(async file => {
             setBusy(true); setError(''); setNotice(''); setBatchResult(null)
             try {
@@ -4296,7 +4758,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           const history = workspaceState.queries || []
           const assets = workspaceState.assets || []
           const quotaSpent = [...history, ...tasks].reduce((total, item) => total + quotaPoints(item.consumeQuota), 0)
-          return { config, setConfig, keyDraft, setKeyDraft, busy, error, notice, setNotice, save, clear, refresh, query, setQuery, startTime, setStartTime, endTime, setEndTime, pageSize, setPageSize, isWeb, setIsWeb, statusCode, setStatusCode, fields, setFields, searchType, setSearchType, assetsLimit, setAssetsLimit, result, setResult, selected, setSelected, batchResult, tasks, history, assets, audits: workspaceState.audits || [], quotaSpent, workspacePersistent, submitBatch, refreshTask, retryTask, clearHistory, saveAssets, toggleFavorite }
+          return { config, setConfig, keyDraft, setKeyDraft, busy, error, notice, setNotice, save, clear, refresh, query, setQuery, startTime, setStartTime, endTime, setEndTime, pageSize, setPageSize, isWeb, setIsWeb, statusCode, setStatusCode, fields, setFields, searchType, setSearchType, assetsLimit, setAssetsLimit, result, setResult, selected, setSelected, batchResult, assistantRequirement, setAssistantRequirement, assistantBusy, generateSyntax, tasks, history, assets, audits: workspaceState.audits || [], quotaSpent, workspacePersistent, submitBatch, refreshTask, retryTask, clearHistory, saveAssets, toggleFavorite }
         }
 
         function resultData(result) { return Array.isArray(result?.data?.arr) ? result.data.arr : [] }
@@ -4309,6 +4771,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           const [sort, setSort] = React.useState({ key: 'updated_at', direction: 'desc' })
           const [detailTab, setDetailTab] = React.useState('overview')
           const selectedFields = fieldsFrom(state.fields)
+          const selectedFieldNames = HUNTER_FIELDS.filter(field => selectedFields.has(field))
           const warnings = preflightWarning(state.startTime, state.endTime, state.fields)
           const invalidRange = warnings.some(item => item.includes('结束时间早于'))
           const toggleGroup = group => {
@@ -4316,6 +4779,12 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
             const enabled = group.fields.every(field => next.has(field))
             group.fields.forEach(field => enabled ? next.delete(field) : next.add(field))
             state.setFields([...next].filter(field => HUNTER_FIELDS.includes(field)).join(','))
+          }
+          const toggleField = (field, enabled) => {
+            const next = fieldsFrom(state.fields)
+            if (enabled) next.add(field)
+            else next.delete(field)
+            state.setFields([...next].filter(item => HUNTER_FIELDS.includes(item)).join(','))
           }
           const rows = resultData(state.result)
             .filter(row => !filter.trim() || [row.ip, row.port, row.domain, row.url, row.web_title, row.company].join(' ').toLowerCase().includes(filter.trim().toLowerCase()))
@@ -4332,6 +4801,11 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
             h('section', { className: 'dhunter-card' },
               h('div', { className: 'dhunter-card-head' }, h('span', { className: 'dhunter-card-title' }, '语法检索'), h('span', { className: 'dhunter-card-meta' }, 'RFC 4648 base64url 由服务端自动编码')),
               h('div', { className: 'dhunter-card-body' },
+                h('section', { className: 'dhunter-ai-assist', 'aria-label': 'LLM 辅助查询' },
+                  h('div', { className: 'dhunter-ai-assist-head' }, h('span', { className: 'dhunter-ai-assist-mark', 'aria-hidden': 'true' }, '✦'), h('div', { className: 'dhunter-ai-assist-copy' }, h('span', { className: 'dhunter-ai-assist-title' }, 'LLM 辅助查询'), h('span', { className: 'dhunter-ai-assist-sub' }, '根据当前会话模型生成可编辑的 Hunter 语法'))),
+                  h('div', { className: 'dhunter-ai-assist-form' }, h('input', { className: 'dhunter-input', value: state.assistantRequirement, onChange: event => state.setAssistantRequirement(event.target.value), onKeyDown: event => { if (event.key === 'Enter' && !event.nativeEvent?.isComposing) { event.preventDefault(); state.generateSyntax() } }, placeholder: '例如：查找中国境内使用 Nginx 的登录页', 'aria-label': 'LLM 查询需求' }), h('button', { className: 'dhunter-btn primary', type: 'button', disabled: state.assistantBusy || !state.assistantRequirement.trim(), onClick: state.generateSyntax }, state.assistantBusy ? '生成中…' : '生成 Hunter 语法')),
+                  h('div', { className: 'dhunter-ai-assist-note' }, '仅生成并回填下方语法，不会自动发起 Hunter 查询。'),
+                ),
                 h('label', { className: 'dhunter-label' }, 'Hunter 搜索语法'),
                 h('textarea', { className: 'dhunter-textarea', value: state.query, onChange: event => state.setQuery(event.target.value), placeholder: '例如：title="登录" && country="中国"' }),
                 h('div', { className: 'dhunter-row', style: { marginTop: '7px' } }, QUERY_TEMPLATES.map(template => h('button', { key: template.label, className: 'dhunter-chip' + (state.query === template.value ? ' active' : ''), type: 'button', onClick: () => state.setQuery(template.value) }, template.label))),
@@ -4344,10 +4818,31 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
                   h('div', null, h('label', { className: 'dhunter-label' }, '资产类型'), h('select', { className: 'dhunter-select', value: state.isWeb, onChange: event => state.setIsWeb(event.target.value) }, h('option', { value: '' }, '不限制'), h('option', { value: '1' }, 'Web 资产'), h('option', { value: '2' }, '非 Web 资产'), h('option', { value: '3' }, '全部资产'))),
                   h('div', null, h('label', { className: 'dhunter-label' }, '状态码'), h('input', { className: 'dhunter-input', value: state.statusCode, onChange: event => state.setStatusCode(event.target.value), placeholder: '例如 200,401' })),
                 ),
-                h('div', { className: 'dhunter-row', style: { justifyContent: 'space-between' } }, h('label', { className: 'dhunter-label', style: { marginBottom: 0 } }, '返回字段'), h('div', { className: 'dhunter-row' }, h('button', { className: 'dhunter-btn', type: 'button', onClick: () => state.setFields(LIGHT_FIELDS) }, '轻量字段'), h('button', { className: 'dhunter-btn', type: 'button', onClick: () => state.setFields(HUNTER_FIELDS.join(',')) }, '全部字段'))),
-                h('div', { className: 'dhunter-field-groups' }, FIELD_GROUPS.map(group => h('button', { key: group.id, className: 'dhunter-chip' + (group.fields.every(field => selectedFields.has(field)) ? ' active' : ''), type: 'button', onClick: () => toggleGroup(group) }, group.label))),
-                h('input', { className: 'dhunter-input', value: state.fields, onChange: event => state.setFields(event.target.value), placeholder: 'ip,port,domain,url…' }),
-                h('div', { className: 'dhunter-hint' }, '可选字段：', HUNTER_FIELDS.join(', '), h('br'), 'whois、body、banner、header、vul_list 可能较大，按需选择。'),
+                h('section', { className: 'dhunter-field-picker', 'aria-label': '返回字段' },
+                  h('div', { className: 'dhunter-field-picker-head' },
+                    h('div', { className: 'dhunter-field-picker-title' }, h('strong', null, '返回字段'), h('span', null, '选择 Hunter 返回的资产属性；原始响应字段按需开启')),
+                    h('span', { className: 'dhunter-field-count' }, `已选 ${selectedFieldNames.length} 项`),
+                    h('div', { className: 'dhunter-field-picker-actions' }, h('button', { className: 'dhunter-btn', type: 'button', onClick: () => state.setFields(LIGHT_FIELDS) }, '推荐'), h('button', { className: 'dhunter-btn', type: 'button', onClick: () => state.setFields(HUNTER_FIELDS.join(',')) }, '全部')),
+                  ),
+                  h('div', { className: 'dhunter-field-selected' + (selectedFieldNames.length ? '' : ' empty') }, selectedFieldNames.length
+                    ? selectedFieldNames.map(field => h('button', { key: field, className: 'dhunter-field-token', type: 'button', title: `移除 ${FIELD_LABELS[field] || field}`, 'aria-label': `移除返回字段 ${FIELD_LABELS[field] || field}`, onClick: () => toggleField(field, false) }, FIELD_LABELS[field] || field, h('span', { className: 'remove', 'aria-hidden': 'true' }, '×')))
+                    : '未选择字段。建议先使用“推荐”字段集。'),
+                  h('details', { className: 'dhunter-field-manage' },
+                    h('summary', null, '管理字段与原始响应'),
+                    h('div', { className: 'dhunter-field-manage-body' }, FIELD_GROUPS.map(group => {
+                      const activeCount = group.fields.filter(field => selectedFields.has(field)).length
+                      const allActive = activeCount === group.fields.length
+                      return h('section', { className: 'dhunter-field-group', key: group.id },
+                        h('div', { className: 'dhunter-field-group-head' },
+                          h('div', { className: 'dhunter-field-group-copy' }, h('strong', null, group.label), h('span', null, group.description)),
+                          h('span', { className: 'dhunter-field-group-count' }, `${activeCount}/${group.fields.length}`),
+                          h('button', { type: 'button', className: 'dhunter-field-group-toggle', onClick: () => toggleGroup(group) }, allActive ? '清除此组' : '选择此组'),
+                        ),
+                        h('div', { className: 'dhunter-field-options' }, group.fields.map(field => h('label', { className: 'dhunter-field-option' + (selectedFields.has(field) ? ' selected' : '') + (LARGE_FIELDS.has(field) ? ' large' : ''), key: field }, h('input', { type: 'checkbox', checked: selectedFields.has(field), onChange: event => toggleField(field, event.target.checked) }), FIELD_LABELS[field] || field, LARGE_FIELDS.has(field) ? h('span', { title: '该字段可能较大' }, '大') : null))),
+                      )
+                    })),
+                  ),
+                ),
                 warnings.length ? h('div', { className: 'dhunter-warning' }, warnings.map((item, index) => h('div', { key: index }, item))) : null,
                 h('div', { className: 'dhunter-form-actions' }, h('button', { className: 'dhunter-btn primary', onClick: state.search, disabled: state.busy || !state.config?.configured || !state.query.trim() || invalidRange }, state.busy ? '查询中…' : '开始查询'), h('span', { className: 'dhunter-card-meta' }, state.config?.configured ? '查询会消耗 Hunter 额度，并写入当前工作区历史' : '请先在左侧配置 ApiKey')),
               ),
@@ -4474,7 +4969,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           )
           return h('div', { className: 'dhunter-workbench' },
             h('section', { className: 'dhunter-card dhunter-result-card' },
-              h('div', { className: 'dhunter-card-head' }, h('span', { className: 'dhunter-card-title' }, '已保存资产'), h('span', { className: 'dhunter-card-meta' }, state.assets.length + ' 个资产'), h('span', { className: 'dhunter-spacer' }), selectedRows.length ? h('button', { className: 'dhunter-btn primary', onClick: () => sendToFuzzer?.(selectedRows) }, `发送所选到 Fuzzer (${selectedRows.length})`) : null, h('input', { className: 'dhunter-input', value: filter, onChange: event => setFilter(event.target.value), placeholder: '筛选已保存资产' })),
+              h('div', { className: 'dhunter-card-head' }, h('span', { className: 'dhunter-card-title' }, '已保存资产'), h('span', { className: 'dhunter-card-meta' }, state.assets.length + ' 个资产'), h('span', { className: 'dhunter-spacer' }), selectedRows.length ? h('button', { className: 'dhunter-btn primary', onClick: () => sendToFuzzer?.(selectedRows) }, `发送所选到 Fuzzer (${selectedRows.length})`) : null, h('input', { className: 'dhunter-input dhunter-card-filter', value: filter, onChange: event => setFilter(event.target.value), placeholder: '筛选已保存资产', 'aria-label': '筛选已保存资产' })),
               rows.length ? h('div', { className: 'dhunter-result-scroll' }, table) : h('div', { className: 'dhunter-empty' }, h(Icon), h('strong', null, '暂无保存资产'), h('span', null, '检索结果会自动写入资产库，也可以在结果区手动保存')),
             ),
           )
@@ -4532,7 +5027,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
         }
 
         function HunterPanel(props) {
-          const state = useHunterState()
+          const state = useHunterState(props.sessionId)
           const [tab, setTab] = React.useState('search')
           const sendToFuzzer = React.useCallback(input => {
             const requests = (Array.isArray(input) ? input : [input]).map(asset => {
@@ -14129,6 +14624,7 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
           let mitmRefreshController
           let mitmBusy = false
           let mitmError = ''
+          let browserOpenEventHandler
 
           const notify = () => {
             if (disposed) return
@@ -14613,6 +15109,10 @@ html[data-dsh-sidebar-collapsed="true"] .drc-dock.drc-open .drc-panel{pointer-ev
     },
     test: {
       registryKey: 'test',
+      dependencies: ['workspace'],
+    },
+    hunter: {
+      registryKey: 'hunter',
       dependencies: ['workspace'],
     },
     usageStats: {

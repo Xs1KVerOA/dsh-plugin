@@ -8,7 +8,8 @@
 - HttpOnly、SameSite=Lax、HMAC-SHA256 签名会话 Cookie；客户端 secret 和 Cookie secret 通过 DSH `credentials` 引用读取，不进入 profile 或代码。
 - `session` / `workspace` owner 映射写入 `dsh_dex` storage domain；普通用户只能看到自己的列表、搜索结果、历史、导出、工作区和事件流。
 - 每个 Dex 用户的工作区根目录固定为 `/home/dsh/<dex-name>`；其中 `<dex-name>` 取 OIDC 的 `preferred_username`（不安全字符会规范化），客户端提交的其他目录会被忽略。
-- 普通用户默认不能访问宿主文件浏览、settings、credentials、模型探测、preset 文档/管理等共享高权限接口。
+- Dex 会话首次通过认证时自动登记该目录为默认 Workspace；前端显示当前用户信息并提供退出登录入口。
+- 普通用户只能读取经过过滤的模型配置（`llm-deepseek`、`llm-pi-ai`）和允许的 DeepSeek 凭据状态；写配置、打开配置文档、修改凭据、模型探测、preset 文档/管理等共享高权限操作仍仅管理员可用。
 
 ## 配置
 

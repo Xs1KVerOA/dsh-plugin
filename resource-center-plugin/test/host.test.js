@@ -60,7 +60,7 @@ test('SSH inspect output is normalized into a compact server snapshot', () => {
     '__DSH_CPU_CORES__\t8',
     '__DSH_CPU_LOAD__\t0.12 0.18 0.20',
     '__DSH_MEMORY__\t17179869184\t4294967296\t12884901888',
-    '__DSH_DISK__\t107374182400\t21474836480\t20%',
+    '__DSH_DISK__\t107374182400\t21474836480\t85899345920\t20%',
     '__DSH_PORT__\t22',
     '__DSH_PORT__\t8080',
     '__DSH_PORT__\t22',
@@ -68,6 +68,7 @@ test('SSH inspect output is normalized into a compact server snapshot', () => {
   assert.equal(snapshot.host, 'app-01')
   assert.equal(snapshot.cpu.cores, 8)
   assert.equal(snapshot.memory.usedBytes, 4294967296)
+  assert.equal(snapshot.disk.availableBytes, 85899345920)
   assert.deepEqual(snapshot.ports, ['22', '8080'])
 })
 
@@ -246,6 +247,68 @@ test('Hunter stores ApiKey server-side and keeps it out of search responses', as
   } finally {
     globalThis.fetch = originalFetch
   }
+})
+
+test('Hunter LLM assistant uses the active session model without requiring or persisting an ApiKey', async () => {
+  const routes = []
+  const streamCalls = []
+  const persisted = []
+  const session = {
+    id: 'session-hunter-assist',
+    events: [{ type: 'request/header', data: { header: { config: { provider: 'test-provider', model: 'test-model' } } } }],
+  }
+  const llm = {
+    async *stream(options) {
+      streamCalls.push(options)
+      yield { type: 'text-delta', index: 0, text: '{"syntax":"title=\\"登录\\" && country=\\"中国\\"","summary":"中国境内登录页"}' }
+      yield { type: 'finish', reason: { kind: 'stop' } }
+    },
+  }
+  const fs = {
+    async resolve() { return { displayPath: '/workspace/.dsh-resource-center-hunter.json' } },
+    async readText() { throw new Error('missing') },
+    async writeText(_target, text) { persisted.push(JSON.parse(text)) },
+  }
+  const ctx = {
+    get(name) {
+      if (name === 'webServer') return { register(route) { routes.push(route); return () => {} } }
+      if (name === 'sessions') return { get(id) { return id === session.id ? session : undefined } }
+      if (name === 'llm') return llm
+      if (name === 'fs') return fs
+      if (name === 'sandboxPolicy') return { workspaceRoot: '/workspace', resolve() { return { workspaceRoot: '/workspace' } } }
+      return undefined
+    },
+    effect(factory) { factory() },
+  }
+  const responseOf = () => {
+    let body
+    return {
+      writeHead() {},
+      end(value) { body = value ? JSON.parse(value) : undefined },
+      get body() { return body },
+    }
+  }
+  const request = (value) => ({
+    method: 'POST',
+    url: hunterApiPath,
+    async *[Symbol.asyncIterator]() { yield Buffer.from(JSON.stringify(value)) },
+  })
+
+  applyHunter(ctx)
+  const route = routes.find(item => item.path === hunterApiPath)
+  const response = responseOf()
+  const requirement = '查找中国境内的登录页'
+  await route.handler(request({ action: 'assistQuery', sessionId: session.id, requirement }), response)
+
+  assert.equal(response.body.ok, true)
+  assert.equal(response.body.syntax, 'title="登录" && country="中国"')
+  assert.equal(response.body.summary, '中国境内登录页')
+  assert.equal(streamCalls.length, 1)
+  assert.equal(streamCalls[0].provider, 'test-provider')
+  assert.equal(streamCalls[0].model, 'test-model')
+  assert.equal(streamCalls[0].sessionId, session.id)
+  assert.doesNotMatch(JSON.stringify(response.body.state), new RegExp(requirement))
+  assert.doesNotMatch(JSON.stringify(persisted), new RegExp(requirement))
 })
 
 test('resource center owns an independent usage-stats route and records model/session tokens', async () => {
